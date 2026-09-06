@@ -3,6 +3,7 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin, type ViteDevServer } from "vite";
 import {
+  deleteAllHandler,
   deleteHandler,
   designHandler,
   exportHandler,
@@ -47,12 +48,14 @@ function goldieApi(): Plugin {
   const exp = exportHandler(api);
   const imp = importHandler(api);
   const del = deleteHandler(api);
+  const delAll = deleteAllHandler(api);
   return {
     name: "goldie-api",
     configureServer(server: ViteDevServer) {
       server.middlewares.use("/api/design", design);
       server.middlewares.use("/api/export", (req, res) => exp(req.url ?? "")(req, res));
       server.middlewares.use("/api/import", imp);
+      server.middlewares.use("/api/delete-all", delAll);
       server.middlewares.use("/api/delete", del);
     },
   };

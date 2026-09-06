@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { createReadStream, existsSync, statSync } from "node:fs";
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -233,7 +233,7 @@ export function importHandler({ paths, cli }: StudioApi): Handler {
           if (existsSync(manifestPath)) {
             try {
               existingManifest = JSON.parse(await readFile(manifestPath, "utf8"));
-            } catch {}
+            } catch { }
           }
 
           const screenshotMap = new Map(
@@ -280,12 +280,29 @@ export function importHandler({ paths, cli }: StudioApi): Handler {
               !configContent.includes(`id: '${s.id}'`)
             ) {
               const sceneBlock = `    {\n      kind: "screenshot",\n      id: "${s.id}",\n      flow: "store-${s.id}",\n      headline: { "en-US": "${s.label}" },\n      subhead: { "en-US": "Describe your key benefit here." },\n    },\n`;
-              const scenesIndex = configContent.indexOf("scenes: [");
+              const scenesIndex = configContent.indexOf("scenes:");
               if (scenesIndex !== -1) {
-                const insertPos = scenesIndex + "scenes: [\n".length;
-                configContent =
-                  configContent.slice(0, insertPos) + sceneBlock + configContent.slice(insertPos);
-                modified = true;
+                const openBracket = configContent.indexOf("[", scenesIndex);
+                if (openBracket !== -1) {
+                  const afterBracket = configContent.slice(openBracket + 1);
+                  if (afterBracket.trimStart().startsWith("]")) {
+                    const closeBracket = openBracket + 1 + afterBracket.indexOf("]");
+                    configContent =
+                      configContent.slice(0, openBracket + 1) +
+                      "\n" +
+                      sceneBlock +
+                      "  " +
+                      configContent.slice(closeBracket);
+                  } else {
+                    const insertPos = openBracket + 1 + (afterBracket.startsWith("\n") ? 1 : 0);
+                    configContent =
+                      configContent.slice(0, insertPos) +
+                      (afterBracket.startsWith("\n") ? "" : "\n") +
+                      sceneBlock +
+                      configContent.slice(insertPos);
+                  }
+                  modified = true;
+                }
               }
             }
           }
@@ -402,7 +419,7 @@ export function deleteHandler({ paths, cli }: StudioApi): Handler {
                 );
                 await writeFile(manifestPath, JSON.stringify(manifest, null, 2));
               }
-            } catch {}
+            } catch { }
           }
         }
 
@@ -429,7 +446,7 @@ export function deleteHandler({ paths, cli }: StudioApi): Handler {
               delete designJson.sceneLayouts[sceneId];
             }
             await writeFile(paths.designFile, JSON.stringify(designJson, null, 2));
-          } catch {}
+          } catch { }
         }
 
         // Rebuild store.json via manifest command
@@ -445,6 +462,110 @@ export function deleteHandler({ paths, cli }: StudioApi): Handler {
         res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
       }
     });
+  };
+}
+
+/** Handles POST /api/delete-all for removing all screenshots at once. */
+export function deleteAllHandler({ paths, cli }: StudioApi): Handler {
+  return (req, res) => {
+    if (req.method !== "POST") {
+      res.statusCode = 405;
+      res.end("POST only");
+      return;
+    }
+
+    (async () => {
+      try {
+        const devices = ["iphone-6.9", "pixel-10-pro"];
+        for (const dev of devices) {
+          const rawDir = join(paths.outDir, "raw", dev);
+          if (existsSync(rawDir)) {
+            const files = await readdir(rawDir);
+            for (const f of files) {
+              if (
+                f.endsWith(".png") ||
+                f.endsWith(".jpg") ||
+                f.endsWith(".jpeg") ||
+                f.endsWith(".webp")
+              ) {
+                await rm(join(rawDir, f), { force: true });
+              }
+            }
+
+            const manifestPath = join(rawDir, "manifest.json");
+            const manifest = {
+              device: dev,
+              udid: "manual",
+              capturedAt: new Date().toISOString(),
+              screenshots: [],
+              preview: null,
+            };
+            await writeFile(manifestPath, JSON.stringify(manifest, null, 2));
+          }
+        }
+
+        // Empty scenes in config files (paths.configPath and appassets.config.ts if present)
+        const configFiles = [paths.configPath];
+        const altConfig = join(paths.configDir, "appassets.config.ts");
+        if (existsSync(altConfig) && !configFiles.includes(altConfig)) {
+          configFiles.push(altConfig);
+        }
+
+        for (const cfgFile of configFiles) {
+          if (existsSync(cfgFile)) {
+            let configContent = await readFile(cfgFile, "utf8");
+            const scenesIdx = configContent.indexOf("scenes:");
+            if (scenesIdx !== -1) {
+              const openBracket = configContent.indexOf("[", scenesIdx);
+              if (openBracket !== -1) {
+                let depth = 0;
+                let closeBracket = -1;
+                for (let i = openBracket; i < configContent.length; i++) {
+                  if (configContent[i] === "[") depth++;
+                  else if (configContent[i] === "]") {
+                    depth--;
+                    if (depth === 0) {
+                      closeBracket = i;
+                      break;
+                    }
+                  }
+                }
+                if (closeBracket !== -1) {
+                  configContent =
+                    configContent.slice(0, openBracket + 1) +
+                    "\n  " +
+                    configContent.slice(closeBracket);
+                  await writeFile(cfgFile, configContent);
+                }
+              }
+            }
+          }
+        }
+
+        // Clean goldie.design.json
+        if (existsSync(paths.designFile)) {
+          try {
+            const designJson = JSON.parse(await readFile(paths.designFile, "utf8"));
+            designJson.order = [];
+            designJson.copy = {};
+            designJson.sceneLayouts = {};
+            await writeFile(paths.designFile, JSON.stringify(designJson, null, 2));
+          } catch { }
+        }
+
+        // Rebuild store.json via manifest command
+        const [bin, ...prefix] = cli;
+        await exec(bin!, [...prefix, "manifest", "--config", paths.configPath], { quiet: true });
+
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "application/json");
+        res.end(JSON.stringify({ ok: true, cleared: true }));
+      } catch (err) {
+        res.statusCode = 500;
+        res.setHeader("Content-Type", "application/json");
+        res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+      }
+    })();
   };
 }
 
@@ -534,6 +655,7 @@ export function serveStudio(api: StudioApi, port = 4321): Promise<string> {
   const exp = exportHandler(api);
   const imp = importHandler(api);
   const del = deleteHandler(api);
+  const delAll = deleteAllHandler(api);
 
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
@@ -542,6 +664,7 @@ export function serveStudio(api: StudioApi, port = 4321): Promise<string> {
     if (path.startsWith("/api/export")) return exp(path.slice("/api/export".length))(req, res);
     if (path === "/api/import") return imp(req, res);
     if (path === "/api/delete") return del(req, res);
+    if (path === "/api/delete-all") return delAll(req, res);
 
     const file = fileIn(api.paths.webDir, path) ?? fileIn(STUDIO_DIST, path);
     if (file) return sendFile(req, res, file);

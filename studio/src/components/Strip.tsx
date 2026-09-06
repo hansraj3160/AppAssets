@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Trash2, X } from "lucide-react";
 import { AnimatePresence, Reorder } from "motion/react";
 import type React from "react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
@@ -309,6 +309,24 @@ export function Strip({
     }
   };
 
+  const handleClearAll = async () => {
+    if (!window.confirm("Are you sure you want to remove all screenshots?")) return;
+    try {
+      const res = await fetch("/api/delete-all", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (res.ok) {
+        window.location.reload();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "Failed to remove screenshots");
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to remove screenshots");
+    }
+  };
+
   const tileAt = (i: number) => {
     const entry = entries[i];
     return (
@@ -481,6 +499,17 @@ export function Strip({
                 </button>
               </span>
             ))}
+          </div>
+          <div className="mt-1 flex items-center justify-center">
+            <Button
+              variant="outline"
+              size="sm"
+              className="cursor-pointer gap-1.5 border-destructive/30 text-xs text-destructive hover:bg-destructive/10"
+              onClick={handleClearAll}
+            >
+              <Trash2 className="size-3.5" />
+              Remove all screenshots
+            </Button>
           </div>
         </div>
       ) : null}

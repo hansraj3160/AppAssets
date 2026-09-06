@@ -5,9 +5,10 @@ import {
   SmartphoneIcon,
   SunIcon,
   TabletIcon,
+  Trash2,
 } from "lucide-react";
 import { RadioGroup as RadioGroupPrimitive } from "radix-ui";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -90,7 +91,33 @@ export function Sidebar({
   onLayout: (v: string) => void;
   onScreenOnly: (v: boolean) => void;
 }) {
+  const [clearing, setClearing] = useState(false);
   const platformDevices = manifest.devices.filter((d) => d.platform === platform);
+
+  const hasScreenshots =
+    manifest.design.scenes.length > 0 ||
+    Object.values(manifest.design.captures).some((c) => (c?.screenshots?.length ?? 0) > 0);
+
+  const handleClearAll = async () => {
+    if (!window.confirm("Are you sure you want to remove all screenshots?")) return;
+    setClearing(true);
+    try {
+      const res = await fetch("/api/delete-all", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (res.ok) {
+        window.location.reload();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "Failed to remove screenshots");
+        setClearing(false);
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to remove screenshots");
+      setClearing(false);
+    }
+  };
   return (
     <aside className="flex w-[300px] shrink-0 flex-col overflow-hidden rounded-2xl border border-sidebar-border bg-sidebar text-sidebar-foreground">
       <header className="flex h-14 shrink-0 items-center justify-between pr-3 pl-5">
@@ -189,6 +216,17 @@ export function Sidebar({
 
       <footer className="shrink-0 bg-sidebar p-4 flex flex-col gap-2.5">
         <ImportButton className="w-full" />
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/20 gap-1.5 cursor-pointer disabled:opacity-50"
+          onClick={handleClearAll}
+          disabled={clearing || !hasScreenshots}
+          title={hasScreenshots ? "Remove all screenshots" : "No screenshots to remove"}
+        >
+          <Trash2 className="size-4" />
+          {clearing ? "Removing all..." : "Remove all screenshots"}
+        </Button>
         <ExportPanel
           background={background}
           frame={frame}
