@@ -9,6 +9,7 @@ studio/dist
 appassets.config.ts
 goldie.config.ts
 goldie.design.json
+appassets.design.json
 
 # Generated assets: screenshots, previews, staged frames, export bundles
 out/

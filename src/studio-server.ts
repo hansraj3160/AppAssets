@@ -44,9 +44,25 @@ export function studioPaths(configPath: string): StudioPaths {
     configDir,
     outDir,
     webDir: join(outDir, "web"),
-    designFile: join(configDir, "goldie.design.json"), // mirrors designPath() in config.ts
+    designFile: existsSync(join(configDir, "appassets.design.json"))
+      ? join(configDir, "appassets.design.json")
+      : join(configDir, "goldie.design.json"), // mirrors designPath() in config.ts
     exportZip: join(outDir, "export.zip"),
   };
+}
+
+/**
+ * Returns all active config files in the project root directory
+ * (both appassets.config.ts and goldie.config.ts if present) to keep them synchronized.
+ */
+export function getConfigPaths(paths: StudioPaths): string[] {
+  const files = new Set<string>();
+  if (existsSync(paths.configPath)) files.add(paths.configPath);
+  const appassetsCfg = join(paths.configDir, "appassets.config.ts");
+  if (existsSync(appassetsCfg)) files.add(appassetsCfg);
+  const goldieCfg = join(paths.configDir, "goldie.config.ts");
+  if (existsSync(goldieCfg)) files.add(goldieCfg);
+  return Array.from(files);
 }
 
 export type ExportOptions = {
@@ -275,9 +291,10 @@ export function importHandler({ paths, cli }: StudioApi): Handler {
           await writeFile(manifestPath, JSON.stringify(updatedManifest, null, 2));
         }
 
-        // Auto-register missing scenes in goldie.config.ts
-        if (existsSync(paths.configPath)) {
-          let configContent = await readFile(paths.configPath, "utf8");
+        // Auto-register missing scenes in all config files (appassets.config.ts and/or goldie.config.ts)
+        const configFiles = getConfigPaths(paths);
+        for (const cfgPath of configFiles) {
+          let configContent = await readFile(cfgPath, "utf8");
           let modified = false;
 
           for (const s of newScenes) {
@@ -314,7 +331,7 @@ export function importHandler({ paths, cli }: StudioApi): Handler {
           }
 
           if (modified) {
-            await writeFile(paths.configPath, configContent);
+            await writeFile(cfgPath, configContent);
           }
         }
 
@@ -429,12 +446,13 @@ export function deleteHandler({ paths, cli }: StudioApi): Handler {
           }
         }
 
-        // Remove from goldie.config.ts
-        if (existsSync(paths.configPath)) {
-          const configContent = await readFile(paths.configPath, "utf8");
+        // Remove from all existing config files (appassets.config.ts and/or goldie.config.ts)
+        const configFiles = getConfigPaths(paths);
+        for (const cfgPath of configFiles) {
+          const configContent = await readFile(cfgPath, "utf8");
           const updatedConfig = removeSceneFromConfig(configContent, sceneId);
           if (updatedConfig !== configContent) {
-            await writeFile(paths.configPath, updatedConfig);
+            await writeFile(cfgPath, updatedConfig);
           }
         }
 
@@ -510,12 +528,8 @@ export function deleteAllHandler({ paths, cli }: StudioApi): Handler {
           }
         }
 
-        // Empty scenes in config files (paths.configPath and appassets.config.ts if present)
-        const configFiles = [paths.configPath];
-        const altConfig = join(paths.configDir, "appassets.config.ts");
-        if (existsSync(altConfig) && !configFiles.includes(altConfig)) {
-          configFiles.push(altConfig);
-        }
+        // Empty scenes in all config files (appassets.config.ts and/or goldie.config.ts)
+        const configFiles = getConfigPaths(paths);
 
         for (const cfgFile of configFiles) {
           if (existsSync(cfgFile)) {

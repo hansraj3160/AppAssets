@@ -4,7 +4,26 @@ import { applyDesign, type LoadedConfig } from "./config.ts";
 describe("applyDesign Phase 2 features", () => {
   function makeConfig(): LoadedConfig {
     return {
-      app: { name: "TestApp", id: "com.test.app" },
+      appRoot: "/tmp",
+      appPath: "/tmp/app",
+      bundleId: "com.test.app",
+      appearance: "light",
+      frame: { variant: "17-pro-blue" },
+      store: {
+        name: "TestApp",
+        subtitle: { "en-US": "Test" },
+        developer: "Dev",
+        category: "Productivity",
+        rating: 4.9,
+        ratingCount: "100",
+        ageRating: "4+",
+        price: "Free",
+        description: { "en-US": "Test Description" },
+      },
+      root: "/tmp",
+      configPath: "/tmp/goldie.config.ts",
+      flowsDir: "/tmp/flows",
+      outDir: "/tmp/out",
       devices: ["iphone-6.9"],
       locales: ["en-US"],
       scenes: [
@@ -26,6 +45,8 @@ describe("applyDesign Phase 2 features", () => {
         fontFamily: "system",
         headlineColor: "#0E1B2A",
         subheadColor: "#5A6A7D",
+        copyHeightRatio: 0.24,
+        deviceWidthRatio: 0.84,
         layout: "classic",
         screenOnly: false,
       },
@@ -77,5 +98,33 @@ describe("applyDesign Phase 2 features", () => {
       background: "#EF4444",
       color: "#FFFFFF",
     });
+  });
+});
+
+describe("Config resolution & shadowing prevention", () => {
+  test("defaultConfigPath resolves appassets.config.ts or goldie.config.ts", async () => {
+    const { defaultConfigPath } = await import("./config.ts");
+    const path = defaultConfigPath();
+    expect(path.endsWith("appassets.config.ts") || path.endsWith("goldie.config.ts")).toBe(true);
+  });
+
+  test("designPath resolves goldie.design.json or appassets.design.json", async () => {
+    const { designPath } = await import("./config.ts");
+    const path = designPath("/tmp/appassets.config.ts");
+    expect(path.endsWith("goldie.design.json") || path.endsWith("appassets.design.json")).toBe(
+      true,
+    );
+  });
+
+  test("loadConfig loads config with scenes populated and no shadowing loss", async () => {
+    const { loadConfig, defaultConfigPath } = await import("./config.ts");
+    const loaded = await loadConfig(defaultConfigPath());
+    expect(loaded.scenes.length).toBeGreaterThan(0);
+    const sceneIds = loaded.scenes.map((s) => s.id);
+    expect(sceneIds).toContain("logo_without_label");
+    expect(sceneIds).toContain("personal");
+    expect(sceneIds).toContain("insights_dashboard");
+    expect(sceneIds).toContain("home");
+    expect(sceneIds).toContain("groups");
   });
 });

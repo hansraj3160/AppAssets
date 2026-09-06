@@ -237,9 +237,31 @@ async function importConfig(path: string): Promise<any> {
 export async function loadConfig(path = defaultConfigPath()): Promise<LoadedConfig> {
   if (!existsSync(path)) throw new Error(`No config at ${path}`);
   const mod = await importConfig(path);
-  const cfg: GoldieConfig = mod.default ?? mod.config;
+  let cfg: GoldieConfig = mod.default ?? mod.config;
   if (!cfg) throw new Error(`${path} has no default export`);
   const root = dirname(path);
+
+  // If scenes are empty, check companion config (e.g. appassets.config.ts vs goldie.config.ts)
+  // to avoid config shadowing when migrating or running with both files present.
+  if (!cfg.scenes || cfg.scenes.length === 0) {
+    const companionPath = path.endsWith("appassets.config.ts")
+      ? resolve(root, "goldie.config.ts")
+      : path.endsWith("goldie.config.ts")
+        ? resolve(root, "appassets.config.ts")
+        : null;
+    if (companionPath && existsSync(companionPath)) {
+      try {
+        const compMod = await importConfig(companionPath);
+        const compCfg: GoldieConfig = compMod.default ?? compMod.config;
+        if (compCfg?.scenes && compCfg.scenes.length > 0) {
+          cfg = { ...cfg, scenes: compCfg.scenes };
+        }
+      } catch {
+        // Ignore companion loading errors
+      }
+    }
+  }
+
   const loaded: LoadedConfig = {
     ...cfg,
     root,
@@ -297,7 +319,10 @@ export type SceneCopy = {
 
 /** Path of the design sidecar for a config file. */
 export function designPath(configPath: string): string {
-  return resolve(dirname(configPath), "goldie.design.json");
+  const dir = dirname(configPath);
+  const appAssetsDesign = resolve(dir, "appassets.design.json");
+  if (existsSync(appAssetsDesign)) return appAssetsDesign;
+  return resolve(dir, "goldie.design.json");
 }
 
 export function readDesign(configPath: string): DesignOverrides {

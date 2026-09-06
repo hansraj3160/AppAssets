@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
@@ -16,11 +17,14 @@ import {
 const SRC_DIR = resolve(import.meta.dirname, "src");
 const GOLDIE_ROOT = resolve(import.meta.dirname, "..");
 
-// GOLDIE_CONFIG points at a config outside this repo; out/ and the design
+// APPASSETS_CONFIG / GOLDIE_CONFIG points at a config outside this repo; out/ and the design
 // sidecar live next to it.
-const CONFIG = process.env.GOLDIE_CONFIG
-  ? resolve(process.env.GOLDIE_CONFIG)
-  : join(GOLDIE_ROOT, "goldie.config.ts");
+const CONFIG =
+  process.env.APPASSETS_CONFIG || process.env.GOLDIE_CONFIG
+    ? resolve((process.env.APPASSETS_CONFIG || process.env.GOLDIE_CONFIG)!)
+    : existsSync(join(GOLDIE_ROOT, "appassets.config.ts"))
+      ? join(GOLDIE_ROOT, "appassets.config.ts")
+      : join(GOLDIE_ROOT, "goldie.config.ts");
 const PATHS = studioPaths(CONFIG);
 
 /**
