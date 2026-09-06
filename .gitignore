@@ -6,6 +6,7 @@ studio/dist
 *.tsbuildinfo
 
 # App-specific config; copy goldie.config.example.ts
+appassets.config.ts
 goldie.config.ts
 goldie.design.json
 

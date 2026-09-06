@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-import { existsSync, readdirSync, copyFileSync, mkdirSync, writeFileSync } from "node:fs";
-import { resolve, join, extname, basename } from "node:path";
 import { execSync } from "node:child_process";
+import { copyFileSync, existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { basename, extname, join, resolve } from "node:path";
 
 const inputDir = process.argv[2] ? resolve(process.cwd(), process.argv[2]) : null;
 
@@ -30,7 +30,9 @@ for (const dev of devices) {
 
   const screenshots = [];
   for (const file of files) {
-    const name = basename(file, extname(file)).replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
+    const name = basename(file, extname(file))
+      .replace(/[^a-zA-Z0-9_-]/g, "_")
+      .toLowerCase();
     const srcPath = join(inputDir, file);
     const targetFile = `${name}.png`;
     const dstPath = join(targetDir, targetFile);

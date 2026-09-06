@@ -236,14 +236,14 @@ export function importHandler({ paths, cli }: StudioApi): Handler {
             } catch {}
           }
 
-          const screenshotMap = new Map(existingManifest.screenshots.map((s) => [s.sceneId, s.file]));
+          const screenshotMap = new Map(
+            existingManifest.screenshots.map((s) => [s.sceneId, s.file]),
+          );
 
           for (const f of files) {
             const rawName = f.name.replace(/\.[^.]+$/, "");
             const id = rawName.replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
-            const label = rawName
-              .replace(/[_-]/g, " ")
-              .replace(/\b\w/g, (c) => c.toUpperCase());
+            const label = rawName.replace(/[_-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
             const base64Data = f.dataUrl.replace(/^data:image\/\w+;base64,/, "");
             const buffer = Buffer.from(base64Data, "base64");
@@ -275,12 +275,16 @@ export function importHandler({ paths, cli }: StudioApi): Handler {
           let modified = false;
 
           for (const s of newScenes) {
-            if (!configContent.includes(`id: "${s.id}"`) && !configContent.includes(`id: '${s.id}'`)) {
+            if (
+              !configContent.includes(`id: "${s.id}"`) &&
+              !configContent.includes(`id: '${s.id}'`)
+            ) {
               const sceneBlock = `    {\n      kind: "screenshot",\n      id: "${s.id}",\n      flow: "store-${s.id}",\n      headline: { "en-US": "${s.label}" },\n      subhead: { "en-US": "Describe your key benefit here." },\n    },\n`;
               const scenesIndex = configContent.indexOf("scenes: [");
               if (scenesIndex !== -1) {
                 const insertPos = scenesIndex + "scenes: [\n".length;
-                configContent = configContent.slice(0, insertPos) + sceneBlock + configContent.slice(insertPos);
+                configContent =
+                  configContent.slice(0, insertPos) + sceneBlock + configContent.slice(insertPos);
                 modified = true;
               }
             }
@@ -335,9 +339,17 @@ function removeSceneFromConfig(configContent: string, sceneId: string): string {
       depth--;
       if (depth === 0) {
         let after = i + 1;
-        while (after < configContent.length && (configContent[after] === " " || configContent[after] === "\t")) after++;
+        while (
+          after < configContent.length &&
+          (configContent[after] === " " || configContent[after] === "\t")
+        )
+          after++;
         if (after < configContent.length && configContent[after] === ",") after++;
-        while (after < configContent.length && (configContent[after] === " " || configContent[after] === "\t")) after++;
+        while (
+          after < configContent.length &&
+          (configContent[after] === " " || configContent[after] === "\t")
+        )
+          after++;
         if (after < configContent.length && configContent[after] === "\n") after++;
         endIndex = after;
         break;
@@ -346,7 +358,10 @@ function removeSceneFromConfig(configContent: string, sceneId: string): string {
   }
   if (endIndex === -1) return configContent;
   let lineStart = startIndex;
-  while (lineStart > 0 && (configContent[lineStart - 1] === " " || configContent[lineStart - 1] === "\t")) {
+  while (
+    lineStart > 0 &&
+    (configContent[lineStart - 1] === " " || configContent[lineStart - 1] === "\t")
+  ) {
     lineStart--;
   }
   return configContent.slice(0, lineStart) + configContent.slice(endIndex);
@@ -407,10 +422,10 @@ export function deleteHandler({ paths, cli }: StudioApi): Handler {
             if (Array.isArray(designJson.order)) {
               designJson.order = designJson.order.filter((id: string) => id !== sceneId);
             }
-            if (designJson.copy && designJson.copy[sceneId]) {
+            if (designJson.copy?.[sceneId]) {
               delete designJson.copy[sceneId];
             }
-            if (designJson.sceneLayouts && designJson.sceneLayouts[sceneId]) {
+            if (designJson.sceneLayouts?.[sceneId]) {
               delete designJson.sceneLayouts[sceneId];
             }
             await writeFile(paths.designFile, JSON.stringify(designJson, null, 2));

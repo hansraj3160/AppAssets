@@ -1,13 +1,13 @@
-# Goldie: App Store screenshot generator for coding agents (and humans)
+# AppAssets: App Store screenshot generator for coding agents (and humans)
 
-goldie makes App Store and Google Play screenshots, and App Store preview
+AppAssets makes App Store and Google Play screenshots, and App Store preview
 videos, for a mobile app.
 [argent](https://github.com/software-mansion/argent) replays flows on an iOS
-simulator or an Android emulator. goldie frames the captures with a device
+simulator or an Android emulator. AppAssets frames the captures with a device
 bezel, a background and a headline. It joins the clips into a preview video.
 It checks the result against the upload rules of the stores.
 
-goldie is framework agnostic. It drives the app through the simulator or the
+AppAssets is framework agnostic. It drives the app through the simulator or the
 emulator. It works the same for SwiftUI, UIKit, Jetpack Compose, Flutter,
 React Native and Kotlin Multiplatform apps.
 

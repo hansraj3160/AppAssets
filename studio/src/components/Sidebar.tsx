@@ -95,7 +95,7 @@ export function Sidebar({
     <aside className="flex w-[300px] shrink-0 flex-col overflow-hidden rounded-2xl border border-sidebar-border bg-sidebar text-sidebar-foreground">
       <header className="flex h-14 shrink-0 items-center justify-between pr-3 pl-5">
         <h1 className="text-base font-semibold tracking-tight select-none">
-          <span className="goldie-wordmark">goldie</span>
+          <span className="goldie-wordmark">AppAssets</span>
         </h1>
         <Button
           variant="ghost"

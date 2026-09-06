@@ -207,9 +207,12 @@ export type LoadedConfig = GoldieConfig & {
  * while goldie and its studio run from this checkout.
  */
 export function defaultConfigPath(): string {
-  return process.env.GOLDIE_CONFIG
-    ? resolve(process.env.GOLDIE_CONFIG)
-    : resolve(process.cwd(), "goldie.config.ts");
+  if (process.env.APPASSETS_CONFIG || process.env.GOLDIE_CONFIG) {
+    return resolve((process.env.APPASSETS_CONFIG || process.env.GOLDIE_CONFIG)!);
+  }
+  const appAssetsConfig = resolve(process.cwd(), "appassets.config.ts");
+  if (existsSync(appAssetsConfig)) return appAssetsConfig;
+  return resolve(process.cwd(), "goldie.config.ts");
 }
 
 /**

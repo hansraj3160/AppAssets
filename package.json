@@ -1,13 +1,13 @@
 {
-  "name": "goldie",
+  "name": "appassets",
   "version": "0.3.1",
   "description": "App Store screenshot and preview automation driven by argent",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kacperkapusciak/goldie.git"
+    "url": "git+https://github.com/hansraj3160/AppAssets.git"
   },
-  "homepage": "https://github.com/kacperkapusciak/goldie#readme",
+  "homepage": "https://github.com/hansraj3160/AppAssets#readme",
   "keywords": [
     "app-store",
     "screenshots",
@@ -21,6 +21,7 @@
   ],
   "type": "module",
   "bin": {
+    "appassets": "dist/cli.js",
     "goldie": "dist/cli.js"
   },
   "main": "./dist/index.js",
@@ -54,6 +55,7 @@
     "access": "public"
   },
   "scripts": {
+    "appassets": "bun src/cli.ts",
     "goldie": "bun src/cli.ts",
     "doctor": "bun src/cli.ts doctor",
     "capture": "bun src/cli.ts capture",

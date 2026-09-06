@@ -21,20 +21,20 @@ import type { DeviceKey } from "./specs.ts";
 import { openInBrowser, serveStudio, studioPaths } from "./studio-server.ts";
 
 const USAGE = `
-goldie - App Store screenshots and previews, driven by argent
+AppAssets - App Store screenshots and previews, driven by argent
 
-  goldie doctor     Check the toolchain, simulators, flags and flows
-  goldie capture    Replay every scene flow and save raw captures
-  goldie frame      Composite raw screenshots into framed, captioned PNGs
-  goldie preview    Join the raw clips into the preview video (App Store upload; YouTube for Play)
-  goldie verify     Check finished assets against the store spec tables
-  goldie manifest   Write out/store.json for the studio app
-  goldie studio     Serve the studio at http://localhost:4321 (--port <n>, --no-open)
-  goldie all        capture -> frame -> preview -> manifest -> verify
-  goldie version    Print the installed goldie version (-v, --version)
+  appassets doctor     Check the toolchain, simulators, flags and flows
+  appassets capture    Replay every scene flow and save raw captures
+  appassets frame      Composite raw screenshots into framed, captioned PNGs
+  appassets preview    Join the raw clips into the preview video (App Store upload; YouTube for Play)
+  appassets verify     Check finished assets against the store spec tables
+  appassets manifest   Write out/store.json for the studio app
+  appassets studio     Serve the studio at http://localhost:4321 (--port <n>, --no-open)
+  appassets all        capture -> frame -> preview -> manifest -> verify
+  appassets version    Print the installed AppAssets version (-v, --version)
 
 Options
-  --config <path>   Config file (default ./goldie.config.ts)
+  --config <path>   Config file (default ./goldie.config.ts or ./appassets.config.ts)
   --device <key>    Only this device key (default: every device in the config)
   --locale <code>   Only this locale (default: every locale in the config)
   --background <css>  Override theme.background for this run (also clears per-scene backgrounds); "transparent" keeps alpha
