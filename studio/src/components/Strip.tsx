@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Download, Trash2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Sparkles, Trash2, X } from "lucide-react";
 import { AnimatePresence, Reorder } from "motion/react";
 import type React from "react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
@@ -27,6 +27,8 @@ import type {
 import { CHECKERBOARD, layoutOptions, TRANSPARENT } from "./DesignPanel";
 import { Select } from "./Sidebar";
 import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 
 /** Tiles shown at once; the App Store product page shows this many before scrolling. */
 const PAGE_SIZE = 5;
@@ -81,6 +83,13 @@ export function Strip({
   fontFamily,
   copy,
   onCopy,
+  headlineColor,
+  subheadColor,
+  fontSizeScale,
+  sceneBackgrounds = {},
+  onSceneBackground,
+  sceneBadges = {},
+  onSceneBadge,
   order,
   onReorder,
   template,
@@ -96,6 +105,31 @@ export function Strip({
   background: string;
   frameUrl: string;
   fontFamily: string;
+  headlineColor?: string;
+  subheadColor?: string;
+  fontSizeScale?: number;
+  sceneBackgrounds?: Record<string, string>;
+  onSceneBackground?: (sceneId: string, bg: string | undefined) => void;
+  sceneBadges?: Record<
+    string,
+    {
+      text: string;
+      position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
+      background?: string;
+      color?: string;
+    }
+  >;
+  onSceneBadge?: (
+    sceneId: string,
+    badge:
+      | {
+          text: string;
+          position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
+          background?: string;
+          color?: string;
+        }
+      | undefined,
+  ) => void;
   copy: Record<string, SceneCopy>;
   onCopy: (sceneId: string, field: "headline" | "subhead", text: string) => void;
   /** Screenshot scene ids in display order; empty means the config's order. */
@@ -138,24 +172,28 @@ export function Strip({
   const defaultLayoutOf = (scene: DesignScene) =>
     unforced.find((r) => r.scene.id === scene.id)!.layout.key;
 
-  // Mirrors the CLI's --background handling: a dark background flips the copy
-  // to light, a light background flips light copy colors to dark, and
-  // per-scene background overrides are dropped, so the export matches what
-  // is on screen.
-  const bgLum = backgroundLuminance(background);
-  const dark = bgLum !== null && bgLum < 0.5;
-  const light = bgLum !== null && bgLum >= 0.5;
-  const lightColor = (c: string) => (backgroundLuminance(c) ?? 0) > 0.5;
-  const headlineColor = dark
-    ? "#FFFFFF"
-    : light && lightColor(theme.headlineColor)
-      ? "#0E1B2A"
-      : theme.headlineColor;
-  const subheadColor = dark
-    ? "#D9E1EA"
-    : light && lightColor(theme.subheadColor)
-      ? "#5A6A7D"
-      : theme.subheadColor;
+  // Resolves headline and subhead colors, honoring global overrides or background luminance.
+  const resolveColors = (bg: string) => {
+    const bgLum = backgroundLuminance(bg);
+    const isDark = bgLum !== null && bgLum < 0.5;
+    const isLight = bgLum !== null && bgLum >= 0.5;
+    const lightColor = (c: string) => (backgroundLuminance(c) ?? 0) > 0.5;
+    const resolvedHeadline = headlineColor
+      ? headlineColor
+      : isDark
+        ? "#FFFFFF"
+        : isLight && lightColor(theme.headlineColor)
+          ? "#0E1B2A"
+          : theme.headlineColor;
+    const resolvedSubhead = subheadColor
+      ? subheadColor
+      : isDark
+        ? "#D9E1EA"
+        : isLight && lightColor(theme.subheadColor)
+          ? "#5A6A7D"
+          : theme.subheadColor;
+    return { headlineColor: resolvedHeadline, subheadColor: resolvedSubhead };
+  };
 
   const allShots = scenes.flatMap((scene) => {
     const capture = captures.screenshots.find((s) => s.sceneId === scene.id);
@@ -196,6 +234,8 @@ export function Strip({
     scene: (editable: boolean) => ReactNode;
     /** Set on screenshot tiles, which can be dragged into a new order. */
     sceneId?: string;
+    /** The underlying screenshot scene id regardless of slice */
+    targetSceneId?: string;
     /** The lightbox's per-scene layout override control (screenshots only). */
     layout?: {
       value: string | undefined;
@@ -229,6 +269,21 @@ export function Strip({
       defaultKey: defaultLayoutOf(scene),
       onChange: (key: string | undefined) => onSceneLayout(scene.id, key),
     };
+    const sceneBg = sceneBackgrounds[scene.id] || scene.background || background;
+    const colors = resolveColors(sceneBg);
+    const userBadge = sceneBadges[scene.id];
+    const customBadgeDec: Decoration[] = userBadge
+      ? [
+          {
+            kind: "badge",
+            text: { [locale]: userBadge.text },
+            position: userBadge.position,
+            background: userBadge.background,
+            color: userBadge.color,
+          },
+        ]
+      : [];
+    const decorations = [...design.decorations, ...(scene.decorations ?? []), ...customBadgeDec];
     for (let slice = 0; slice < spec.span; slice++) {
       entries.push({
         key: spec.span > 1 ? `${scene.id}#${slice + 1}` : scene.id,
@@ -238,6 +293,7 @@ export function Strip({
         editable: true,
         // Only the first slice drags; the second follows it.
         sceneId: slice === 0 ? scene.id : undefined,
+        targetSceneId: scene.id,
         layout: layoutControl,
         scene: (editable) => (
           <ScreenshotScene
@@ -246,18 +302,19 @@ export function Strip({
             tile={tileSpec.screenshot}
             theme={theme}
             screenOnly={screenOnly}
-            background={background}
+            background={sceneBg}
             frameUrl={deviceFrameUrl}
             geom={geom}
             fontFamily={fontFamily}
             headline={copy[scene.id]?.headline?.[locale] ?? scene.headline[locale] ?? ""}
             subhead={copy[scene.id]?.subhead?.[locale] ?? scene.subhead?.[locale]}
-            headlineColor={headlineColor}
-            subheadColor={subheadColor}
+            headlineColor={colors.headlineColor}
+            subheadColor={colors.subheadColor}
+            fontSizeScale={fontSizeScale}
             captureUrl={capture.url}
             secondCaptureUrl={second?.url}
             secondSceneId={secondScene}
-            decorations={[...design.decorations, ...(scene.decorations ?? [])]}
+            decorations={decorations}
             locale={locale}
             onEdit={editable ? (field, text) => onCopy(scene.id, field, text) : undefined}
           />
@@ -522,6 +579,23 @@ export function Strip({
           count={entries.length}
           device={tileSpec.key}
           locale={locale}
+          globalBackground={background}
+          sceneBackground={
+            entries[open].targetSceneId ? sceneBackgrounds[entries[open].targetSceneId!] : undefined
+          }
+          onSceneBackground={(bg) => {
+            if (entries[open]?.targetSceneId && onSceneBackground) {
+              onSceneBackground(entries[open].targetSceneId!, bg);
+            }
+          }}
+          badge={
+            entries[open].targetSceneId ? sceneBadges[entries[open].targetSceneId!] : undefined
+          }
+          onSceneBadge={(b) => {
+            if (entries[open]?.targetSceneId && onSceneBadge) {
+              onSceneBadge(entries[open].targetSceneId!, b);
+            }
+          }}
           onClose={() => setOpen(null)}
           // Stepping swaps the scene in place with no morph.
           onStep={(delta) => {
@@ -533,6 +607,269 @@ export function Strip({
         />
       ) : null}
     </div>
+  );
+}
+
+function SceneBackgroundPopover({
+  value,
+  globalBackground,
+  onChange,
+}: {
+  value?: string;
+  globalBackground: string;
+  onChange: (bg: string | undefined) => void;
+}) {
+  const isOverridden = Boolean(value);
+  const currentBg = value || globalBackground;
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="cursor-pointer gap-1.5 rounded-lg border-white/20 bg-white/10 text-xs text-white backdrop-blur-md hover:bg-white/20 hover:text-white"
+        >
+          <span
+            className="size-3.5 rounded-full border border-white/40 shrink-0"
+            style={{ background: currentBg }}
+          />
+          {isOverridden ? "Custom BG" : "Scene BG"}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        side="top"
+        align="center"
+        className="w-64 p-3 dark bg-popover text-foreground"
+      >
+        <div className="flex flex-col gap-2.5">
+          <div className="flex items-center justify-between text-xs font-medium">
+            <span>Scene Background</span>
+            {isOverridden ? (
+              <button
+                type="button"
+                onClick={() => onChange(undefined)}
+                className="text-[10px] text-primary hover:underline cursor-pointer"
+              >
+                Reset to Global
+              </button>
+            ) : (
+              <span className="text-[10px] text-muted-foreground">Using Global</span>
+            )}
+          </div>
+          <div className="grid grid-cols-5 gap-1.5">
+            {[
+              "#FFFFFF",
+              "#0E1B2A",
+              "#1E3A8A",
+              "#059669",
+              "#DC2626",
+              "linear-gradient(160deg, #E8F1FF 0%, #F7FAFF 55%, #FFFFFF 100%)",
+              "linear-gradient(160deg, #0EA5E9 0%, #2563EB 100%)",
+              "linear-gradient(160deg, #F97316 0%, #DC2626 100%)",
+              "linear-gradient(160deg, #059669 0%, #065F46 100%)",
+              "linear-gradient(160deg, #8B5CF6 0%, #4C1D95 100%)",
+            ].map((bgPreset, idx) => (
+              <button
+                // biome-ignore lint/suspicious/noArrayIndexKey: preset list
+                key={idx}
+                type="button"
+                className="size-8 rounded-md border border-border/60 hover:scale-105 transition-transform cursor-pointer"
+                style={{ background: bgPreset }}
+                onClick={() => onChange(bgPreset)}
+                title="Select background"
+              />
+            ))}
+          </div>
+          <div className="flex items-center gap-2 pt-1 border-t border-border/50 text-xs">
+            <span className="text-muted-foreground text-[11px]">Custom:</span>
+            <label className="relative size-6 cursor-pointer rounded border border-border overflow-hidden shrink-0">
+              <input
+                type="color"
+                value={currentBg.startsWith("#") ? currentBg : "#FFFFFF"}
+                onChange={(e) => onChange(e.target.value.toUpperCase())}
+                className="absolute inset-0 size-full cursor-pointer opacity-0"
+              />
+              <span className="absolute inset-0" style={{ background: currentBg }} />
+            </label>
+            <Input
+              value={value ?? ""}
+              placeholder="e.g. #1E3A8A"
+              onChange={(e) => onChange(e.target.value || undefined)}
+              className="h-7 text-xs font-mono"
+            />
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function SceneBadgePopover({
+  badge,
+  onChange,
+}: {
+  badge?: {
+    text: string;
+    position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
+    background?: string;
+    color?: string;
+  };
+  onChange: (
+    b:
+      | {
+          text: string;
+          position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
+          background?: string;
+          color?: string;
+        }
+      | undefined,
+  ) => void;
+}) {
+  const [text, setText] = useState(badge?.text ?? "");
+  const [position, setPosition] = useState<
+    "top-left" | "top-right" | "bottom-left" | "bottom-right"
+  >(badge?.position ?? "top-right");
+  const [bg, setBg] = useState(badge?.background ?? "#2563EB");
+  const [color, setColor] = useState(badge?.color ?? "#FFFFFF");
+
+  useEffect(() => {
+    if (badge) {
+      setText(badge.text);
+      setPosition(badge.position);
+      if (badge.background) setBg(badge.background);
+      if (badge.color) setColor(badge.color);
+    } else {
+      setText("");
+      setPosition("top-right");
+      setBg("#2563EB");
+      setColor("#FFFFFF");
+    }
+  }, [badge]);
+
+  const handleApply = () => {
+    if (!text.trim()) {
+      onChange(undefined);
+    } else {
+      onChange({
+        text: text.trim(),
+        position,
+        background: bg,
+        color,
+      });
+    }
+  };
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className={`cursor-pointer gap-1.5 rounded-lg border-white/20 text-xs text-white backdrop-blur-md hover:bg-white/20 hover:text-white ${
+            badge ? "bg-primary/40 border-primary/50" : "bg-white/10"
+          }`}
+        >
+          <Sparkles className="size-3.5" />
+          {badge ? `Badge: ${badge.text}` : "Add Badge"}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        side="top"
+        align="center"
+        className="w-72 p-3 dark bg-popover text-foreground"
+      >
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between text-xs font-semibold">
+            <span>Badge Pill</span>
+            {badge ? (
+              <button
+                type="button"
+                onClick={() => onChange(undefined)}
+                className="text-[10px] text-destructive hover:underline cursor-pointer"
+              >
+                Remove Badge
+              </button>
+            ) : null}
+          </div>
+
+          <div className="flex flex-col gap-1 text-[11px]">
+            <span className="text-muted-foreground">Badge Text</span>
+            <Input
+              value={text}
+              placeholder="e.g. NEW, 50% OFF, FEATURED"
+              onChange={(e) => setText(e.target.value)}
+              className="h-7 text-xs"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1 text-[11px]">
+            <span className="text-muted-foreground">Position</span>
+            <div className="grid grid-cols-2 gap-1">
+              {(["top-left", "top-right", "bottom-left", "bottom-right"] as const).map((pos) => (
+                <button
+                  key={pos}
+                  type="button"
+                  onClick={() => setPosition(pos)}
+                  className={`h-6 rounded border text-[10px] capitalize cursor-pointer transition-colors ${
+                    position === pos
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "border-border hover:bg-accent text-muted-foreground"
+                  }`}
+                >
+                  {pos.replace("-", " ")}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 text-[11px]">
+            <div className="flex flex-col gap-1">
+              <span className="text-muted-foreground">Pill Color</span>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="color"
+                  value={bg.startsWith("#") ? bg : "#2563EB"}
+                  onChange={(e) => setBg(e.target.value.toUpperCase())}
+                  className="size-6 rounded border border-border cursor-pointer"
+                />
+                <Input
+                  value={bg}
+                  onChange={(e) => setBg(e.target.value)}
+                  className="h-6 text-[10px] font-mono uppercase"
+                />
+              </div>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-muted-foreground">Text Color</span>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="color"
+                  value={color.startsWith("#") ? color : "#FFFFFF"}
+                  onChange={(e) => setColor(e.target.value.toUpperCase())}
+                  className="size-6 rounded border border-border cursor-pointer"
+                />
+                <Input
+                  value={color}
+                  onChange={(e) => setColor(e.target.value)}
+                  className="h-6 text-[10px] font-mono uppercase"
+                />
+              </div>
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            size="sm"
+            className="h-7 text-xs mt-1 w-full cursor-pointer"
+            onClick={handleApply}
+          >
+            Apply Badge
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -549,12 +886,18 @@ function Lightbox({
   count,
   device,
   locale,
+  globalBackground,
+  sceneBackground,
+  onSceneBackground,
+  badge,
+  onSceneBadge,
   onClose,
   onStep,
 }: {
   entry: {
     key: string;
     sceneId?: string;
+    targetSceneId?: string;
     width: number;
     height: number;
     editable: boolean;
@@ -571,6 +914,25 @@ function Lightbox({
   count: number;
   device?: string;
   locale?: string;
+  globalBackground: string;
+  sceneBackground?: string;
+  onSceneBackground?: (bg: string | undefined) => void;
+  badge?: {
+    text: string;
+    position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
+    background?: string;
+    color?: string;
+  };
+  onSceneBadge?: (
+    badge:
+      | {
+          text: string;
+          position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
+          background?: string;
+          color?: string;
+        }
+      | undefined,
+  ) => void;
   onClose: () => void;
   onStep: (delta: number) => void;
 }) {
@@ -629,6 +991,16 @@ function Lightbox({
             />
           </div>
         ) : null}
+        {entry.key !== "preview" && entry.targetSceneId ? (
+          <>
+            <SceneBackgroundPopover
+              value={sceneBackground}
+              globalBackground={globalBackground}
+              onChange={onSceneBackground ?? (() => {})}
+            />
+            <SceneBadgePopover badge={badge} onChange={onSceneBadge ?? (() => {})} />
+          </>
+        ) : null}
         {entry.key !== "preview" ? (
           <Button
             type="button"
@@ -636,7 +1008,7 @@ function Lightbox({
             size="sm"
             className="cursor-pointer gap-1.5 rounded-lg border-white/20 bg-white/10 text-xs text-white backdrop-blur-md hover:bg-white/20 hover:text-white"
             onClick={() => {
-              const sceneId = entry.sceneId ?? entry.key.split("#")[0];
+              const sceneId = entry.targetSceneId ?? entry.sceneId ?? entry.key.split("#")[0];
               const a = document.createElement("a");
               a.href = `/api/export-single?sceneId=${encodeURIComponent(sceneId)}&device=${encodeURIComponent(device || "iphone-6.9")}&locale=${encodeURIComponent(locale || "en-US")}`;
               a.download = `${sceneId}-${device || "screenshot"}.png`;
@@ -769,6 +1141,7 @@ function ScreenshotScene({
   subhead,
   headlineColor,
   subheadColor,
+  fontSizeScale = 1,
   captureUrl,
   secondCaptureUrl,
   secondSceneId,
@@ -790,6 +1163,7 @@ function ScreenshotScene({
   subhead: string | undefined;
   headlineColor: string;
   subheadColor: string;
+  fontSizeScale?: number;
   captureUrl: string;
   secondCaptureUrl: string | undefined;
   secondSceneId: string | undefined;
@@ -800,7 +1174,7 @@ function ScreenshotScene({
   const c = compose(spec, tile, theme, { screenOnly, geom });
   const { w, h } = cq(tile);
   // Wider-than-reference tiles compose at a narrower design width; type follows it.
-  const typeScale = c.designWidth / tile.width;
+  const typeScale = (c.designWidth / tile.width) * (fontSizeScale ?? 1);
   const editable = onEdit ? editableProps : () => ({});
   const copy = c.copy;
   return (

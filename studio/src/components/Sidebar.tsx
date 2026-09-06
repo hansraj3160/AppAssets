@@ -62,12 +62,18 @@ export function Sidebar({
   template,
   layout,
   screenOnly,
+  headlineColor,
+  subheadColor,
+  fontSizeScale,
   onBackground,
   onFrame,
   onFontFamily,
   onTemplate,
   onLayout,
   onScreenOnly,
+  onHeadlineColor,
+  onSubheadColor,
+  onFontSizeScale,
 }: {
   manifest: StoreManifest;
   platform: Platform;
@@ -84,12 +90,18 @@ export function Sidebar({
   template: string;
   layout: string;
   screenOnly: boolean;
+  headlineColor?: string;
+  subheadColor?: string;
+  fontSizeScale?: number;
   onBackground: (v: string) => void;
   onFrame: (v: string) => void;
   onFontFamily: (v: string) => void;
   onTemplate: (v: string) => void;
   onLayout: (v: string) => void;
   onScreenOnly: (v: boolean) => void;
+  onHeadlineColor: (v: string) => void;
+  onSubheadColor: (v: string) => void;
+  onFontSizeScale: (v: number) => void;
 }) {
   const [clearing, setClearing] = useState(false);
   const platformDevices = manifest.devices.filter((d) => d.platform === platform);
@@ -205,12 +217,18 @@ export function Sidebar({
           template={template}
           layout={layout}
           screenOnly={screenOnly}
+          headlineColor={headlineColor}
+          subheadColor={subheadColor}
+          fontSizeScale={fontSizeScale}
           onBackground={onBackground}
           onFrame={onFrame}
           onFontFamily={onFontFamily}
           onTemplate={onTemplate}
           onLayout={onLayout}
           onScreenOnly={onScreenOnly}
+          onHeadlineColor={onHeadlineColor}
+          onSubheadColor={onSubheadColor}
+          onFontSizeScale={onFontSizeScale}
         />
       </div>
 

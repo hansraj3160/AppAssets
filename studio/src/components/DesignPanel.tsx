@@ -1,4 +1,4 @@
-import { CheckIcon } from "lucide-react";
+import { CheckIcon, RotateCcw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Input } from "@/components/ui/input";
@@ -136,12 +136,18 @@ export function DesignPanel({
   template,
   layout,
   screenOnly,
+  headlineColor,
+  subheadColor,
+  fontSizeScale = 1,
   onBackground,
   onFrame,
   onFontFamily,
   onTemplate,
   onLayout,
   onScreenOnly,
+  onHeadlineColor,
+  onSubheadColor,
+  onFontSizeScale,
 }: {
   design: Design;
   /** The shown device brings its own bezel art (android), so the frame picker does not apply. */
@@ -152,12 +158,18 @@ export function DesignPanel({
   template: string;
   layout: string;
   screenOnly: boolean;
+  headlineColor?: string;
+  subheadColor?: string;
+  fontSizeScale?: number;
   onBackground: (v: string) => void;
   onFrame: (v: string) => void;
   onFontFamily: (v: string) => void;
   onTemplate: (v: string) => void;
   onLayout: (v: string) => void;
   onScreenOnly: (v: boolean) => void;
+  onHeadlineColor: (v: string) => void;
+  onSubheadColor: (v: string) => void;
+  onFontSizeScale: (v: number) => void;
 }) {
   // Each choice is a full CSS font stack, so the Strip can use it as-is. A
   // config stack that matches none of them shows as "custom (from config)".
@@ -187,7 +199,7 @@ export function DesignPanel({
     (design.frameVariants.length > 1 || design.frameVariant === null);
 
   return (
-    <div className="flex flex-col gap-5 px-5 py-5">
+    <div className="flex flex-col gap-5 px-5 py-5 pb-8">
       <Field label="Background" hint={bgName ?? "Custom"}>
         <Tabs value={backgroundTab} onValueChange={setBackgroundTab}>
           <TabsList className="w-full">
@@ -233,6 +245,33 @@ export function DesignPanel({
 
       <Field label="Font">
         <FontPicker value={fontFamily} onChange={onFontFamily} options={fontOptions} />
+      </Field>
+
+      <Field label="Text size">
+        <Tabs value={String(fontSizeScale)} onValueChange={(v) => onFontSizeScale(Number(v))}>
+          <TabsList className="w-full">
+            <TabsTrigger value="0.85">Compact</TabsTrigger>
+            <TabsTrigger value="1">Normal</TabsTrigger>
+            <TabsTrigger value="1.15">Large</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </Field>
+
+      <Field label="Text colors" hint={headlineColor || subheadColor ? "Custom" : "Automatic"}>
+        <div className="flex flex-col gap-2.5 rounded-lg border border-border/50 bg-background/50 p-2.5">
+          <TextColorPicker
+            label="Headline color"
+            value={headlineColor}
+            onChange={onHeadlineColor}
+            defaultHint="Contrast with BG"
+          />
+          <TextColorPicker
+            label="Subhead color"
+            value={subheadColor}
+            onChange={onSubheadColor}
+            defaultHint="Muted"
+          />
+        </div>
       </Field>
 
       <Field label="Template">
@@ -586,4 +625,88 @@ function isLight(css: string): boolean {
     return sum + 0.2126 * c(1) + 0.7152 * c(3) + 0.0722 * c(5);
   }, 0);
   return lum / hexes.length > 0.6;
+}
+
+const TEXT_COLORS = [
+  { name: "Dark Navy", hex: "#0E1B2A" },
+  { name: "White", hex: "#FFFFFF" },
+  { name: "Navy Blue", hex: "#1E3A8A" },
+  { name: "Royal Blue", hex: "#2563EB" },
+  { name: "Purple", hex: "#7C3AED" },
+  { name: "Emerald", hex: "#059669" },
+  { name: "Amber", hex: "#D97706" },
+  { name: "Red", hex: "#DC2626" },
+];
+
+function TextColorPicker({
+  label,
+  value,
+  onChange,
+  defaultHint = "Auto",
+}: {
+  label: string;
+  value?: string;
+  onChange: (c: string) => void;
+  defaultHint?: string;
+}) {
+  const isCustom = Boolean(value);
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+        <span>{label}</span>
+        {isCustom ? (
+          <button
+            type="button"
+            onClick={() => onChange("")}
+            className="flex items-center gap-1 text-[10px] text-primary hover:underline cursor-pointer"
+            title="Reset to automatic color"
+          >
+            <RotateCcw className="size-2.5" />
+            Reset ({defaultHint})
+          </button>
+        ) : (
+          <span className="text-[10px] text-muted-foreground/60">{defaultHint}</span>
+        )}
+      </div>
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {TEXT_COLORS.map((tc) => {
+          const selected = value?.toUpperCase() === tc.hex;
+          return (
+            <button
+              key={tc.hex}
+              type="button"
+              title={`${tc.name} (${tc.hex})`}
+              aria-label={tc.name}
+              onClick={() => onChange(tc.hex)}
+              className={`size-6 rounded-full border border-border/80 transition-transform duration-100 hover:scale-110 relative grid place-items-center cursor-pointer ${
+                selected ? "ring-2 ring-primary ring-offset-1 ring-offset-sidebar" : ""
+              }`}
+              style={{ background: tc.hex }}
+            >
+              {selected ? (
+                <CheckIcon
+                  className={`size-3 ${isLight(tc.hex) ? "text-black" : "text-white"}`}
+                  strokeWidth={3}
+                />
+              ) : null}
+            </button>
+          );
+        })}
+        {/* Custom color picker */}
+        <label
+          title="Custom color"
+          className="relative size-6 shrink-0 cursor-pointer rounded-full border border-dashed border-muted-foreground/60 grid place-items-center hover:scale-110 transition-transform overflow-hidden"
+          style={{ background: isCustom ? value : "transparent" }}
+        >
+          <input
+            type="color"
+            value={value || "#0E1B2A"}
+            onChange={(e) => onChange(e.target.value.toUpperCase())}
+            className="absolute inset-0 size-full cursor-pointer opacity-0"
+          />
+          {!isCustom ? <span className="text-[9px] font-bold text-muted-foreground">+</span> : null}
+        </label>
+      </div>
+    </div>
+  );
 }

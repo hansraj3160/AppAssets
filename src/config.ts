@@ -263,6 +263,8 @@ export type DesignOverrides = {
   frame?: FrameVariant;
   /** A full CSS font stack, as the studio's font picker produces. */
   fontFamily?: string;
+  headlineColor?: string;
+  subheadColor?: string;
   /** Copy edited in the studio, per screenshot scene id, then locale. */
   copy?: Record<string, SceneCopy>;
   /** Screenshot scene ids in the order the studio arranged them. */
@@ -274,6 +276,18 @@ export type DesignOverrides = {
   screenOnly?: boolean;
   /** Layout overrides per screenshot scene id. */
   sceneLayouts?: Record<string, LayoutKey>;
+  /** Per-scene background overrides. */
+  sceneBackgrounds?: Record<string, string>;
+  /** Per-scene badge decorations. */
+  sceneBadges?: Record<
+    string,
+    {
+      text: string;
+      position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
+      background?: string;
+      color?: string;
+    }
+  >;
 };
 
 export type SceneCopy = {
@@ -318,6 +332,8 @@ export function applyDesign(cfg: LoadedConfig, design: DesignOverrides): void {
       }
     }
   }
+  if (design.headlineColor) cfg.theme.headlineColor = design.headlineColor;
+  if (design.subheadColor) cfg.theme.subheadColor = design.subheadColor;
   if (design.frame) {
     cfg.frame = { variant: design.frame };
     framePath(cfg); // throws on an unknown variant
@@ -344,6 +360,30 @@ export function applyDesign(cfg: LoadedConfig, design: DesignOverrides): void {
       if (isScreenshot(scene) && key) overrides[scene.id] = checkedLayout(key);
     }
     cfg.sceneLayouts = { ...cfg.sceneLayouts, ...overrides };
+  }
+  if (design.sceneBackgrounds) {
+    for (const scene of cfg.scenes) {
+      if (isScreenshot(scene) && design.sceneBackgrounds[scene.id]) {
+        scene.background = design.sceneBackgrounds[scene.id];
+      }
+    }
+  }
+  if (design.sceneBadges) {
+    for (const scene of cfg.scenes) {
+      if (isScreenshot(scene) && design.sceneBadges[scene.id]) {
+        const b = design.sceneBadges[scene.id];
+        const textMap: Record<string, string> = {};
+        for (const loc of cfg.locales) textMap[loc] = b.text;
+        const badgeDec: Decoration = {
+          kind: "badge",
+          text: textMap,
+          position: b.position,
+          background: b.background,
+          color: b.color,
+        };
+        scene.decorations = [...(scene.decorations ?? []), badgeDec];
+      }
+    }
   }
 }
 

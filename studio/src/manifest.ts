@@ -48,6 +48,7 @@ export type DesignScene = {
   id: string;
   headline: Record<string, string>;
   subhead?: Record<string, string>;
+  background?: string;
   layout?: string;
   secondScene?: string;
   decorations?: Decoration[];
@@ -150,6 +151,9 @@ export type SavedDesign = {
   background?: string;
   frame?: string;
   fontFamily?: string;
+  headlineColor?: string;
+  subheadColor?: string;
+  fontSizeScale?: number;
   /** Copy edited in the lightbox, per screenshot scene id, then locale. */
   copy?: Record<string, SceneCopy>;
   /** Screenshot scene ids in the order the tiles were dragged into. */
@@ -161,6 +165,18 @@ export type SavedDesign = {
   screenOnly?: boolean;
   /** Layout overrides per screenshot scene id. */
   sceneLayouts?: Record<string, string>;
+  /** Per-scene background overrides. */
+  sceneBackgrounds?: Record<string, string>;
+  /** Per-scene badge decorations. */
+  sceneBadges?: Record<
+    string,
+    {
+      text: string;
+      position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
+      background?: string;
+      color?: string;
+    }
+  >;
 };
 
 export type SceneCopy = {

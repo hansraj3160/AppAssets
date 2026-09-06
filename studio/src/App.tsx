@@ -128,15 +128,34 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
         ? saved.frame
         : (design.frameVariant ?? ""),
     fontFamily: saved.fontFamily ?? design.theme.fontFamily,
+    headlineColor: saved.headlineColor ?? "",
+    subheadColor: saved.subheadColor ?? "",
+    fontSizeScale: saved.fontSizeScale ?? 1,
     copy: saved.copy ?? {},
     layout: knownLayout(saved.layout) ?? design.layout,
     template: initialTemplate(design, saved),
     screenOnly: saved.screenOnly ?? design.screenOnly,
     sceneLayouts: initialSceneLayouts(design, saved, knownLayout),
+    sceneBackgrounds: saved.sceneBackgrounds ?? {},
+    sceneBadges: saved.sceneBadges ?? {},
     order: initialOrder(design, saved),
   }));
-  const { background, frame, fontFamily, copy, layout, template, screenOnly, sceneLayouts, order } =
-    state;
+  const {
+    background,
+    frame,
+    fontFamily,
+    headlineColor,
+    subheadColor,
+    fontSizeScale,
+    copy,
+    layout,
+    template,
+    screenOnly,
+    sceneLayouts,
+    sceneBackgrounds,
+    sceneBadges,
+    order,
+  } = state;
   // Each setter names its field so a burst of edits to one control (a drag
   // on the gradient picker) collapses into a single undo step.
   const field =
@@ -146,6 +165,9 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
   const setBackground = field("background");
   const setFrame = field("frame");
   const setFontFamily = field("fontFamily");
+  const setHeadlineColor = field("headlineColor");
+  const setSubheadColor = field("subheadColor");
+  const setFontSizeScale = field("fontSizeScale");
   const setLayout = field("layout");
   // Picking a template replaces the strip's layout sequence, so any per-scene
   // overrides made against the previous one are dropped with it.
@@ -160,6 +182,30 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
       if (key) next[sceneId] = key;
       else delete next[sceneId];
       return { ...prev, sceneLayouts: next };
+    });
+  const setSceneBackground = (sceneId: string, bg: string | undefined) =>
+    set("sceneBackgrounds", (prev) => {
+      const next = { ...prev.sceneBackgrounds };
+      if (bg) next[sceneId] = bg;
+      else delete next[sceneId];
+      return { ...prev, sceneBackgrounds: next };
+    });
+  const setSceneBadge = (
+    sceneId: string,
+    badge:
+      | {
+          text: string;
+          position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
+          background?: string;
+          color?: string;
+        }
+      | undefined,
+  ) =>
+    set("sceneBadges", (prev) => {
+      const next = { ...prev.sceneBadges };
+      if (badge) next[sceneId] = badge;
+      else delete next[sceneId];
+      return { ...prev, sceneBadges: next };
     });
   const setSceneCopy = (sceneId: string, fieldName: "headline" | "subhead", text: string) =>
     set(`copy:${sceneId}:${fieldName}`, (prev) => ({
@@ -193,19 +239,39 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
         background,
         frame: frame || undefined,
         fontFamily,
+        headlineColor: headlineColor || undefined,
+        subheadColor: subheadColor || undefined,
+        fontSizeScale: fontSizeScale !== 1 ? fontSizeScale : undefined,
         copy: Object.keys(copy).length > 0 ? copy : undefined,
         order: order.length > 0 ? order : undefined,
         template: template === CUSTOM_TEMPLATE ? undefined : template,
         layout,
         screenOnly,
         sceneLayouts: Object.keys(sceneLayouts).length > 0 ? sceneLayouts : undefined,
+        sceneBackgrounds: Object.keys(sceneBackgrounds).length > 0 ? sceneBackgrounds : undefined,
+        sceneBadges: Object.keys(sceneBadges).length > 0 ? sceneBadges : undefined,
       }).then(
         () => setSaveError(null),
         (e: Error) => setSaveError(e.message),
       );
     }, SAVE_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [background, frame, fontFamily, copy, order, template, layout, screenOnly, sceneLayouts]);
+  }, [
+    background,
+    frame,
+    fontFamily,
+    headlineColor,
+    subheadColor,
+    fontSizeScale,
+    copy,
+    order,
+    template,
+    layout,
+    screenOnly,
+    sceneLayouts,
+    sceneBackgrounds,
+    sceneBadges,
+  ]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
@@ -252,12 +318,18 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
         template={template}
         layout={layout}
         screenOnly={screenOnly}
+        headlineColor={headlineColor}
+        subheadColor={subheadColor}
+        fontSizeScale={fontSizeScale}
         onBackground={setBackground}
         onFrame={setFrame}
         onFontFamily={setFontFamily}
         onTemplate={setTemplate}
         onLayout={setLayout}
         onScreenOnly={setScreenOnly}
+        onHeadlineColor={setHeadlineColor}
+        onSubheadColor={setSubheadColor}
+        onFontSizeScale={setFontSizeScale}
       />
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -272,6 +344,9 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
                 background={background}
                 frameUrl={frameUrl}
                 fontFamily={previewFontFamily}
+                headlineColor={headlineColor}
+                subheadColor={subheadColor}
+                fontSizeScale={fontSizeScale}
                 copy={copy}
                 onCopy={setSceneCopy}
                 order={order}
@@ -285,6 +360,10 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
                 screenOnly={screenOnly}
                 sceneLayouts={sceneLayouts}
                 onSceneLayout={setSceneLayout}
+                sceneBackgrounds={sceneBackgrounds}
+                onSceneBackground={setSceneBackground}
+                sceneBadges={sceneBadges}
+                onSceneBadge={setSceneBadge}
               />
             </div>
           ) : spec ? (
@@ -310,6 +389,9 @@ type DesignState = {
   background: string;
   frame: string;
   fontFamily: string;
+  headlineColor: string;
+  subheadColor: string;
+  fontSizeScale: number;
   copy: Record<string, SceneCopy>;
   layout: string;
   /** A built-in template key, "" for none, or CUSTOM_TEMPLATE for the config's own sequence. */
@@ -317,6 +399,18 @@ type DesignState = {
   screenOnly: boolean;
   /** Per-scene layout overrides; a scene absent here follows `layout`. */
   sceneLayouts: Record<string, string>;
+  /** Per-scene background overrides. */
+  sceneBackgrounds: Record<string, string>;
+  /** Per-scene badge decorations. */
+  sceneBadges: Record<
+    string,
+    {
+      text: string;
+      position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
+      background?: string;
+      color?: string;
+    }
+  >;
   /** Screenshot scene ids as arranged by dragging tiles; empty means the config's order. */
   order: string[];
 };
