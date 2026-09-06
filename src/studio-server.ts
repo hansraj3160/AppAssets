@@ -233,7 +233,7 @@ export function importHandler({ paths, cli }: StudioApi): Handler {
           if (existsSync(manifestPath)) {
             try {
               existingManifest = JSON.parse(await readFile(manifestPath, "utf8"));
-            } catch { }
+            } catch {}
           }
 
           const screenshotMap = new Map(
@@ -419,7 +419,7 @@ export function deleteHandler({ paths, cli }: StudioApi): Handler {
                 );
                 await writeFile(manifestPath, JSON.stringify(manifest, null, 2));
               }
-            } catch { }
+            } catch {}
           }
         }
 
@@ -446,7 +446,7 @@ export function deleteHandler({ paths, cli }: StudioApi): Handler {
               delete designJson.sceneLayouts[sceneId];
             }
             await writeFile(paths.designFile, JSON.stringify(designJson, null, 2));
-          } catch { }
+          } catch {}
         }
 
         // Rebuild store.json via manifest command
@@ -550,7 +550,7 @@ export function deleteAllHandler({ paths, cli }: StudioApi): Handler {
             designJson.copy = {};
             designJson.sceneLayouts = {};
             await writeFile(paths.designFile, JSON.stringify(designJson, null, 2));
-          } catch { }
+          } catch {}
         }
 
         // Rebuild store.json via manifest command

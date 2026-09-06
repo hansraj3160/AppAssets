@@ -394,8 +394,8 @@ export function Strip({
 
   const visible = pageCells[Math.min(page, pages - 1)];
   const visibleIds = visible.flatMap((c) => (c.sceneId ? [c.sceneId] : []));
-  // Pad the last page so tiles keep the same width as on a full page.
-  const columns = pages > 1 ? PAGE_SIZE : entries.length;
+  // Always use PAGE_SIZE (5) columns so tiles keep the exact same size even when screenshots are removed.
+  const columns = PAGE_SIZE;
   // The page's scenes in their new order, spliced back into the full order.
   const reorderPage = (ids: string[]) => {
     const queue = [...ids];
