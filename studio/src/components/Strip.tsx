@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Trash2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Trash2, X } from "lucide-react";
 import { AnimatePresence, Reorder } from "motion/react";
 import type React from "react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
@@ -520,6 +520,8 @@ export function Strip({
           layouts={design.layouts}
           index={open}
           count={entries.length}
+          device={tileSpec.key}
+          locale={locale}
           onClose={() => setOpen(null)}
           // Stepping swaps the scene in place with no morph.
           onStep={(delta) => {
@@ -545,10 +547,14 @@ function Lightbox({
   layouts,
   index,
   count,
+  device,
+  locale,
   onClose,
   onStep,
 }: {
   entry: {
+    key: string;
+    sceneId?: string;
     width: number;
     height: number;
     editable: boolean;
@@ -563,6 +569,8 @@ function Lightbox({
   layouts: Design["layouts"];
   index: number;
   count: number;
+  device?: string;
+  locale?: string;
   onClose: () => void;
   onStep: (delta: number) => void;
 }) {
@@ -620,6 +628,24 @@ function Lightbox({
               ]}
             />
           </div>
+        ) : null}
+        {entry.key !== "preview" ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="cursor-pointer gap-1.5 rounded-lg border-white/20 bg-white/10 text-xs text-white backdrop-blur-md hover:bg-white/20 hover:text-white"
+            onClick={() => {
+              const sceneId = entry.sceneId ?? entry.key.split("#")[0];
+              const a = document.createElement("a");
+              a.href = `/api/export-single?sceneId=${encodeURIComponent(sceneId)}&device=${encodeURIComponent(device || "iphone-6.9")}&locale=${encodeURIComponent(locale || "en-US")}`;
+              a.download = `${sceneId}-${device || "screenshot"}.png`;
+              a.click();
+            }}
+          >
+            <Download className="size-3.5" />
+            Download PNG
+          </Button>
         ) : null}
       </div>
 

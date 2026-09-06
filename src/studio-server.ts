@@ -5,7 +5,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { dirname, extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { exec } from "./exec.ts";
-import { zipDirs } from "./zip.ts";
+import { storeZipPath, zipDirs } from "./zip.ts";
 
 /**
  * The studio's HTTP surface, shared by `goldie studio` (a static server over
@@ -178,14 +178,20 @@ export function exportHandler({ paths, cli }: StudioApi): (sub: string) => Handl
       const [bin, ...prefix] = cli;
       try {
         for (const command of ["frame", "preview", "manifest"]) {
-          res.write(`$ goldie ${command}\n`);
+          res.write(`$ appassets ${command}\n`);
           await stream(bin!, [...prefix, command, ...flags], paths.configDir, res, {
+            APPASSETS_CONFIG: paths.configPath,
             GOLDIE_CONFIG: paths.configPath,
           });
         }
         res.write("$ zip screenshots + previews\n");
         await rm(paths.exportZip, { force: true });
-        const count = await zipDirs(paths.outDir, ["screenshots", "previews"], paths.exportZip);
+        const count = await zipDirs(
+          paths.outDir,
+          ["screenshots", "previews"],
+          paths.exportZip,
+          storeZipPath,
+        );
         res.write(`  ${count} files\n`);
         res.write("[done]\n");
       } catch (err) {
@@ -638,6 +644,94 @@ function fileIn(root: string, urlPath: string): string | null {
   return existsSync(file) && statSync(file).isFile() ? file : null;
 }
 
+/** Handles GET /api/export-single?sceneId=...&device=...&locale=... for downloading a single screenshot. */
+export function singleExportHandler({ paths, cli }: StudioApi): Handler {
+  return (req, res) => {
+    const url = new URL(req.url ?? "/", "http://localhost");
+    const sceneId = url.searchParams.get("sceneId");
+    const device = url.searchParams.get("device") || "iphone-6.9";
+    const locale = url.searchParams.get("locale") || "en-US";
+
+    if (!sceneId) {
+      res.statusCode = 400;
+      res.end("sceneId query param required");
+      return;
+    }
+
+    (async () => {
+      try {
+        const screenshotsDir = join(paths.outDir, "screenshots", device, locale);
+        let targetFile: string | null = null;
+
+        if (existsSync(screenshotsDir)) {
+          const files = await readdir(screenshotsDir);
+          for (const f of files) {
+            if (
+              f.endsWith(".png") &&
+              (f.includes(`-${sceneId}.png`) ||
+                f.includes(`-${sceneId}-`) ||
+                f.startsWith(`${sceneId}.`))
+            ) {
+              targetFile = join(screenshotsDir, f);
+              break;
+            }
+          }
+        }
+
+        // If file not found yet, run frame first
+        if (!targetFile || !existsSync(targetFile)) {
+          const [bin, ...prefix] = cli;
+          await exec(
+            bin!,
+            [
+              ...prefix,
+              "frame",
+              "--config",
+              paths.configPath,
+              "--device",
+              device,
+              "--locale",
+              locale,
+            ],
+            { quiet: true },
+          );
+          if (existsSync(screenshotsDir)) {
+            const files = await readdir(screenshotsDir);
+            for (const f of files) {
+              if (
+                f.endsWith(".png") &&
+                (f.includes(`-${sceneId}.png`) ||
+                  f.includes(`-${sceneId}-`) ||
+                  f.startsWith(`${sceneId}.`))
+              ) {
+                targetFile = join(screenshotsDir, f);
+                break;
+              }
+            }
+          }
+        }
+
+        if (!targetFile || !existsSync(targetFile)) {
+          res.statusCode = 404;
+          res.end(`Screenshot for scene "${sceneId}" not found`);
+          return;
+        }
+
+        const stat = statSync(targetFile);
+        res.writeHead(200, {
+          "Content-Type": "image/png",
+          "Content-Length": stat.size,
+          "Content-Disposition": `attachment; filename="${sceneId}-${device}.png"`,
+        });
+        createReadStream(targetFile).pipe(res);
+      } catch (err) {
+        res.statusCode = 500;
+        res.end(err instanceof Error ? err.message : String(err));
+      }
+    })();
+  };
+}
+
 /** The studio bundle Vite emits; shipped in the npm package. */
 export const STUDIO_DIST = resolve(dirname(fileURLToPath(import.meta.url)), "..", "studio", "dist");
 
@@ -653,6 +747,7 @@ export function serveStudio(api: StudioApi, port = 4321): Promise<string> {
   }
   const design = designHandler(api);
   const exp = exportHandler(api);
+  const expSingle = singleExportHandler(api);
   const imp = importHandler(api);
   const del = deleteHandler(api);
   const delAll = deleteAllHandler(api);
@@ -661,6 +756,7 @@ export function serveStudio(api: StudioApi, port = 4321): Promise<string> {
     const url = new URL(req.url ?? "/", "http://localhost");
     const path = url.pathname;
     if (path === "/api/design") return design(req, res);
+    if (path.startsWith("/api/export-single")) return expSingle(req, res);
     if (path.startsWith("/api/export")) return exp(path.slice("/api/export".length))(req, res);
     if (path === "/api/import") return imp(req, res);
     if (path === "/api/delete") return del(req, res);

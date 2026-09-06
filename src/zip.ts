@@ -109,16 +109,45 @@ async function walk(dir: string): Promise<string[]> {
 }
 
 /**
+ * Maps screenshot directories to clear store-ready folder structures inside the ZIP:
+ * - screenshots/iphone-6.9/... -> AppStore/iPhone-6.9/...
+ * - screenshots/pixel-10-pro/... -> GooglePlay/Phone/...
+ * - screenshots/ipad/... -> AppStore/iPad/...
+ */
+export function storeZipPath(relPath: string): string {
+  const norm = relPath.split("\\").join("/");
+  if (norm.startsWith("screenshots/iphone-6.9/")) {
+    return norm.replace(/^screenshots\/iphone-6\.9\//, "AppStore/iPhone-6.9/");
+  }
+  if (norm.startsWith("screenshots/pixel-10-pro/")) {
+    return norm.replace(/^screenshots\/pixel-10-pro\//, "GooglePlay/Phone/");
+  }
+  if (norm.startsWith("screenshots/ipad/")) {
+    return norm.replace(/^screenshots\/ipad\//, "AppStore/iPad/");
+  }
+  return norm;
+}
+
+/**
  * Zips the named directories under `root` into `out`, with entry names
  * relative to `root` (the same layout `zip -r` produces there). Directories
  * that do not exist are skipped.
  */
-export async function zipDirs(root: string, dirs: string[], out: string): Promise<number> {
+export async function zipDirs(
+  root: string,
+  dirs: string[],
+  out: string,
+  transformName?: (name: string) => string,
+): Promise<number> {
   const entries: ZipEntry[] = [];
   for (const dir of dirs) {
     for (const file of await walk(join(root, dir))) {
+      let relName = relative(root, file).split("\\").join("/");
+      if (transformName) {
+        relName = transformName(relName);
+      }
       entries.push({
-        name: relative(root, file).split("\\").join("/"),
+        name: relName,
         data: await readFile(file),
         mtime: (await stat(file)).mtime,
       });

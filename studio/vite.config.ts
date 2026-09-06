@@ -9,6 +9,7 @@ import {
   exportHandler,
   importHandler,
   type StudioApi,
+  singleExportHandler,
   studioPaths,
 } from "../src/studio-server.ts";
 
@@ -46,6 +47,7 @@ function goldieApi(): Plugin {
   const api: StudioApi = { paths: PATHS, cli: ["bun", join(GOLDIE_ROOT, "src", "cli.ts")] };
   const design = designHandler(api);
   const exp = exportHandler(api);
+  const expSingle = singleExportHandler(api);
   const imp = importHandler(api);
   const del = deleteHandler(api);
   const delAll = deleteAllHandler(api);
@@ -53,6 +55,7 @@ function goldieApi(): Plugin {
     name: "goldie-api",
     configureServer(server: ViteDevServer) {
       server.middlewares.use("/api/design", design);
+      server.middlewares.use("/api/export-single", expSingle);
       server.middlewares.use("/api/export", (req, res) => exp(req.url ?? "")(req, res));
       server.middlewares.use("/api/import", imp);
       server.middlewares.use("/api/delete-all", delAll);
