@@ -72,6 +72,7 @@ export type ExportOptions = {
   template?: string;
   layout?: string;
   screenOnly?: boolean;
+  fontSizeScale?: number;
 };
 
 export type StudioApi = {
@@ -185,6 +186,7 @@ export function exportHandler({ paths, cli }: StudioApi): (sub: string) => Handl
       if (opts.template) flags.push("--template", opts.template);
       if (opts.layout) flags.push("--layout", opts.layout);
       if (opts.screenOnly) flags.push("--screen-only");
+      if (opts.fontSizeScale) flags.push("--font-size-scale", String(opts.fontSizeScale));
 
       res.writeHead(200, {
         "Content-Type": "text/plain; charset=utf-8",

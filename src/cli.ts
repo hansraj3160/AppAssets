@@ -40,6 +40,7 @@ Options
   --background <css>  Override theme.background for this run (also clears per-scene backgrounds); "transparent" keeps alpha
   --frame <variant>   Override the screenshot bezel variant for this run (17-pro-silver | 17-pro-blue | 17-pro-orange)
   --font <key>        Override theme.fontFamily for this run (system | ${FONT_KEYS.join(" | ")})
+  --font-size-scale <scale> Override theme.fontSizeScale multiplier for this run
   --template <key>    Override theme.template for this run (${TEMPLATE_KEYS.join(" | ")}; "none" for one layout)
   --layout <key>      Override theme.layout for this run (${LAYOUT_KEYS.join(" | ")})
   --screen-only       Render bare screens with no bezel for this run
@@ -68,6 +69,7 @@ async function main() {
   // One-run overrides on top of the config and goldie.design.json (the
   // studio's saved choices). Copy a value into the config to keep it.
   const font = opt("font");
+  const fontSizeScale = opt("font-size-scale");
   applyDesign(cfg, {
     background: opt("background"),
     frame: opt("frame") as FrameVariant | undefined,
@@ -75,6 +77,7 @@ async function main() {
     template: opt("template") === "none" ? "" : opt("template"),
     layout: opt("layout") as LayoutKey | undefined,
     screenOnly: argv.includes("--screen-only") ? true : undefined,
+    fontSizeScale: fontSizeScale ? Number(fontSizeScale) : undefined,
   });
   validateLayouts(cfg);
 

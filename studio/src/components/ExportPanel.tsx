@@ -22,6 +22,7 @@ export function ExportPanel({
   template,
   layout,
   screenOnly,
+  fontSizeScale,
 }: {
   background: string;
   frame: string;
@@ -31,6 +32,7 @@ export function ExportPanel({
   template: string;
   layout: string;
   screenOnly: boolean;
+  fontSizeScale?: number;
 }) {
   const [busy, setBusy] = useState(false);
   const [log, setLog] = useState<string | null>(null);
@@ -92,6 +94,7 @@ export function ExportPanel({
           template: template === CUSTOM_TEMPLATE ? undefined : template || "none",
           layout,
           screenOnly,
+          fontSizeScale,
         }),
       });
 

@@ -114,6 +114,8 @@ export type Theme = {
   screenOnly?: boolean;
   /** Decoration layers added to every screenshot scene. */
   decorations?: Decoration[];
+  /** Scaling multiplier for headline and subhead copy (e.g. 0.85 for Compact, 1 for Normal, 1.2 for Large). */
+  fontSizeScale?: number;
 };
 
 /**
@@ -310,6 +312,8 @@ export type DesignOverrides = {
       color?: string;
     }
   >;
+  /** Scaling multiplier for headline and subhead copy. */
+  fontSizeScale?: number;
 };
 
 export type SceneCopy = {
@@ -364,6 +368,7 @@ export function applyDesign(cfg: LoadedConfig, design: DesignOverrides): void {
     framePath(cfg); // throws on an unknown variant
   }
   if (design.fontFamily) cfg.theme.fontFamily = design.fontFamily;
+  if (design.fontSizeScale !== undefined) cfg.theme.fontSizeScale = design.fontSizeScale;
   if (design.copy) {
     for (const scene of cfg.scenes) {
       const copy = design.copy[scene.id];

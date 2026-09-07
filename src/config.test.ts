@@ -99,6 +99,14 @@ describe("applyDesign Phase 2 features", () => {
       color: "#FFFFFF",
     });
   });
+
+  test("applies fontSizeScale override to theme", () => {
+    const cfg = makeConfig();
+    applyDesign(cfg, {
+      fontSizeScale: 1.2,
+    });
+    expect(cfg.theme.fontSizeScale).toBe(1.2);
+  });
 });
 
 describe("Config resolution & shadowing prevention", () => {

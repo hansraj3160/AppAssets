@@ -182,19 +182,20 @@ function drawCopy(
   const family = withGlyphFallback(theme.fontFamily);
   const headlineColor = colors?.headlineColor ?? theme.headlineColor;
   const subheadColor = colors?.subheadColor ?? theme.subheadColor;
+  const scale = theme.fontSizeScale ?? 1;
   const blocks = [
     {
       text: text.headline,
-      font: `${TYPE.headlineWeight} ${tile.width * TYPE.headlineSize}px ${family}`,
+      font: `${TYPE.headlineWeight} ${tile.width * TYPE.headlineSize * scale}px ${family}`,
       color: headlineColor,
       lineHeight: TYPE.headlineLineHeight,
-      letterSpacing: tile.width * TYPE.headlineTracking,
+      letterSpacing: tile.width * TYPE.headlineTracking * scale,
     },
     ...(text.subhead
       ? [
           {
             text: text.subhead,
-            font: `${TYPE.subheadWeight} ${tile.width * TYPE.subheadSize}px ${family}`,
+            font: `${TYPE.subheadWeight} ${tile.width * TYPE.subheadSize * scale}px ${family}`,
             color: subheadColor,
             lineHeight: TYPE.subheadLineHeight,
             letterSpacing: 0,

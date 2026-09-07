@@ -252,6 +252,7 @@ export function Sidebar({
           template={template}
           layout={layout}
           screenOnly={screenOnly}
+          fontSizeScale={fontSizeScale}
         />
       </footer>
     </aside>
