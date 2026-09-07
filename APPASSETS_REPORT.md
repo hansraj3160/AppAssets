@@ -139,8 +139,8 @@ Ran 20 tests across 4 files. [315.00ms]
 ```
 
 ### B. Code Quality & Compilation
-- **Test Suite**: **27 pass, 0 fail (100%)** across 4 test suites.
-- **Linter & Formatter (`biome check --write .`)**: Clean, 0 errors, 53 files checked.
+- **Test Suite**: **33 pass, 0 fail (100%)** across 5 test suites.
+- **Linter & Formatter (`biome check --write .`)**: Clean, 0 errors, 54 files checked.
 - **Studio Build (`bun run build:studio`)**: Clean Vite production build with zero warnings/errors.
 - **CLI Build (`bun run build:cli`)**: Bundled Node/Bun executable and TypeScript declarations clean.
 - **Browser Live Testing**: Verified UI reactivity, HMR updates, Lightbox transitions, and Badge popover rendering at `http://localhost:4321/`.
@@ -151,10 +151,12 @@ Ran 20 tests across 4 files. [315.00ms]
 
 | File Path | Description of Changes |
 | :--- | :--- |
+| `src/studio-server.ts` | Added `findScreenshotFile()` to match multi-slice screenshot filenames (e.g. `02-home-1.png`, `03-home-2.png`); updated `singleExportHandler` to accept `slice` query param and format content-disposition filenames. |
+| `studio/src/components/Strip.tsx` | Extracted `slice` index from `entry.key` (`sceneId#2`) and passed `&slice=${slice}` query param and dynamic download filename in Lightbox single export button. |
+| `src/studio-server.test.ts` | Added unit tests covering `findScreenshotFile` for single-tile scenes, slice 1, slice 2, default fallbacks, and missing scenes. |
 | `src/config.ts` | Added `fontSizeScale?: number` to `Theme` and `DesignOverrides`; wired into `applyDesign()`; exported `resolveCopyColors()`. |
 | `src/render.ts` | Applied `theme.fontSizeScale` multiplier to Skia text sizing (headline font size, headline tracking, subhead font size) in `drawCopy()`; passed per-scene resolved copy colors. |
 | `src/cli.ts` | Added `--font-size-scale <scale>` CLI argument support to allow one-run typography scaling. |
-| `src/studio-server.ts` | Extended `ExportOptions` with `fontSizeScale?: number`; passed `--font-size-scale` to CLI export stream. |
 | `studio/src/components/ExportPanel.tsx` & `Sidebar.tsx` | Threaded `fontSizeScale` prop into `ExportPanel` and included it in the `/api/export` payload. |
 | `src/config.test.ts` | Added unit tests verifying `fontSizeScale` application in `applyDesign()` and per-scene contrast resolution. |
 | `appassets.config.ts` | Synchronized 5 active scenes (`logo_without_label`, `personal`, `insights_dashboard`, `home`, `groups`) matching `goldie.config.ts`. |
@@ -165,7 +167,6 @@ Ran 20 tests across 4 files. [315.00ms]
 | `studio/src/components/DesignPanel.tsx` | Added Text size tabs, Headline/Subhead color pickers, and comfortable scrolling padding. |
 | `studio/src/components/Sidebar.tsx` | Wired typography and color props, added "Remove all screenshots" button. |
 | `studio/src/App.tsx` | Extended `DesignState`, debounced persistence, and synced state with `goldie.design.json`. |
-| `studio/src/components/Strip.tsx` | Applied per-scene backgrounds, font scaling, Lightbox Scene BG & Badge popover editors. |
 
 ---
 

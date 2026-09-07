@@ -1008,10 +1008,16 @@ function Lightbox({
             size="sm"
             className="cursor-pointer gap-1.5 rounded-lg border-white/20 bg-white/10 text-xs text-white backdrop-blur-md hover:bg-white/20 hover:text-white"
             onClick={() => {
-              const sceneId = entry.targetSceneId ?? entry.sceneId ?? entry.key.split("#")[0];
+              const parts = entry.key.split("#");
+              const sceneId = entry.targetSceneId ?? entry.sceneId ?? parts[0];
+              const slice = parts[1] ? parseInt(parts[1], 10) : undefined;
+              const sliceQuery = slice ? `&slice=${slice}` : "";
               const a = document.createElement("a");
-              a.href = `/api/export-single?sceneId=${encodeURIComponent(sceneId)}&device=${encodeURIComponent(device || "iphone-6.9")}&locale=${encodeURIComponent(locale || "en-US")}`;
-              a.download = `${sceneId}-${device || "screenshot"}.png`;
+              a.href = `/api/export-single?sceneId=${encodeURIComponent(sceneId)}&device=${encodeURIComponent(device || "iphone-6.9")}&locale=${encodeURIComponent(locale || "en-US")}${sliceQuery}`;
+              a.download =
+                slice && slice > 1
+                  ? `${sceneId}-${slice}-${device || "screenshot"}.png`
+                  : `${sceneId}-${device || "screenshot"}.png`;
               a.click();
             }}
           >

@@ -660,13 +660,53 @@ function fileIn(root: string, urlPath: string): string | null {
   return existsSync(file) && statSync(file).isFile() ? file : null;
 }
 
-/** Handles GET /api/export-single?sceneId=...&device=...&locale=... for downloading a single screenshot. */
+/**
+ * Finds the screenshot file matching a given scene and optional slice index (e.g. 1 or 2 for a panorama).
+ */
+export function findScreenshotFile(
+  files: string[],
+  sceneId: string,
+  slice?: number,
+): string | null {
+  if (slice !== undefined && !Number.isNaN(slice)) {
+    // Slices are 1-indexed in file names (e.g. 02-home-1.png, 03-home-2.png); normalize 0 to 1
+    const targetSlice = slice === 0 ? 1 : slice;
+    const slicePattern = new RegExp(`(?:^|\\d+-)${sceneId}-${targetSlice}\\.png$`);
+    const found = files.find((f) => slicePattern.test(f));
+    if (found) return found;
+  }
+
+  // If no slice was requested (or slice 1), prefer slice 1 if multi-slice exists
+  const slice1Pattern = new RegExp(`(?:^|\\d+-)${sceneId}-1\\.png$`);
+  const foundSlice1 = files.find((f) => slice1Pattern.test(f));
+  if (foundSlice1 && (slice === undefined || slice === 1 || slice === 0)) return foundSlice1;
+
+  // Single-tile pattern (e.g. 01-home.png)
+  const singlePattern = new RegExp(`(?:^|\\d+-)${sceneId}\\.png$`);
+  const foundSingle = files.find((f) => singlePattern.test(f));
+  if (foundSingle) return foundSingle;
+
+  // Fallback looser match
+  return (
+    files.find(
+      (f) =>
+        f.endsWith(".png") &&
+        (f.includes(`-${sceneId}.png`) ||
+          f.includes(`-${sceneId}-`) ||
+          f.startsWith(`${sceneId}.`)),
+    ) ?? null
+  );
+}
+
+/** Handles GET /api/export-single?sceneId=...&device=...&locale=...&slice=... for downloading a single screenshot. */
 export function singleExportHandler({ paths, cli }: StudioApi): Handler {
   return (req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
     const sceneId = url.searchParams.get("sceneId");
     const device = url.searchParams.get("device") || "iphone-6.9";
     const locale = url.searchParams.get("locale") || "en-US";
+    const sliceParam = url.searchParams.get("slice");
+    const sliceNum = sliceParam !== null ? parseInt(sliceParam, 10) : undefined;
 
     if (!sceneId) {
       res.statusCode = 400;
@@ -681,17 +721,8 @@ export function singleExportHandler({ paths, cli }: StudioApi): Handler {
 
         if (existsSync(screenshotsDir)) {
           const files = await readdir(screenshotsDir);
-          for (const f of files) {
-            if (
-              f.endsWith(".png") &&
-              (f.includes(`-${sceneId}.png`) ||
-                f.includes(`-${sceneId}-`) ||
-                f.startsWith(`${sceneId}.`))
-            ) {
-              targetFile = join(screenshotsDir, f);
-              break;
-            }
-          }
+          const matched = findScreenshotFile(files, sceneId, sliceNum);
+          if (matched) targetFile = join(screenshotsDir, matched);
         }
 
         // If file not found yet, run frame first
@@ -713,31 +744,30 @@ export function singleExportHandler({ paths, cli }: StudioApi): Handler {
           );
           if (existsSync(screenshotsDir)) {
             const files = await readdir(screenshotsDir);
-            for (const f of files) {
-              if (
-                f.endsWith(".png") &&
-                (f.includes(`-${sceneId}.png`) ||
-                  f.includes(`-${sceneId}-`) ||
-                  f.startsWith(`${sceneId}.`))
-              ) {
-                targetFile = join(screenshotsDir, f);
-                break;
-              }
-            }
+            const matched = findScreenshotFile(files, sceneId, sliceNum);
+            if (matched) targetFile = join(screenshotsDir, matched);
           }
         }
 
         if (!targetFile || !existsSync(targetFile)) {
+          const sliceMsg = sliceNum ? ` (slice ${sliceNum})` : "";
           res.statusCode = 404;
-          res.end(`Screenshot for scene "${sceneId}" not found`);
+          res.end(`Screenshot for scene "${sceneId}"${sliceMsg} not found`);
           return;
         }
 
         const stat = statSync(targetFile);
+        const targetSlice =
+          sliceNum !== undefined && !Number.isNaN(sliceNum)
+            ? sliceNum === 0
+              ? 1
+              : sliceNum
+            : undefined;
+        const sliceSuffix = targetSlice && targetSlice > 1 ? `-${targetSlice}` : "";
         res.writeHead(200, {
           "Content-Type": "image/png",
           "Content-Length": stat.size,
-          "Content-Disposition": `attachment; filename="${sceneId}-${device}.png"`,
+          "Content-Disposition": `attachment; filename="${sceneId}${sliceSuffix}-${device}.png"`,
         });
         createReadStream(targetFile).pipe(res);
       } catch (err) {
