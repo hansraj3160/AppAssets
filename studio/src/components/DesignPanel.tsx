@@ -1,13 +1,15 @@
-import { CheckIcon, RotateCcw } from "lucide-react";
+import { CheckIcon, LayoutTemplate, Palette, RotateCcw, Type } from "lucide-react";
 import { useEffect, useState } from "react";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CUSTOM_TEMPLATE } from "../App";
 import type { Design, LayoutEntry } from "../manifest";
 import { FontPicker } from "./FontPicker";
 import { Field, Select } from "./Sidebar";
+import { SidebarSection } from "./SidebarSection";
 import { TemplatePicker } from "./TemplatePicker";
 
 /**
@@ -199,115 +201,159 @@ export function DesignPanel({
     (design.frameVariants.length > 1 || design.frameVariant === null);
 
   return (
-    <div className="flex flex-col gap-5 px-5 py-5 pb-8">
-      <Field label="Background" hint={bgName ?? "Custom"}>
-        <Tabs value={backgroundTab} onValueChange={setBackgroundTab}>
-          <TabsList className="w-full">
-            <TabsTrigger value="gradients">Gradients</TabsTrigger>
-            <TabsTrigger value="solids">Solid colors</TabsTrigger>
-          </TabsList>
-        </Tabs>
-        <div className="grid grid-cols-6 gap-1.5">
-          {swatches.map((p) =>
-            p.family ? (
-              <ShadeSwatch
-                key={p.name}
-                name={p.name}
-                css={p.css}
-                family={p.family}
+    <div className="flex flex-col gap-3">
+      {/* Section 1: Layout & Templates (Primary Design Control) */}
+      <SidebarSection
+        id="layout-templates"
+        icon={LayoutTemplate}
+        title="Layout & Templates"
+        summary={
+          template
+            ? template === CUSTOM_TEMPLATE
+              ? "Custom"
+              : (design.templates.find((t) => t.key === template)?.label ?? template)
+            : "Basic"
+        }
+        defaultOpen={true}
+      >
+        <div className="flex flex-col gap-4">
+          <Field label="Template Sequence" hint="Full strip preset">
+            <TemplatePicker
+              design={design}
+              value={template}
+              layout={layout}
+              onChange={onTemplate}
+            />
+          </Field>
+
+          {template === "" ? (
+            <Field label="Base Layout" hint="Applied to all scenes">
+              <Select value={layout} onChange={onLayout} options={layoutOptions(design.layouts)} />
+            </Field>
+          ) : null}
+        </div>
+      </SidebarSection>
+
+      {/* Section 2: Background & Frame */}
+      <SidebarSection
+        id="bg-frame"
+        icon={Palette}
+        title="Background & Frame"
+        summary={`${bgName ?? "Custom"} · ${screenOnly ? "Screen only" : (FRAME_META[frame]?.label ?? "Bezel")}`}
+        defaultOpen={false}
+      >
+        <div className="flex flex-col gap-4">
+          <Field label="Background" hint={bgName ?? "Custom"}>
+            <Tabs value={backgroundTab} onValueChange={setBackgroundTab}>
+              <TabsList className="w-full">
+                <TabsTrigger value="gradients">Gradients</TabsTrigger>
+                <TabsTrigger value="solids">Solid colors</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <div className="grid grid-cols-6 gap-1.5 mt-2">
+              {swatches.map((p) =>
+                p.family ? (
+                  <ShadeSwatch
+                    key={p.name}
+                    name={p.name}
+                    css={p.css}
+                    family={p.family}
+                    background={background}
+                    onChange={onBackground}
+                  />
+                ) : (
+                  <Swatch
+                    key={p.name}
+                    name={p.name}
+                    css={p.css}
+                    selected={background === p.css}
+                    onClick={() => onBackground(p.css)}
+                  />
+                ),
+              )}
+              <Swatch
+                name="Transparent"
+                css={TRANSPARENT}
+                selected={background === TRANSPARENT}
+                onClick={() => onBackground(TRANSPARENT)}
+              />
+              <CustomBackground
                 background={background}
+                solid={backgroundTab === "solids"}
+                selected={!bgName}
                 onChange={onBackground}
               />
-            ) : (
-              <Swatch
-                key={p.name}
-                name={p.name}
-                css={p.css}
-                selected={background === p.css}
-                onClick={() => onBackground(p.css)}
-              />
-            ),
-          )}
-          <Swatch
-            name="Transparent"
-            css={TRANSPARENT}
-            selected={background === TRANSPARENT}
-            onClick={() => onBackground(TRANSPARENT)}
-          />
-          <CustomBackground
-            background={background}
-            solid={backgroundTab === "solids"}
-            selected={!bgName}
-            onChange={onBackground}
-          />
+            </div>
+          </Field>
+
+          <Field label="Device Frame">
+            <Tabs
+              value={screenOnly ? "screen" : "bezel"}
+              onValueChange={(v) => onScreenOnly(v === "screen")}
+            >
+              <TabsList className="w-full">
+                <TabsTrigger value="bezel">Bezel</TabsTrigger>
+                <TabsTrigger value="screen">Screen only</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            {showFrames ? (
+              <div className="mt-2 flex flex-col gap-1 rounded-lg border border-border/50 bg-background/50 p-1.5">
+                {frameChoices.map(([key, label]) => (
+                  <FrameOption
+                    key={key || "custom"}
+                    label={label}
+                    tint={FRAME_META[key]?.tint}
+                    selected={frame === key}
+                    onClick={() => onFrame(key)}
+                  />
+                ))}
+              </div>
+            ) : null}
+          </Field>
         </div>
-      </Field>
+      </SidebarSection>
 
-      <Field label="Font">
-        <FontPicker value={fontFamily} onChange={onFontFamily} options={fontOptions} />
-      </Field>
+      {/* Section 3: Typography & Colors */}
+      <SidebarSection
+        id="typography"
+        icon={Type}
+        title="Typography & Colors"
+        summary={`${fontFamily.split(",")[0]?.replace(/"/g, "") || "System"} · ${Math.round(fontSizeScale * 100)}%`}
+        defaultOpen={false}
+      >
+        <div className="flex flex-col gap-4">
+          <Field label="Font Family">
+            <FontPicker value={fontFamily} onChange={onFontFamily} options={fontOptions} />
+          </Field>
 
-      <Field label="Text size">
-        <Tabs value={String(fontSizeScale)} onValueChange={(v) => onFontSizeScale(Number(v))}>
-          <TabsList className="w-full">
-            <TabsTrigger value="0.85">Compact</TabsTrigger>
-            <TabsTrigger value="1">Normal</TabsTrigger>
-            <TabsTrigger value="1.15">Large</TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </Field>
+          <Field label="Font Size Scale">
+            <Tabs value={String(fontSizeScale)} onValueChange={(v) => onFontSizeScale(Number(v))}>
+              <TabsList className="w-full">
+                <TabsTrigger value="0.85">Compact</TabsTrigger>
+                <TabsTrigger value="1">Normal</TabsTrigger>
+                <TabsTrigger value="1.15">Large</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </Field>
 
-      <Field label="Text colors" hint={headlineColor || subheadColor ? "Custom" : "Automatic"}>
-        <div className="flex flex-col gap-2.5 rounded-lg border border-border/50 bg-background/50 p-2.5">
-          <TextColorPicker
-            label="Headline color"
-            value={headlineColor}
-            onChange={onHeadlineColor}
-            defaultHint="Contrast with BG"
-          />
-          <TextColorPicker
-            label="Subhead color"
-            value={subheadColor}
-            onChange={onSubheadColor}
-            defaultHint="Muted"
-          />
-        </div>
-      </Field>
-
-      <Field label="Template">
-        <TemplatePicker design={design} value={template} layout={layout} onChange={onTemplate} />
-      </Field>
-
-      {template === "" ? (
-        <Field label="Tile layout">
-          <Select value={layout} onChange={onLayout} options={layoutOptions(design.layouts)} />
-        </Field>
-      ) : null}
-
-      <Field label="Frame">
-        <Tabs
-          value={screenOnly ? "screen" : "bezel"}
-          onValueChange={(v) => onScreenOnly(v === "screen")}
-        >
-          <TabsList className="w-full">
-            <TabsTrigger value="bezel">Bezel</TabsTrigger>
-            <TabsTrigger value="screen">Screen only</TabsTrigger>
-          </TabsList>
-        </Tabs>
-        {showFrames ? (
-          <div className="mt-1 flex flex-col gap-1">
-            {frameChoices.map(([key, label]) => (
-              <FrameOption
-                key={key || "custom"}
-                label={label}
-                tint={FRAME_META[key]?.tint}
-                selected={frame === key}
-                onClick={() => onFrame(key)}
+          <Field label="Copy Colors" hint={headlineColor || subheadColor ? "Custom" : "Automatic"}>
+            <div className="flex flex-col gap-2.5 rounded-lg border border-border/50 bg-background/50 p-2.5">
+              <TextColorPicker
+                label="Headline color"
+                value={headlineColor}
+                onChange={onHeadlineColor}
+                defaultHint="Contrast with BG"
               />
-            ))}
-          </div>
-        ) : null}
-      </Field>
+              <TextColorPicker
+                label="Subhead color"
+                value={subheadColor}
+                onChange={onSubheadColor}
+                defaultHint="Muted"
+              />
+            </div>
+          </Field>
+        </div>
+      </SidebarSection>
     </div>
   );
 }

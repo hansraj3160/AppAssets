@@ -15,6 +15,8 @@ import type { Platform } from "../App";
 import { isRtlLocale, type StoreManifest } from "../manifest";
 import { DesignPanel } from "./DesignPanel";
 
+import { SidebarSection } from "./SidebarSection";
+
 /**
  * The device-type rows, in display order.
  */
@@ -90,95 +92,109 @@ export function Sidebar({
   const platformDevices = manifest.devices.filter((d) => d.platform === platform);
 
   return (
-    <aside className="flex w-[300px] shrink-0 flex-col overflow-hidden border-r border-border bg-sidebar text-sidebar-foreground">
-      <div className="sidebar-scroll flex-1 overflow-y-auto">
-        {/* Both stores always show, so an iOS-only setup still surfaces that
-            Google Play screenshots exist (and vice versa). */}
-        <RadioGroupPrimitive.Root
-          value={platform === "ios" ? "iphone" : platform === "ipad" ? "ipad" : "android"}
-          onValueChange={(key) => {
-            const picked = DEVICE_TYPES.find((t) => t.key === key)?.platform;
-            if (picked) onPlatform(picked);
-          }}
-          aria-label="Device type"
-          className="grid grid-cols-3 gap-2 px-5 pt-4"
+    <aside className="flex w-[310px] shrink-0 flex-col overflow-hidden border-r border-border bg-sidebar text-sidebar-foreground">
+      <div className="sidebar-scroll flex-1 overflow-y-auto p-3.5 space-y-3">
+        {/* Section 1: Device & Store */}
+        <SidebarSection
+          id="device-store"
+          icon={SmartphoneIcon}
+          title="Device & Store"
+          summary={`${platform.toUpperCase()} · ${locale}`}
+          defaultOpen={true}
         >
-          {DEVICE_TYPES.map(({ key, icon: Icon, label, platform: target }) => (
-            <RadioGroupPrimitive.Item
-              key={key}
-              value={key}
-              disabled={!target}
-              className={cn(
-                "group relative flex flex-col items-center gap-1 rounded-lg border border-transparent px-1 py-2.5 text-xs font-medium text-muted-foreground transition-colors",
-                "hover:not-data-[state=checked]:bg-muted/60 hover:text-foreground",
-                "focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none",
-                "data-[state=checked]:border-border data-[state=checked]:bg-muted data-[state=checked]:text-foreground",
-                "data-disabled:pointer-events-none data-disabled:opacity-50",
-              )}
-            >
-              <Icon className="size-4 shrink-0" aria-hidden />
-              <span>{label}</span>
-              {target ? null : (
-                <span className="absolute top-1 right-1.5 text-[9px] font-normal text-muted-foreground/70">
-                  Soon
-                </span>
-              )}
-            </RadioGroupPrimitive.Item>
-          ))}
-        </RadioGroupPrimitive.Root>
-        <div className="flex flex-col gap-4 p-5">
-          {platformDevices.length > 1 ? (
-            <Field label="Device">
-              <Select
-                value={device}
-                onChange={onDevice}
-                options={platformDevices.map((d) => [
-                  d.key,
-                  d.platform === "ios" || d.platform === "ipad" ? `${d.label}"` : d.label,
-                ])}
-              />
-            </Field>
-          ) : null}
-          <Field label="Locale">
-            <div className="flex items-center gap-2">
-              <div className="flex-1">
+          <div className="flex flex-col gap-3.5">
+            {/* Device Platform Tabs */}
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs font-medium text-muted-foreground">Platform</Label>
+              <RadioGroupPrimitive.Root
+                value={platform === "ios" ? "iphone" : platform === "ipad" ? "ipad" : "android"}
+                onValueChange={(key) => {
+                  const picked = DEVICE_TYPES.find((t) => t.key === key)?.platform;
+                  if (picked) onPlatform(picked);
+                }}
+                aria-label="Device type"
+                className="grid grid-cols-3 gap-1.5 bg-muted/50 p-1 rounded-xl border border-border/60"
+              >
+                {DEVICE_TYPES.map(({ key, icon: Icon, label, platform: target }) => (
+                  <RadioGroupPrimitive.Item
+                    key={key}
+                    value={key}
+                    disabled={!target}
+                    className={cn(
+                      "group relative flex flex-col items-center gap-1 rounded-lg px-1 py-2 text-xs font-medium text-muted-foreground transition-all cursor-pointer",
+                      "hover:not-data-[state=checked]:bg-background/50 hover:text-foreground",
+                      "focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none",
+                      "data-[state=checked]:bg-background data-[state=checked]:text-foreground data-[state=checked]:shadow-xs data-[state=checked]:border data-[state=checked]:border-border/60",
+                      "data-disabled:pointer-events-none data-disabled:opacity-40",
+                    )}
+                  >
+                    <Icon className="size-4 shrink-0" aria-hidden />
+                    <span className="text-[11px] leading-none">{label}</span>
+                    {target ? null : (
+                      <span className="absolute top-1 right-1 text-[8px] font-normal text-muted-foreground/70">
+                        Soon
+                      </span>
+                    )}
+                  </RadioGroupPrimitive.Item>
+                ))}
+              </RadioGroupPrimitive.Root>
+            </div>
+
+            {platformDevices.length > 1 ? (
+              <Field label="Screen Size">
                 <Select
-                  value={locale}
-                  onChange={onLocale}
-                  options={manifest.locales.map((l) => [
-                    l,
-                    `${l}${isRtlLocale(l) ? " (RTL)" : ""}`,
+                  value={device}
+                  onChange={onDevice}
+                  options={platformDevices.map((d) => [
+                    d.key,
+                    d.platform === "ios" || d.platform === "ipad" ? `${d.label}"` : d.label,
                   ])}
                 />
+              </Field>
+            ) : null}
+
+            <Field label="Target Locale">
+              <div className="flex items-center gap-2">
+                <div className="flex-1">
+                  <Select
+                    value={locale}
+                    onChange={onLocale}
+                    options={manifest.locales.map((l) => [
+                      l,
+                      `${l}${isRtlLocale(l) ? " (RTL)" : ""}`,
+                    ])}
+                  />
+                </div>
+                {onOpenLocaleManager ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="size-8 shrink-0 border-border hover:border-primary/50 cursor-pointer"
+                    title="Manage Locales & Translation Matrix"
+                    onClick={onOpenLocaleManager}
+                  >
+                    <Languages className="size-4 text-muted-foreground" />
+                  </Button>
+                ) : null}
               </div>
-              {onOpenLocaleManager ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="size-8 shrink-0 border-border hover:border-primary/50"
-                  title="Manage Locales & Translation Matrix"
-                  onClick={onOpenLocaleManager}
-                >
-                  <Languages className="size-4 text-muted-foreground" />
-                </Button>
-              ) : null}
-            </div>
-          </Field>
-          {onOpenLocaleManager ? (
-            <button
-              type="button"
-              onClick={onOpenLocaleManager}
-              className="flex items-center gap-1.5 text-[11px] font-medium text-sky-500 hover:text-sky-400 transition-colors w-fit -mt-2"
-            >
-              <Languages className="size-3.5" />
-              <span>
-                Translation Matrix ({manifest.locales.length}{" "}
-                {manifest.locales.length === 1 ? "locale" : "locales"})
-              </span>
-            </button>
-          ) : null}
-        </div>
+            </Field>
+
+            {onOpenLocaleManager ? (
+              <button
+                type="button"
+                onClick={onOpenLocaleManager}
+                className="flex items-center gap-1.5 text-[11px] font-medium text-sky-500 hover:text-sky-400 transition-colors w-fit cursor-pointer"
+              >
+                <Languages className="size-3.5" />
+                <span>
+                  Translation Matrix ({manifest.locales.length}{" "}
+                  {manifest.locales.length === 1 ? "locale" : "locales"})
+                </span>
+              </button>
+            ) : null}
+          </div>
+        </SidebarSection>
         <DesignPanel
           design={manifest.design}
           deviceFrame={
