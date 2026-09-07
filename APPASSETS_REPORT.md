@@ -139,8 +139,8 @@ Ran 20 tests across 4 files. [315.00ms]
 ```
 
 ### B. Code Quality & Compilation
-- **Test Suite**: **33 pass, 0 fail (100%)** across 5 test suites.
-- **Linter & Formatter (`biome check --write .`)**: Clean, 0 errors, 54 files checked.
+- **Test Suite**: **37 pass, 0 fail (100%)** across 6 test suites (`layouts`, `zip`, `image`, `config`, `studio-server`, `render`).
+- **Linter & Formatter (`biome check --write .`)**: Clean, 0 errors, 55 files checked.
 - **Studio Build (`bun run build:studio`)**: Clean Vite production build with zero warnings/errors.
 - **CLI Build (`bun run build:cli`)**: Bundled Node/Bun executable and TypeScript declarations clean.
 - **Browser Live Testing**: Verified UI reactivity, HMR updates, Lightbox transitions, and Badge popover rendering at `http://localhost:4321/`.
@@ -151,6 +151,8 @@ Ran 20 tests across 4 files. [315.00ms]
 
 | File Path | Description of Changes |
 | :--- | :--- |
+| `src/render.ts` | Normalized Windows backslashes in `.clips.txt` to forward slashes with `.replace(/\\/g, "/")` for FFmpeg concat demuxer compatibility via exported `formatFfmpegConcatList()`; applied `theme.fontSizeScale` in Skia rendering; passed resolved per-scene contrast colors. |
+| `src/render.test.ts` | Added unit tests verifying POSIX path formatting, Windows backslash normalization, and single-quote escaping in FFmpeg concat file lists. |
 | `src/studio-server.ts` | Added `findScreenshotFile()` to match multi-slice screenshot filenames (e.g. `02-home-1.png`, `03-home-2.png`); updated `singleExportHandler` to accept `slice` query param and format content-disposition filenames. |
 | `studio/src/components/Strip.tsx` | Extracted `slice` index from `entry.key` (`sceneId#2`) and passed `&slice=${slice}` query param and dynamic download filename in Lightbox single export button. |
 | `src/studio-server.test.ts` | Added unit tests covering `findScreenshotFile` for single-tile scenes, slice 1, slice 2, default fallbacks, and missing scenes. |

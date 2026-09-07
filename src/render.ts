@@ -479,6 +479,15 @@ function splitTopLevel(s: string): string[] {
 }
 
 /**
+ * Normalizes file paths for FFmpeg concat demuxer (normalizes backslashes for Windows and escapes single quotes).
+ */
+export function formatFfmpegConcatList(filePaths: string[]): string {
+  return filePaths
+    .map((file) => `file '${file.replace(/\\/g, "/").replace(/'/g, "'\\''")}'`)
+    .join("\n");
+}
+
+/**
  * Joins the raw segment clips into one plain screen recording at the spec's
  * preview size. App Store previews must be the device screen and nothing
  * else, so no bezel, background or captions are added; only an audio track,
@@ -518,7 +527,7 @@ export async function renderPreview(cfg: LoadedConfig, deviceKey: DeviceKey, loc
   const outDir = join(cfg.outDir, "previews", deviceKey, locale);
   await mkdir(outDir, { recursive: true });
   const list = join(outDir, `.${scene.id}.clips.txt`);
-  await writeFile(list, clips.map((c) => `file '${c.file.replace(/'/g, "'\\''")}'`).join("\n"));
+  await writeFile(list, formatFfmpegConcatList(clips.map((c) => c.file)));
   const final = join(outDir, `${scene.id}.mp4`);
 
   const { width, height } = spec.preview;
