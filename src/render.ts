@@ -14,6 +14,7 @@ import {
   deviceFrame,
   isPreview,
   type LoadedConfig,
+  resolveCopyColors,
   resolvedScenes,
   type Theme,
 } from "./config.ts";
@@ -92,10 +93,18 @@ export async function renderScreenshots(cfg: LoadedConfig, deviceKey: DeviceKey,
       }
 
       if (c.copy) {
-        drawCopy(ctx, c.copy, { width: c.designWidth, height: c.height }, cfg.theme, {
-          headline: pick(scene.headline, locale, scene.id, "headline"),
-          subhead: scene.subhead ? pick(scene.subhead, locale, scene.id, "subhead") : undefined,
-        });
+        const resolvedColors = resolveCopyColors(cfg.theme, background);
+        drawCopy(
+          ctx,
+          c.copy,
+          { width: c.designWidth, height: c.height },
+          { ...cfg.theme, ...resolvedColors },
+          {
+            headline: pick(scene.headline, locale, scene.id, "headline"),
+            subhead: scene.subhead ? pick(scene.subhead, locale, scene.id, "subhead") : undefined,
+          },
+          resolvedColors,
+        );
       }
 
       await drawDecorations(
@@ -168,13 +177,16 @@ function drawCopy(
   tile: { width: number; height: number },
   theme: Theme,
   text: { headline: string; subhead?: string },
+  colors?: { headlineColor?: string; subheadColor?: string },
 ) {
   const family = withGlyphFallback(theme.fontFamily);
+  const headlineColor = colors?.headlineColor ?? theme.headlineColor;
+  const subheadColor = colors?.subheadColor ?? theme.subheadColor;
   const blocks = [
     {
       text: text.headline,
       font: `${TYPE.headlineWeight} ${tile.width * TYPE.headlineSize}px ${family}`,
-      color: theme.headlineColor,
+      color: headlineColor,
       lineHeight: TYPE.headlineLineHeight,
       letterSpacing: tile.width * TYPE.headlineTracking,
     },
@@ -183,7 +195,7 @@ function drawCopy(
           {
             text: text.subhead,
             font: `${TYPE.subheadWeight} ${tile.width * TYPE.subheadSize}px ${family}`,
-            color: theme.subheadColor,
+            color: subheadColor,
             lineHeight: TYPE.subheadLineHeight,
             letterSpacing: 0,
           },

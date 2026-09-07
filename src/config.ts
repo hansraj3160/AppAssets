@@ -496,6 +496,43 @@ export function backgroundLuminance(css: string): number | null {
   return hexes.reduce((sum, hex) => sum + luminance(hex), 0) / hexes.length;
 }
 
+/**
+ * Resolves headline and subhead colors against a background (such as a per-scene
+ * background override), flipping between light and dark colors when needed for contrast.
+ */
+export function resolveCopyColors(
+  theme: Theme,
+  background?: string,
+): { headlineColor: string; subheadColor: string } {
+  const bg = background ?? theme.background;
+  const bgLum = backgroundLuminance(bg);
+  if (bgLum === null) {
+    return { headlineColor: theme.headlineColor, subheadColor: theme.subheadColor };
+  }
+
+  const isDark = bgLum < 0.5;
+  const isLight = bgLum >= 0.5;
+  const lightColor = (c: string) => (backgroundLuminance(c) ?? 0) > 0.5;
+
+  const resolvedHeadline = isDark
+    ? !lightColor(theme.headlineColor)
+      ? "#FFFFFF"
+      : theme.headlineColor
+    : isLight && lightColor(theme.headlineColor)
+      ? "#0E1B2A"
+      : theme.headlineColor;
+
+  const resolvedSubhead = isDark
+    ? !lightColor(theme.subheadColor)
+      ? "#D9E1EA"
+      : theme.subheadColor
+    : isLight && lightColor(theme.subheadColor)
+      ? "#5A6A7D"
+      : theme.subheadColor;
+
+  return { headlineColor: resolvedHeadline, subheadColor: resolvedSubhead };
+}
+
 const GOLDIE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 /** Absolute path to a bundled bezel variant's PNG. */

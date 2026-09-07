@@ -139,7 +139,7 @@ Ran 20 tests across 4 files. [315.00ms]
 ```
 
 ### B. Code Quality & Compilation
-- **Test Suite**: **23 pass, 0 fail (100%)** across 4 test suites.
+- **Test Suite**: **26 pass, 0 fail (100%)** across 4 test suites.
 - **Linter & Formatter (`biome check --write .`)**: Clean, 0 errors, 53 files checked.
 - **Studio Build (`bun run build:studio`)**: Clean Vite production build with zero warnings/errors.
 - **CLI Build (`bun run build:cli`)**: Bundled Node/Bun executable and TypeScript declarations clean.
@@ -151,11 +151,12 @@ Ran 20 tests across 4 files. [315.00ms]
 
 | File Path | Description of Changes |
 | :--- | :--- |
+| `src/render.ts` | Pass per-scene resolved copy colors to `drawCopy()` in `renderScreenshots()` so export matches Studio contrast behavior; updated `drawCopy()` to accept `colors` override. |
+| `src/config.ts` | Added and exported `resolveCopyColors(theme, background)` to resolve headline & subhead contrast against per-scene background overrides. |
+| `src/config.test.ts` | Added unit tests verifying per-scene dark/light contrast flipping and companion config fallback. |
 | `appassets.config.ts` | Synchronized 5 active scenes (`logo_without_label`, `personal`, `insights_dashboard`, `home`, `groups`) matching `goldie.config.ts`. |
-| `src/config.ts` | Updated `loadConfig` to inspect companion config when scenes are empty to prevent shadowing loss; added `appassets.design.json` fallback in `designPath`. |
 | `src/studio-server.ts` | Added `getConfigPaths()` helper; synchronized scene additions, single scene deletions, and bulk wipe across all active config files (`appassets.config.ts` & `goldie.config.ts`). |
 | `studio/vite.config.ts` | Unified config file resolution with `defaultConfigPath()` logic (`APPASSETS_CONFIG` || `GOLDIE_CONFIG` -> `appassets.config.ts` -> `goldie.config.ts`). |
-| `src/config.test.ts` | Added 3 unit tests verifying config resolution, design sidecar path, and scene preservation without shadowing. |
 | `tsconfig.json` & `.gitignore` | Included `appassets.config.ts` in TypeScript compilation; added `appassets.design.json` to `.gitignore`. |
 | `src/zip.ts` | Implemented standard `AppStore/iPhone-6.9/` and `GooglePlay/Phone/` zip path structure. |
 | `studio/src/manifest.ts` | Extended `SavedDesign` and `DesignScene` types with Phase 2 properties. |

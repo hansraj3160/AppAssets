@@ -116,15 +116,72 @@ describe("Config resolution & shadowing prevention", () => {
     );
   });
 
-  test("loadConfig loads config with scenes populated and no shadowing loss", async () => {
-    const { loadConfig, defaultConfigPath } = await import("./config.ts");
-    const loaded = await loadConfig(defaultConfigPath());
-    expect(loaded.scenes.length).toBeGreaterThan(0);
-    const sceneIds = loaded.scenes.map((s) => s.id);
-    expect(sceneIds).toContain("logo_without_label");
-    expect(sceneIds).toContain("personal");
-    expect(sceneIds).toContain("insights_dashboard");
-    expect(sceneIds).toContain("home");
-    expect(sceneIds).toContain("groups");
+  test("loadConfig adopts companion config scenes when primary config scenes are empty", async () => {
+    const { mkdir, writeFile, rm } = await import("node:fs/promises");
+    const { loadConfig } = await import("./config.ts");
+    const tmpDir = `/tmp/goldie-test-${Date.now()}`;
+    await mkdir(tmpDir, { recursive: true });
+    const appassetsPath = `${tmpDir}/appassets.config.ts`;
+    const goldiePath = `${tmpDir}/goldie.config.ts`;
+
+    const baseConfig = `appRoot: "${tmpDir}", appPath: "${tmpDir}/app", bundleId: "com.test", frame: { variant: "17-pro-blue" }, theme: { background: "#fff", fontFamily: "sans-serif", headlineColor: "#000", subheadColor: "#333", copyHeightRatio: 0.2, deviceWidthRatio: 0.8 }, store: { name: "Test", subtitle: { "en-US": "Test" }, developer: "Dev", category: "App", rating: 5, ratingCount: "1", ageRating: "4+", price: "Free", description: { "en-US": "Desc" } }, devices: ["iphone-6.9"], locales: ["en-US"], appearance: "light"`;
+
+    // appassets has empty scenes
+    await writeFile(appassetsPath, `export default { ${baseConfig}, scenes: [] };`);
+
+    // companion goldie.config.ts has a scene
+    await writeFile(
+      goldiePath,
+      `export default { ${baseConfig}, scenes: [{ kind: "screenshot", id: "sample", flow: "sample", headline: { "en-US": "Sample" } }] };`,
+    );
+
+    const loaded = await loadConfig(appassetsPath);
+    expect(loaded.scenes.length).toBe(1);
+    expect(loaded.scenes[0].id).toBe("sample");
+
+    await rm(tmpDir, { recursive: true, force: true });
+  });
+});
+
+describe("Per-scene contrast discrepancy resolution", () => {
+  test("flips dark text to light text on dark scene backgrounds", async () => {
+    const { resolveCopyColors } = await import("./config.ts");
+    const lightTheme: any = {
+      background: "#FFFFFF",
+      headlineColor: "#0E1B2A",
+      subheadColor: "#5A6A7D",
+    };
+
+    // Dark background override
+    const colors = resolveCopyColors(lightTheme, "#000000");
+    expect(colors.headlineColor).toBe("#FFFFFF");
+    expect(colors.subheadColor).toBe("#D9E1EA");
+  });
+
+  test("flips light text to dark text on light scene backgrounds", async () => {
+    const { resolveCopyColors } = await import("./config.ts");
+    const darkTheme: any = {
+      background: "#121212",
+      headlineColor: "#FFFFFF",
+      subheadColor: "#D9E1EA",
+    };
+
+    // Light background override
+    const colors = resolveCopyColors(darkTheme, "#F8FAFC");
+    expect(colors.headlineColor).toBe("#0E1B2A");
+    expect(colors.subheadColor).toBe("#5A6A7D");
+  });
+
+  test("preserves existing colors when contrast is already sufficient", async () => {
+    const { resolveCopyColors } = await import("./config.ts");
+    const lightTheme: any = {
+      background: "#FFFFFF",
+      headlineColor: "#0E1B2A",
+      subheadColor: "#5A6A7D",
+    };
+
+    const colors = resolveCopyColors(lightTheme, "#F0F4F8");
+    expect(colors.headlineColor).toBe("#0E1B2A");
+    expect(colors.subheadColor).toBe("#5A6A7D");
   });
 });
