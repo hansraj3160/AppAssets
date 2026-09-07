@@ -246,9 +246,9 @@ export function Strip({
   };
   const entries: Entry[] = [];
   if (segments.length > 0 && tileSpec.preview) {
-    // The 15-30s window is Apple's upload rule; the android video goes to
-    // YouTube, which has no duration bounds.
-    const outOfBounds = tileSpec.platform === "ios" && (totalSeconds < 15 || totalSeconds > 30);
+    const outOfBounds =
+      (tileSpec.platform === "ios" || tileSpec.platform === "ipad") &&
+      (totalSeconds < 15 || totalSeconds > 30);
     entries.push({
       key: "preview",
       width: tileSpec.preview.width,

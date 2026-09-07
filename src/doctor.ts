@@ -23,19 +23,19 @@ export async function doctor(cfg: LoadedConfig): Promise<boolean> {
   const checks: Check[] = [];
   const platforms = new Set(cfg.devices.map((key) => DEVICES[key].platform));
 
-  if (platforms.has("ios")) {
-    // iOS simulators exist only on macOS; say so before xcrun reports missing.
+  if (platforms.has("ios") || platforms.has("ipad")) {
+    // iOS and iPadOS simulators exist only on macOS; say so before xcrun reports missing.
     const mac = process.platform === "darwin";
     checks.push({
       name: "macOS host",
       ok: mac,
-      detail: mac ? process.platform : `${process.platform}: iOS simulators run only on macOS`,
+      detail: mac ? process.platform : `${process.platform}: iOS and iPad simulators run only on macOS`,
       fix: "Run goldie on a Mac, or keep only android devices (pixel-10-pro) in `devices`",
     });
     checks.push({
       name: "xcrun",
       ok: mac && (await onPath("xcrun", ["simctl", "help"])),
-      detail: "iOS simulator control",
+      detail: "iOS/iPad simulator control",
       fix: "Install Xcode and run: xcode-select --install",
     });
   }
@@ -84,7 +84,7 @@ export async function doctor(cfg: LoadedConfig): Promise<boolean> {
     fix: "unset ARGENT_SCREENSHOT_SCALE",
   });
 
-  if (platforms.has("ios")) {
+  if (platforms.has("ios") || platforms.has("ipad")) {
     const appPath = resolve(cfg.root, cfg.appPath);
     checks.push({
       name: "app build",

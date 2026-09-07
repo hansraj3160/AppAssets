@@ -28,7 +28,7 @@ const config: GoldieConfig = {
   //   applicationId: "com.example.app",
   // },
 
-  devices: ["iphone-6.9", "pixel-10-pro"], // keys from src/specs.ts
+  devices: ["iphone-6.9", "ipad-13", "pixel-10-pro"], // keys from src/specs.ts
   locales: ["en-US"],
   appearance: "light",
 

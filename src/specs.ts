@@ -9,7 +9,7 @@
  *   themselves, with no store constraints enforced.
  */
 
-export type DeviceKey = "iphone-6.9" | "pixel-10-pro";
+export type DeviceKey = "iphone-6.9" | "pixel-10-pro" | "ipad-13";
 
 export type DeviceSpec = {
   /**
@@ -17,12 +17,14 @@ export type DeviceSpec = {
    * so raw/, screenshots/ and previews/ all share one naming scheme.
    */
   label: string;
-  platform: "ios" | "android";
+  platform: "ios" | "ipad" | "android";
   /**
    * `xcrun simctl` device type name; the toolkit picks the newest runtime that
-   * has it. iOS only - android resolves a running emulator's adb serial instead.
+   * has it. iOS/iPadOS only - android resolves a running emulator's adb serial instead.
    */
   simulatorName?: string;
+  /** Fallback simulator names to search if simulatorName is not installed. */
+  simulatorNames?: string[];
   /**
    * Accepted AVD hardware profiles (`hw.device.name` in the AVD's config.ini),
    * in boot-preference order. Android only - a running emulator qualifies only
@@ -55,6 +57,20 @@ export const DEVICES: Record<DeviceKey, DeviceSpec> = {
     native: { width: 1320, height: 2868 },
     screenshot: { width: 1320, height: 2868 },
     preview: { width: 886, height: 1920 },
+  },
+  "ipad-13": {
+    label: "13",
+    platform: "ipad",
+    simulatorName: "iPad Pro 13-inch (M4)",
+    simulatorNames: [
+      "iPad Pro 13-inch (M5)",
+      "iPad Pro 13-inch (M4)",
+      "iPad Pro (12.9-inch) (6th generation)",
+      "iPad Air 13-inch (M4)",
+    ],
+    native: { width: 2064, height: 2752 },
+    screenshot: { width: 2064, height: 2752 },
+    preview: { width: 1440, height: 1920 },
   },
   // Framed with the bundled Pixel 10 Pro art (src/frame.ts), not the config's
   // frame variant, which is iPhone art with iPhone geometry. The Pixel 9 Pro

@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { ANDROID_FRAME, FRAME } from "./frame.ts";
+import { ANDROID_FRAME, FRAME, IPAD_FRAME } from "./frame.ts";
 import {
   type FrameGeometry,
   isLayoutKey,
@@ -572,6 +572,9 @@ export function deviceFrame(
   cfg: LoadedConfig,
   deviceKey: DeviceKey,
 ): { image: string; geom: FrameGeometry } {
+  if (DEVICES[deviceKey].platform === "ipad") {
+    return { image: resolve(GOLDIE_ROOT, "assets", IPAD_FRAME.file), geom: IPAD_FRAME.geom };
+  }
   if (DEVICES[deviceKey].platform !== "android") return { image: framePath(cfg), geom: FRAME };
   const custom = cfg.android?.frame;
   if (custom) {

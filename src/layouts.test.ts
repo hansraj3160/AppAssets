@@ -51,6 +51,21 @@ describe("compose", () => {
     expect(screen.height).toBe(frame.height);
   });
 
+  test("composes for iPad 13 (2064x2752) with IPAD_FRAME", async () => {
+    const { IPAD_FRAME } = await import("./frame.ts");
+    const ipadTile = { width: 2064, height: 2752 };
+    const c = compose(LAYOUTS.classic, ipadTile, theme, { geom: IPAD_FRAME.geom });
+    expect(c.width).toBe(2064);
+    expect(c.height).toBe(2752);
+    expect(c.devices).toHaveLength(1);
+    const { frame, screen } = c.devices[0]!;
+    expect(Number.isFinite(frame.left)).toBe(true);
+    expect(Number.isFinite(frame.top)).toBe(true);
+    expect(screen.width).toBeLessThanOrEqual(frame.width);
+    expect(screen.height).toBeLessThanOrEqual(frame.height);
+    expect(c.copy).not.toBeNull();
+  });
+
   test("duo and panorama-duo need a second capture, the rest do not", () => {
     const duo = LAYOUT_KEYS.filter((k) => needsSecondCapture(LAYOUTS[k]));
     expect(duo.sort()).toEqual(["duo", "duo-tilt", "panorama-duo"]);

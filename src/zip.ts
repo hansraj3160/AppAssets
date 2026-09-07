@@ -122,8 +122,20 @@ export function storeZipPath(relPath: string): string {
   if (norm.startsWith("screenshots/pixel-10-pro/")) {
     return norm.replace(/^screenshots\/pixel-10-pro\//, "GooglePlay/Phone/");
   }
+  if (norm.startsWith("screenshots/ipad-13/")) {
+    return norm.replace(/^screenshots\/ipad-13\//, "AppStore/iPad-13/");
+  }
   if (norm.startsWith("screenshots/ipad/")) {
     return norm.replace(/^screenshots\/ipad\//, "AppStore/iPad/");
+  }
+  if (norm.startsWith("previews/iphone-6.9/")) {
+    return norm.replace(/^previews\/iphone-6\.9\//, "AppStore/Previews/iPhone-6.9/");
+  }
+  if (norm.startsWith("previews/ipad-13/")) {
+    return norm.replace(/^previews\/ipad-13\//, "AppStore/Previews/iPad-13/");
+  }
+  if (norm.startsWith("previews/pixel-10-pro/")) {
+    return norm.replace(/^previews\/pixel-10-pro\//, "GooglePlay/PromoVideo/");
   }
   return norm;
 }

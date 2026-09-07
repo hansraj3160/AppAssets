@@ -243,7 +243,7 @@ export function importHandler({ paths, cli }: StudioApi): Handler {
           return;
         }
 
-        const devices = ["iphone-6.9", "pixel-10-pro"];
+        const devices = ["iphone-6.9", "ipad-13", "pixel-10-pro"];
         const newScenes: Array<{ id: string; label: string }> = [];
 
         for (const dev of devices) {
@@ -428,7 +428,7 @@ export function deleteHandler({ paths, cli }: StudioApi): Handler {
           return;
         }
 
-        const devices = ["iphone-6.9", "pixel-10-pro"];
+        const devices = ["iphone-6.9", "ipad-13", "pixel-10-pro"];
         for (const dev of devices) {
           const rawDir = join(paths.outDir, "raw", dev);
           const rawFile = join(rawDir, `${sceneId}.png`);
@@ -502,7 +502,7 @@ export function deleteAllHandler({ paths, cli }: StudioApi): Handler {
 
     (async () => {
       try {
-        const devices = ["iphone-6.9", "pixel-10-pro"];
+        const devices = ["iphone-6.9", "ipad-13", "pixel-10-pro"];
         for (const dev of devices) {
           const rawDir = join(paths.outDir, "raw", dev);
           if (existsSync(rawDir)) {

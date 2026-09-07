@@ -33,4 +33,14 @@ describe("zip", () => {
     }
     expect((await readFile(out)).readUInt32LE(0)).toBe(0x04034b50);
   });
+
+  test("storeZipPath maps directories to AppStore/iPad-13 structures", async () => {
+    const { storeZipPath } = await import("./zip.ts");
+    expect(storeZipPath("screenshots/ipad-13/en-US/01-home.png")).toBe(
+      "AppStore/iPad-13/en-US/01-home.png",
+    );
+    expect(storeZipPath("previews/ipad-13/en-US/preview.mp4")).toBe(
+      "AppStore/Previews/iPad-13/en-US/preview.mp4",
+    );
+  });
 });

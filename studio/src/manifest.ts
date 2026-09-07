@@ -36,7 +36,7 @@ export type FrameGeometry = {
 export type DeviceEntry = {
   key: string;
   label: string;
-  platform: "ios" | "android";
+  platform: "ios" | "ipad" | "android";
   simulatorName: string | null;
   screenshot: { width: number; height: number };
   preview: { width: number; height: number } | null;

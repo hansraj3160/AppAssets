@@ -37,7 +37,7 @@ const DEVICE_TYPES: Array<{
   platform?: Platform;
 }> = [
   { key: "iphone", icon: SmartphoneIcon, label: "iPhone", platform: "ios" },
-  { key: "ipad", icon: TabletIcon, label: "iPad" },
+  { key: "ipad", icon: TabletIcon, label: "iPad", platform: "ipad" },
   { key: "android", icon: PlayIcon, label: "Android", platform: "android" },
 ];
 
@@ -150,7 +150,7 @@ export function Sidebar({
         {/* Both stores always show, so an iOS-only setup still surfaces that
             Google Play screenshots exist (and vice versa). */}
         <RadioGroupPrimitive.Root
-          value={platform === "ios" ? "iphone" : "android"}
+          value={platform === "ios" ? "iphone" : platform === "ipad" ? "ipad" : "android"}
           onValueChange={(key) => {
             const picked = DEVICE_TYPES.find((t) => t.key === key)?.platform;
             if (picked) onPlatform(picked);
@@ -190,7 +190,7 @@ export function Sidebar({
                   onChange={onDevice}
                   options={platformDevices.map((d) => [
                     d.key,
-                    d.platform === "ios" ? `${d.label}"` : d.label,
+                    d.platform === "ios" || d.platform === "ipad" ? `${d.label}"` : d.label,
                   ])}
                 />
               </Field>
@@ -209,7 +209,9 @@ export function Sidebar({
         <DesignPanel
           design={manifest.design}
           deviceFrame={
-            platform === "android" || Boolean(platformDevices.find((d) => d.key === device)?.frame)
+            platform === "android" ||
+            platform === "ipad" ||
+            Boolean(platformDevices.find((d) => d.key === device)?.frame)
           }
           background={background}
           frame={frame}

@@ -34,3 +34,19 @@ export const ANDROID_FRAME = {
     screenRadius: 178,
   },
 } as const;
+
+/**
+ * The 13" iPad Pro bundled bezel art and its geometry:
+ * Uniform slim bezels around the 2064x2752 screen cutout with rounded corners.
+ */
+export const IPAD_FRAME = {
+  /** The art's file name in goldie's own assets/. */
+  file: "ipad-13.png",
+  geom: {
+    width: 2184,
+    height: 2872,
+    screen: { x: 60, y: 60, width: 2064, height: 2752 },
+    screenRadius: 72,
+  },
+} as const;
+

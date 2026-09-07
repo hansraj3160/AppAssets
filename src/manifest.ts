@@ -56,7 +56,7 @@ export type StoreManifest = {
   devices: Array<{
     key: DeviceKey;
     label: string;
-    platform: "ios" | "android";
+    platform: "ios" | "ipad" | "android";
     simulatorName: string | null;
     screenshot: { width: number; height: number };
     preview: { width: number; height: number } | null;
@@ -156,10 +156,10 @@ export async function writeManifest(cfg: LoadedConfig): Promise<string> {
   if (custom) await copyFile(framePath(cfg), join(webDir, custom));
 
   // Bezel art a device brings itself, copied under its device key: the
-  // android Pixel art, which the frame picker does not apply to.
+  // android Pixel art and iPad art, which the frame picker does not apply to.
   const deviceFrames: Record<string, { url: string; geom: FrameGeometry }> = {};
   for (const key of cfg.devices) {
-    if (DEVICES[key].platform !== "android") continue;
+    if (DEVICES[key].platform === "ios") continue;
     const { image, geom } = deviceFrame(cfg, key);
     const url = `frames/${key}${extname(image)}`;
     await copyFile(image, join(webDir, url));

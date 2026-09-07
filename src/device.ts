@@ -229,9 +229,15 @@ export async function resolveUdid(
   const runtimes = Object.keys(byRuntime)
     .filter((r) => r.includes("iOS"))
     .sort(compareRuntime);
+  const candidateNames = [
+    spec.simulatorName,
+    ...(spec.simulatorNames ?? []),
+  ].filter((name): name is string => Boolean(name));
   for (const runtime of runtimes) {
-    const hit = byRuntime[runtime]?.find((d) => d.name === spec.simulatorName);
-    if (hit) return hit.udid;
+    for (const name of candidateNames) {
+      const hit = byRuntime[runtime]?.find((d) => d.name === name);
+      if (hit) return hit.udid;
+    }
   }
   throw new Error(
     `No "${spec.simulatorName}" simulator installed. Add one in Xcode > Settings > Components, ` +
