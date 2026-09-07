@@ -170,4 +170,45 @@ describe("importHandler", () => {
     expect(statusCode).toBe(405);
     expect(endedWith).toBe("POST only");
   });
+
+  test("rejects POST with empty files array", async () => {
+    const handler = importHandler({
+      paths: {
+        configPath: "goldie.config.ts",
+        configDir: ".",
+        outDir: "out",
+        webDir: "out/web",
+        designFile: "goldie.design.json",
+        exportZip: "out/export.zip",
+      },
+      cli: ["echo"],
+    });
+
+    let statusCode = 0;
+    let endedWith = "";
+    const listeners: Record<string, Function> = {};
+    const req = {
+      method: "POST",
+      on: (event: string, cb: Function) => {
+        listeners[event] = cb;
+      },
+    } as any;
+    const res = {
+      set statusCode(code: number) {
+        statusCode = code;
+      },
+      setHeader: () => {},
+      end(body: string) {
+        endedWith = body;
+      },
+    } as any;
+
+    handler(req, res);
+    listeners["data"]?.(JSON.stringify({ files: [] }));
+    listeners["end"]?.();
+
+    await new Promise((r) => setTimeout(r, 10));
+    expect(statusCode).toBe(400);
+    expect(JSON.parse(endedWith).error).toBe("No files provided");
+  });
 });

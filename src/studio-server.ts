@@ -447,7 +447,7 @@ export function importHandler({ paths, cli }: StudioApi): Handler {
 
         if (targetMode === "current" && preferredDevice) {
           filesByDevice.set(preferredDevice as DeviceKey, files);
-        } else if (targetMode === "auto") {
+        } else if (targetMode === "auto" || (autoRoute && targetMode !== "all")) {
           for (const f of files) {
             const base64Data = f.dataUrl.includes(";base64,")
               ? f.dataUrl.split(";base64,")[1]!
