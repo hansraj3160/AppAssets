@@ -9,6 +9,7 @@ import {
   designHandler,
   exportHandler,
   importHandler,
+  replaceCaptureHandler,
   type StudioApi,
   singleExportHandler,
   studioPaths,
@@ -53,6 +54,7 @@ function goldieApi(): Plugin {
   const exp = exportHandler(api);
   const expSingle = singleExportHandler(api);
   const imp = importHandler(api);
+  const repCapture = replaceCaptureHandler(api);
   const del = deleteHandler(api);
   const delAll = deleteAllHandler(api);
   return {
@@ -62,6 +64,7 @@ function goldieApi(): Plugin {
       server.middlewares.use("/api/export-single", expSingle);
       server.middlewares.use("/api/export", (req, res) => exp(req.url ?? "")(req, res));
       server.middlewares.use("/api/import", imp);
+      server.middlewares.use("/api/replace-capture", repCapture);
       server.middlewares.use("/api/delete-all", delAll);
       server.middlewares.use("/api/delete", del);
     },

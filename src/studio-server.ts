@@ -5,6 +5,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { dirname, extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { exec } from "./exec.ts";
+import type { DeviceKey } from "./specs.ts";
 import { storeZipPath, zipDirs } from "./zip.ts";
 
 /**
@@ -222,6 +223,191 @@ export function exportHandler({ paths, cli }: StudioApi): (sub: string) => Handl
   };
 }
 
+/**
+ * Reads PNG dimensions directly from buffer without disk I/O.
+ */
+export function getDimensionsFromBuffer(buffer: Buffer): { width: number; height: number } | null {
+  if (
+    buffer.length >= 24 &&
+    buffer[0] === 0x89 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x4e &&
+    buffer[3] === 0x47
+  ) {
+    return {
+      width: buffer.readUInt32BE(16),
+      height: buffer.readUInt32BE(20),
+    };
+  }
+  return null;
+}
+
+/**
+ * Auto-resolution routing based on capture image dimensions.
+ * Routes to:
+ * - "ipad-13": aspect ratio ~ 3:4 = 0.75 (e.g. 2064x2752, 2048x2732)
+ * - "pixel-10-pro": 1280x2856, 1080x1920, 1080x2400, or aspect ratio ~0.56 / ~0.448
+ * - "iphone-6.9": 1320x2868, 1290x2796, 1179x2556, or aspect ratio ~0.46
+ */
+export function resolveDeviceFromDimensions(
+  width: number,
+  height: number,
+  preferredDevice?: string,
+): DeviceKey {
+  if (width <= 0 || height <= 0) {
+    if (preferredDevice === "ipad-13" || preferredDevice === "pixel-10-pro") {
+      return preferredDevice;
+    }
+    return "iphone-6.9";
+  }
+
+  // Normalize orientation to portrait (width <= height)
+  const portraitWidth = Math.min(width, height);
+  const portraitHeight = Math.max(width, height);
+  const aspect = portraitWidth / portraitHeight;
+
+  // 1. iPad: aspect ratio ~ 3:4 = 0.75 (e.g. 2064/2752 = 0.75, 2048/2732 = 0.7496)
+  if (aspect >= 0.70 && aspect <= 0.82) {
+    return "ipad-13";
+  }
+
+  // 2. Android (Pixel 10 Pro / 9 Pro):
+  // Screen sizes: 1280x2856 (aspect 0.448), 1080x2400 (aspect 0.45), 1080x1920 (aspect 0.5625)
+  if (
+    (portraitWidth === 1280 && portraitHeight === 2856) ||
+    (portraitWidth === 1080 && (portraitHeight === 1920 || portraitHeight === 2400)) ||
+    (aspect >= 0.53 && aspect <= 0.60)
+  ) {
+    return "pixel-10-pro";
+  }
+
+  // 3. iPhone:
+  // 1320x2868 (aspect 0.4602), 1290x2796 (aspect 0.4613), 1179x2556 (aspect 0.4612), etc.
+  if (
+    (portraitWidth === 1320 && portraitHeight === 2868) ||
+    (portraitWidth === 1290 && portraitHeight === 2796) ||
+    (portraitWidth === 1179 && portraitHeight === 2556) ||
+    (aspect >= 0.44 && aspect <= 0.49)
+  ) {
+    if (preferredDevice === "pixel-10-pro" && aspect <= 0.455) {
+      return "pixel-10-pro";
+    }
+    return "iphone-6.9";
+  }
+
+  // 4. Fallback to preferred device if recognized, otherwise iphone-6.9
+  if (preferredDevice === "ipad-13" || preferredDevice === "pixel-10-pro") {
+    return preferredDevice;
+  }
+  return "iphone-6.9";
+}
+
+/** Handles POST /api/replace-capture for replacing a single screenshot capture. */
+export function replaceCaptureHandler({ paths, cli }: StudioApi): Handler {
+  return (req, res) => {
+    if (req.method !== "POST") {
+      res.statusCode = 405;
+      res.end("POST only");
+      return;
+    }
+
+    readBody(req).then(async (body) => {
+      try {
+        const { sceneId, device: preferredDevice, autoRoute, file } = JSON.parse(body) as {
+          sceneId: string;
+          device?: string;
+          autoRoute?: boolean;
+          file: { name: string; dataUrl: string; width?: number; height?: number };
+        };
+
+        if (!sceneId || !file || !file.dataUrl) {
+          res.statusCode = 400;
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify({ error: "sceneId and file with dataUrl are required" }));
+          return;
+        }
+
+        const base64Data = file.dataUrl.replace(/^data:image\/\w+;base64,/, "");
+        const buffer = Buffer.from(base64Data, "base64");
+
+        const bufDim = getDimensionsFromBuffer(buffer);
+        const width = file.width ?? bufDim?.width ?? 0;
+        const height = file.height ?? bufDim?.height ?? 0;
+
+        let targetDevice: DeviceKey;
+        if (autoRoute || !preferredDevice) {
+          targetDevice = resolveDeviceFromDimensions(width, height, preferredDevice);
+        } else {
+          targetDevice = (preferredDevice as DeviceKey) || "iphone-6.9";
+        }
+
+        const rawDir = join(paths.outDir, "raw", targetDevice);
+        await mkdir(rawDir, { recursive: true });
+
+        const targetFile = join(rawDir, `${sceneId}.png`);
+        await writeFile(targetFile, buffer);
+
+        // Update raw/<targetDevice>/manifest.json
+        const manifestPath = join(rawDir, "manifest.json");
+        let existingManifest: { screenshots: Array<{ sceneId: string; file: string }> } = {
+          screenshots: [],
+        };
+        if (existsSync(manifestPath)) {
+          try {
+            existingManifest = JSON.parse(await readFile(manifestPath, "utf8"));
+          } catch {}
+        }
+
+        const screenshotMap = new Map(
+          existingManifest.screenshots.map((s) => [s.sceneId, s.file]),
+        );
+        screenshotMap.set(sceneId, targetFile);
+
+        const updatedManifest = {
+          device: targetDevice,
+          udid: "manual",
+          capturedAt: new Date().toISOString(),
+          screenshots: Array.from(screenshotMap.entries()).map(([sId, fPath]) => ({
+            sceneId: sId,
+            file: fPath,
+          })),
+          preview: null,
+        };
+        await writeFile(manifestPath, JSON.stringify(updatedManifest, null, 2));
+
+        // Re-frame the screenshot for this device and rebuild store manifest
+        const [bin, ...prefix] = cli;
+        try {
+          await exec(
+            bin!,
+            [
+              ...prefix,
+              "frame",
+              "--config",
+              paths.configPath,
+              "--device",
+              targetDevice,
+            ],
+            { quiet: true },
+          );
+        } catch (frameErr) {
+          console.error("Frame failed after capture replace:", frameErr);
+        }
+
+        await exec(bin!, [...prefix, "manifest", "--config", paths.configPath], { quiet: true });
+
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "application/json");
+        res.end(JSON.stringify({ ok: true, device: targetDevice, sceneId }));
+      } catch (err) {
+        res.statusCode = 500;
+        res.setHeader("Content-Type", "application/json");
+        res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+      }
+    });
+  };
+}
+
 /** Handles POST /api/import for uploading screenshots directly from Studio UI. */
 export function importHandler({ paths, cli }: StudioApi): Handler {
   return (req, res) => {
@@ -233,8 +419,9 @@ export function importHandler({ paths, cli }: StudioApi): Handler {
 
     readBody(req).then(async (body) => {
       try {
-        const { files } = JSON.parse(body) as {
-          files: Array<{ name: string; dataUrl: string }>;
+        const { files, autoRoute } = JSON.parse(body) as {
+          files: Array<{ name: string; dataUrl: string; width?: number; height?: number }>;
+          autoRoute?: boolean;
         };
         if (!Array.isArray(files) || files.length === 0) {
           res.statusCode = 400;
@@ -243,10 +430,30 @@ export function importHandler({ paths, cli }: StudioApi): Handler {
           return;
         }
 
-        const devices = ["iphone-6.9", "ipad-13", "pixel-10-pro"];
+        const allDevices: DeviceKey[] = ["iphone-6.9", "ipad-13", "pixel-10-pro"];
+        const filesByDevice = new Map<DeviceKey, typeof files>();
+
+        if (autoRoute) {
+          for (const f of files) {
+            const base64Data = f.dataUrl.replace(/^data:image\/\w+;base64,/, "");
+            const buffer = Buffer.from(base64Data, "base64");
+            const bufDim = getDimensionsFromBuffer(buffer);
+            const w = f.width ?? bufDim?.width ?? 0;
+            const h = f.height ?? bufDim?.height ?? 0;
+            const dev = resolveDeviceFromDimensions(w, h);
+            const list = filesByDevice.get(dev) ?? [];
+            list.push(f);
+            filesByDevice.set(dev, list);
+          }
+        } else {
+          for (const dev of allDevices) {
+            filesByDevice.set(dev, files);
+          }
+        }
+
         const newScenes: Array<{ id: string; label: string }> = [];
 
-        for (const dev of devices) {
+        for (const [dev, devFiles] of filesByDevice.entries()) {
           const rawDir = join(paths.outDir, "raw", dev);
           await mkdir(rawDir, { recursive: true });
 
@@ -264,7 +471,7 @@ export function importHandler({ paths, cli }: StudioApi): Handler {
             existingManifest.screenshots.map((s) => [s.sceneId, s.file]),
           );
 
-          for (const f of files) {
+          for (const f of devFiles) {
             const rawName = f.name.replace(/\.[^.]+$/, "");
             const id = rawName.replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
             const label = rawName.replace(/[_-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -795,6 +1002,7 @@ export function serveStudio(api: StudioApi, port = 4321): Promise<string> {
   const exp = exportHandler(api);
   const expSingle = singleExportHandler(api);
   const imp = importHandler(api);
+  const repCapture = replaceCaptureHandler(api);
   const del = deleteHandler(api);
   const delAll = deleteAllHandler(api);
 
@@ -805,6 +1013,7 @@ export function serveStudio(api: StudioApi, port = 4321): Promise<string> {
     if (path.startsWith("/api/export-single")) return expSingle(req, res);
     if (path.startsWith("/api/export")) return exp(path.slice("/api/export".length))(req, res);
     if (path === "/api/import") return imp(req, res);
+    if (path === "/api/replace-capture") return repCapture(req, res);
     if (path === "/api/delete") return del(req, res);
     if (path === "/api/delete-all") return delAll(req, res);
 

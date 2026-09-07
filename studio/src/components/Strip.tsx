@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Download, Sparkles, Trash2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Loader2, Sparkles, Trash2, Upload, X } from "lucide-react";
 import { AnimatePresence, Reorder } from "motion/react";
 import type React from "react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
@@ -384,6 +384,57 @@ export function Strip({
     }
   };
 
+  const [replacingSceneId, setReplacingSceneId] = useState<string | null>(null);
+
+  const readFileData = (file: File): Promise<{ dataUrl: string; width: number; height: number }> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        const img = new Image();
+        img.onload = () => {
+          resolve({ dataUrl, width: img.naturalWidth, height: img.naturalHeight });
+        };
+        img.onerror = () => {
+          resolve({ dataUrl, width: 0, height: 0 });
+        };
+        img.src = dataUrl;
+      };
+      reader.onerror = () => reject(new Error(`Failed to read file ${file.name}`));
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleReplaceCapture = async (sceneId: string, file: File) => {
+    setReplacingSceneId(sceneId);
+    try {
+      const { dataUrl, width, height } = await readFileData(file);
+      const res = await fetch("/api/replace-capture", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sceneId,
+          device: tileSpec.key,
+          autoRoute: true,
+          file: {
+            name: file.name,
+            dataUrl,
+            width,
+            height,
+          },
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Failed with status ${res.status}`);
+      }
+      window.location.reload();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to replace capture");
+      setReplacingSceneId(null);
+    }
+  };
+
   const tileAt = (i: number) => {
     const entry = entries[i];
     return (
@@ -398,6 +449,11 @@ export function Strip({
           if (!dragged.current) setOpen(i);
         }}
         onDelete={entry.sceneId ? () => handleDelete(entry.sceneId!) : undefined}
+        onReplace={
+          entry.sceneId ? (file) => handleReplaceCapture(entry.sceneId!, file) : undefined
+        }
+        isReplacing={entry.sceneId ? replacingSceneId === entry.sceneId : false}
+        sceneId={entry.sceneId}
         // Named only while the lightbox is closed: once open, the scene inside
         // it carries the name, and a duplicate would abort the transition.
         transitionName={named === i && open === null ? "lightbox-scene" : undefined}
@@ -1469,6 +1525,9 @@ function Tile({
   badReason,
   onOpen,
   onDelete,
+  onReplace,
+  isReplacing,
+  sceneId,
   transitionName,
   draggable,
   children,
@@ -1479,12 +1538,70 @@ function Tile({
   badReason?: string;
   onOpen: () => void;
   onDelete?: () => void;
+  onReplace?: (file: File) => void;
+  isReplacing?: boolean;
+  sceneId?: string;
   transitionName?: string;
   draggable: boolean;
   children: ReactNode;
 }) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && onReplace) {
+      onReplace(file);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   return (
-    <div className="group relative">
+    <div
+      className="group relative"
+      onDragEnter={(e) => {
+        if (e.dataTransfer.types.includes("Files")) {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsDragOver(true);
+        }
+      }}
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes("Files")) {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsDragOver(true);
+        }
+      }}
+      onDragLeave={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragOver(false);
+      }}
+      onDrop={(e) => {
+        if (e.dataTransfer.types.includes("Files")) {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsDragOver(false);
+          const file = e.dataTransfer.files?.[0];
+          if (file && onReplace) {
+            onReplace(file);
+          }
+        }
+      }}
+    >
+      {onReplace ? (
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          className="hidden"
+          onChange={handleFileChange}
+        />
+      ) : null}
+
       <button
         type="button"
         aria-label={
@@ -1499,7 +1616,24 @@ function Tile({
       >
         {children}
       </button>
-      {onDelete ? (
+
+      {/* Hover menu: Replace image on top-left, Delete on top-right */}
+      {onReplace && !isReplacing ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            fileInputRef.current?.click();
+          }}
+          className="absolute -top-2 -left-2 z-30 flex size-6 cursor-pointer items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md ring-2 ring-background transition-all opacity-0 group-hover:opacity-100 hover:scale-110 active:scale-95"
+          aria-label={sceneId ? `Replace screenshot for ${sceneId}` : "Replace screenshot"}
+          title={sceneId ? `Replace screenshot for "${sceneId}"` : "Replace screenshot"}
+        >
+          <Upload className="size-3.5" strokeWidth={2.5} />
+        </button>
+      ) : null}
+
+      {onDelete && !isReplacing ? (
         <button
           type="button"
           onClick={(e) => {
@@ -1507,12 +1641,33 @@ function Tile({
             onDelete();
           }}
           className="absolute -top-2 -right-2 z-30 flex size-6 cursor-pointer items-center justify-center rounded-full bg-destructive text-white shadow-md ring-2 ring-background transition-all opacity-0 group-hover:opacity-100 hover:scale-110 active:scale-95"
-          aria-label="Remove screenshot"
-          title="Remove screenshot"
+          aria-label={sceneId ? `Remove screenshot for ${sceneId}` : "Remove screenshot"}
+          title={sceneId ? `Remove screenshot for "${sceneId}"` : "Remove screenshot"}
         >
           <X className="size-3.5" strokeWidth={2.5} />
         </button>
       ) : null}
+
+      {/* Drag & drop highlight on this specific card */}
+      {isDragOver ? (
+        <div className="pointer-events-none absolute inset-0 z-40 flex flex-col items-center justify-center rounded-2xl bg-primary/20 backdrop-blur-xs ring-2 ring-primary ring-offset-2">
+          <Upload className="size-8 text-primary animate-bounce" strokeWidth={2.5} />
+          <span className="mt-2 rounded-md bg-background/90 px-2 py-0.5 text-xs font-semibold text-primary shadow-xs">
+            Drop to replace {sceneId ?? "screenshot"}
+          </span>
+        </div>
+      ) : null}
+
+      {/* Replacing in progress indicator */}
+      {isReplacing ? (
+        <div className="pointer-events-none absolute inset-0 z-40 flex flex-col items-center justify-center rounded-2xl bg-background/80 backdrop-blur-xs ring-1 ring-primary/30">
+          <Loader2 className="size-7 text-primary animate-spin" />
+          <span className="mt-2 text-xs font-medium text-foreground">
+            Updating {sceneId ?? "screenshot"}…
+          </span>
+        </div>
+      ) : null}
+
       {bad ? (
         <p className="pt-2 text-center text-[11px] font-medium text-destructive">{badReason}</p>
       ) : null}

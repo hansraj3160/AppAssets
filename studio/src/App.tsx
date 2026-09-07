@@ -1,9 +1,11 @@
 import {
   CameraIcon,
+  Loader2Icon,
   type LucideIcon,
   SmartphoneIcon,
   TabletIcon,
   TriangleAlertIcon,
+  UploadIcon,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { EmptyState } from "./components/EmptyState";
@@ -312,18 +314,69 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
     ? `frames/${frame}.png`
     : (design.customFrameUrl ?? `frames/${design.frameVariants[0]}.png`);
 
+  const [isDraggingOverCanvas, setIsDraggingOverCanvas] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const dragCounter = useRef(0);
+
+  const readFileData = (
+    file: File,
+  ): Promise<{ name: string; dataUrl: string; width: number; height: number }> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        const img = new Image();
+        img.onload = () => {
+          resolve({ name: file.name, dataUrl, width: img.naturalWidth, height: img.naturalHeight });
+        };
+        img.onerror = () => {
+          resolve({ name: file.name, dataUrl, width: 0, height: 0 });
+        };
+        img.src = dataUrl;
+      };
+      reader.onerror = () => reject(new Error(`Failed to read file ${file.name}`));
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleCanvasDrop = async (e: React.DragEvent) => {
+    if (!e.dataTransfer.types.includes("Files")) return;
+    e.preventDefault();
+    dragCounter.current = 0;
+    setIsDraggingOverCanvas(false);
+
+    const files = Array.from(e.dataTransfer.files).filter(
+      (f) => f.type.startsWith("image/") || /\.(png|jpe?g|webp)$/i.test(f.name),
+    );
+    if (files.length === 0) return;
+
+    setIsImporting(true);
+    try {
+      const payloads = await Promise.all(files.map((file) => readFileData(file)));
+      const res = await fetch("/api/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ files: payloads, autoRoute: true }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Upload failed with status ${res.status}`);
+      }
+      window.location.reload();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to import images");
+      setIsImporting(false);
+    }
+  };
+
   return (
-    <div className="flex h-full bg-stage p-3 text-foreground">
+    <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground select-none">
       <Sidebar
         manifest={manifest}
         platform={platform}
         device={device}
         locale={locale}
         dark={dark}
-        onPlatform={selectPlatform}
-        onDevice={setDevice}
-        onLocale={setLocale}
-        onDark={setDark}
         background={background}
         frame={frame}
         fontFamily={fontFamily}
@@ -333,6 +386,10 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
         headlineColor={headlineColor}
         subheadColor={subheadColor}
         fontSizeScale={fontSizeScale}
+        onPlatform={selectPlatform}
+        onDevice={setDevice}
+        onLocale={setLocale}
+        onDark={setDark}
         onBackground={setBackground}
         onFrame={setFrame}
         onFontFamily={setFontFamily}
@@ -345,7 +402,58 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
       />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <main className="relative grid flex-1 place-items-center overflow-auto p-10">
+        <main
+          className="relative grid flex-1 place-items-center overflow-auto p-10"
+          onDragEnter={(e) => {
+            if (e.dataTransfer.types.includes("Files")) {
+              e.preventDefault();
+              dragCounter.current++;
+              setIsDraggingOverCanvas(true);
+            }
+          }}
+          onDragOver={(e) => {
+            if (e.dataTransfer.types.includes("Files")) {
+              e.preventDefault();
+            }
+          }}
+          onDragLeave={(e) => {
+            if (e.dataTransfer.types.includes("Files")) {
+              e.preventDefault();
+              dragCounter.current--;
+              if (dragCounter.current <= 0) {
+                dragCounter.current = 0;
+                setIsDraggingOverCanvas(false);
+              }
+            }
+          }}
+          onDrop={handleCanvasDrop}
+        >
+          {isDraggingOverCanvas ? (
+            <div className="pointer-events-none absolute inset-6 z-50 flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-primary bg-background/90 backdrop-blur-md shadow-2xl transition-all animate-in fade-in zoom-in-95 duration-150">
+              <div className="mb-4 flex size-20 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <UploadIcon className="size-10 animate-bounce" strokeWidth={2.25} />
+              </div>
+              <h3 className="text-xl font-bold text-foreground">Drop screenshots here</h3>
+              <p className="mt-2 max-w-md text-center text-sm text-muted-foreground">
+                Images will be automatically routed to{" "}
+                <span className="font-semibold text-foreground">iPhone</span>,{" "}
+                <span className="font-semibold text-foreground">iPad</span>, or{" "}
+                <span className="font-semibold text-foreground">Android</span> based on their resolution.
+              </p>
+            </div>
+          ) : null}
+
+          {isImporting ? (
+            <div className="pointer-events-none absolute inset-6 z-50 flex flex-col items-center justify-center rounded-3xl bg-background/90 backdrop-blur-md shadow-2xl animate-in fade-in duration-150">
+              <Loader2Icon className="size-12 animate-spin text-primary" />
+              <h3 className="mt-4 text-lg font-semibold text-foreground">
+                Processing & auto-routing captures…
+              </h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Updating store manifest and device assets
+              </p>
+            </div>
+          ) : null}
           {spec && captures ? (
             <div className="w-full max-w-[1400px]">
               <Strip
