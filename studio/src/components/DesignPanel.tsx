@@ -1,4 +1,4 @@
-import { CheckIcon, LayoutTemplate, Palette, RotateCcw, Type } from "lucide-react";
+import { CheckIcon, LayoutTemplate, Palette, RotateCcw, Sparkles, Type } from "lucide-react";
 import { useEffect, useState } from "react";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { FontPicker } from "./FontPicker";
 import { Field, Select } from "./Sidebar";
 import { SidebarSection } from "./SidebarSection";
 import { TemplatePicker } from "./TemplatePicker";
+import { THEME_PRESETS, ThemePresets } from "./ThemePresets";
 
 /**
  * The design controls: background, font, template, fallback layout, and
@@ -234,7 +235,40 @@ export function DesignPanel({
         </div>
       </SidebarSection>
 
-      {/* Section 2: Background & Frame */}
+      {/* Section 2: Theme Presets (1-Click Curated Styles) */}
+      <SidebarSection
+        id="theme-presets"
+        icon={Sparkles}
+        title="Theme Presets"
+        summary={
+          THEME_PRESETS.find(
+            (p) =>
+              p.background === background &&
+              p.fontFamily === fontFamily &&
+              (p.headlineColor.toUpperCase() === headlineColor?.toUpperCase() ||
+                (!headlineColor && p.headlineColor === "#0E1B2A")),
+          )?.name ?? "6 Curated"
+        }
+        defaultOpen={true}
+      >
+        <ThemePresets
+          currentBackground={background}
+          currentFrame={frame}
+          currentFontFamily={fontFamily}
+          currentHeadlineColor={headlineColor}
+          currentSubheadColor={subheadColor}
+          onApplyPreset={(preset) => {
+            onBackground(preset.background);
+            onFrame(preset.frame);
+            onFontFamily(preset.fontFamily);
+            onHeadlineColor(preset.headlineColor);
+            onSubheadColor(preset.subheadColor);
+            onFontSizeScale(preset.fontSizeScale);
+          }}
+        />
+      </SidebarSection>
+
+      {/* Section 3: Background & Frame */}
       <SidebarSection
         id="bg-frame"
         icon={Palette}
