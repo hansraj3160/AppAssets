@@ -9,6 +9,7 @@ import {
   designHandler,
   exportHandler,
   importHandler,
+  localesHandler,
   replaceCaptureHandler,
   type StudioApi,
   singleExportHandler,
@@ -57,10 +58,12 @@ function goldieApi(): Plugin {
   const repCapture = replaceCaptureHandler(api);
   const del = deleteHandler(api);
   const delAll = deleteAllHandler(api);
+  const locales = localesHandler(api);
   return {
     name: "goldie-api",
     configureServer(server: ViteDevServer) {
       server.middlewares.use("/api/design", design);
+      server.middlewares.use("/api/locales", locales);
       server.middlewares.use("/api/export-single", expSingle);
       server.middlewares.use("/api/export", (req, res) => exp(req.url ?? "")(req, res));
       server.middlewares.use("/api/import", imp);

@@ -4,11 +4,13 @@ import { Button } from "@/components/ui/button";
 
 export function ImportButton({
   className,
+  wrapperClassName,
   variant = "outline",
-  size = "lg",
+  size = "default",
   label = "Import screenshots",
 }: {
   className?: string;
+  wrapperClassName?: string;
   variant?: "default" | "outline" | "secondary" | "ghost";
   size?: "default" | "sm" | "lg";
   label?: string;
@@ -38,7 +40,12 @@ export function ImportButton({
           if (!resolved) {
             resolved = true;
             clearTimeout(timer);
-            resolve({ name: file.name, dataUrl, width: img.naturalWidth, height: img.naturalHeight });
+            resolve({
+              name: file.name,
+              dataUrl,
+              width: img.naturalWidth,
+              height: img.naturalHeight,
+            });
           }
         };
         img.onerror = () => {
@@ -100,7 +107,7 @@ export function ImportButton({
   };
 
   return (
-    <div className="flex flex-col gap-1.5 w-full">
+    <div className={wrapperClassName ?? "flex flex-col gap-1.5 w-full"}>
       <input
         ref={fileInputRef}
         type="file"

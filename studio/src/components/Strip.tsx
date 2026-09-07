@@ -1,4 +1,13 @@
-import { ChevronLeft, ChevronRight, Download, Loader2, Sparkles, Trash2, Upload, X } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Loader2,
+  Sparkles,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
 import { AnimatePresence, Reorder } from "motion/react";
 import type React from "react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
@@ -14,15 +23,16 @@ import {
   SCREEN_SHADOW,
   TYPE,
 } from "../../../src/layouts";
-import type {
-  Decoration,
-  Design,
-  DesignScene,
-  DeviceCaptures,
-  DeviceEntry,
-  FrameGeometry,
-  SceneCopy,
-  Theme,
+import {
+  type Decoration,
+  type Design,
+  type DesignScene,
+  type DeviceCaptures,
+  type DeviceEntry,
+  type FrameGeometry,
+  isRtlLocale,
+  type SceneCopy,
+  type Theme,
 } from "../manifest";
 import { CHECKERBOARD, layoutOptions, TRANSPARENT } from "./DesignPanel";
 import { Select } from "./Sidebar";
@@ -386,7 +396,9 @@ export function Strip({
 
   const [replacingSceneId, setReplacingSceneId] = useState<string | null>(null);
 
-  const readFileData = (file: File): Promise<{ dataUrl: string; width: number; height: number }> => {
+  const readFileData = (
+    file: File,
+  ): Promise<{ dataUrl: string; width: number; height: number }> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => {
@@ -445,7 +457,10 @@ export function Strip({
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || `Failed with status ${res.status}`);
       }
-      sessionStorage.setItem("goldie_toast", `✨ Updated capture for scene "${sceneId}" on ${tileSpec.key}`);
+      sessionStorage.setItem(
+        "goldie_toast",
+        `✨ Updated capture for scene "${sceneId}" on ${tileSpec.key}`,
+      );
       window.location.reload();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to replace capture");
@@ -467,9 +482,7 @@ export function Strip({
           if (!dragged.current) setOpen(i);
         }}
         onDelete={entry.sceneId ? () => handleDelete(entry.sceneId!) : undefined}
-        onReplace={
-          entry.sceneId ? (file) => handleReplaceCapture(entry.sceneId!, file) : undefined
-        }
+        onReplace={entry.sceneId ? (file) => handleReplaceCapture(entry.sceneId!, file) : undefined}
         isReplacing={entry.sceneId ? replacingSceneId === entry.sceneId : false}
         sceneId={entry.sceneId}
         // Named only while the lightbox is closed: once open, the scene inside
@@ -1253,10 +1266,21 @@ function ScreenshotScene({
 }) {
   const c = compose(spec, tile, theme, { screenOnly, geom });
   const { w, h } = cq(tile);
+  const isRtl = isRtlLocale(locale);
   // Wider-than-reference tiles compose at a narrower design width; type follows it.
   const typeScale = (c.designWidth / tile.width) * (fontSizeScale ?? 1);
   const editable = onEdit ? editableProps : () => ({});
   const copy = c.copy;
+  const isLeft = copy?.align === "left";
+  const align = isRtl && isLeft ? "right" : copy?.align;
+  const leftPos =
+    isRtl && isLeft && copy
+      ? w(tile.width - copy.box.left - copy.box.width)
+      : copy
+        ? w(copy.box.left)
+        : 0;
+  const flexAlign = isRtl && isLeft ? "flex-end" : isLeft ? "flex-start" : "center";
+
   return (
     <Canvas background="transparent" fontFamily={fontFamily}>
       {/* The full composition; the background spans it so a gradient runs across a panorama. */}
@@ -1272,9 +1296,10 @@ function ScreenshotScene({
       >
         {copy ? (
           <div
+            dir={isRtl ? "rtl" : "ltr"}
             style={{
               position: "absolute",
-              left: w(copy.box.left),
+              left: leftPos,
               width: w(copy.box.width),
               ...(copy.position === "top"
                 ? { top: 0, paddingTop: h(copy.y), justifyContent: "flex-start" }
@@ -1286,12 +1311,13 @@ function ScreenshotScene({
               height: h(copy.box.height),
               display: "flex",
               flexDirection: "column",
-              alignItems: copy.align === "left" ? "flex-start" : "center",
+              alignItems: flexAlign,
               gap: h(tile.height * TYPE.gap),
-              textAlign: copy.align,
+              textAlign: align,
             }}
           >
             <h1
+              dir={isRtl ? "rtl" : "ltr"}
               style={{
                 margin: 0,
                 color: headlineColor,
@@ -1306,6 +1332,7 @@ function ScreenshotScene({
             </h1>
             {subhead || onEdit ? (
               <p
+                dir={isRtl ? "rtl" : "ltr"}
                 style={{
                   margin: 0,
                   color: subheadColor,
@@ -1452,6 +1479,7 @@ function Decorations({
               lineHeight: 1.2,
               fontWeight: BADGE.weight,
               whiteSpace: "nowrap",
+              direction: isRtlLocale(locale) ? "rtl" : "ltr",
             }}
           >
             {d.text[locale] ?? ""}
@@ -1577,6 +1605,7 @@ function Tile({
   };
 
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: drag-and-drop target container
     <div
       className={`group relative transition-all rounded-2xl ${
         isDragOver ? "ring-4 ring-primary scale-[1.02] z-30" : ""

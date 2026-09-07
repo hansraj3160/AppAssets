@@ -18,8 +18,23 @@ import { DEVICES, type DeviceKey } from "./specs.ts";
 /** Bezel art bundled in goldie's own assets/, one PNG per variant. */
 export const FRAME_VARIANTS = ["17-pro-silver", "17-pro-blue", "17-pro-orange"] as const;
 export type FrameVariant = (typeof FRAME_VARIANTS)[number];
-
 export type Locale = string;
+
+/**
+ * Detects whether a locale uses Right-to-Left (RTL) script (Arabic, Hebrew, Persian, Urdu, etc.).
+ */
+export function isRtlLocale(locale?: string): boolean {
+  if (!locale) return false;
+  const lang = locale.toLowerCase().split(/[-_]/)[0];
+  return (
+    lang === "ar" ||
+    lang === "he" ||
+    lang === "iw" ||
+    lang === "fa" ||
+    lang === "ur" ||
+    lang === "yi"
+  );
+}
 
 /** One still screenshot: a flow that navigates somewhere, plus the marketing copy around it. */
 export type ScreenshotScene = {
@@ -314,6 +329,8 @@ export type DesignOverrides = {
   >;
   /** Scaling multiplier for headline and subhead copy. */
   fontSizeScale?: number;
+  /** Locales configured or enabled in the studio. */
+  locales?: string[];
 };
 
 export type SceneCopy = {
@@ -414,6 +431,9 @@ export function applyDesign(cfg: LoadedConfig, design: DesignOverrides): void {
         scene.decorations = [...(scene.decorations ?? []), badgeDec];
       }
     }
+  }
+  if (design.locales && Array.isArray(design.locales) && design.locales.length > 0) {
+    cfg.locales = Array.from(new Set([...cfg.locales, ...design.locales]));
   }
 }
 

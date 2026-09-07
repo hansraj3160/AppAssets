@@ -13,6 +13,7 @@ import {
   type Decoration,
   deviceFrame,
   isPreview,
+  isRtlLocale,
   type LoadedConfig,
   resolveCopyColors,
   resolvedScenes,
@@ -104,6 +105,7 @@ export async function renderScreenshots(cfg: LoadedConfig, deviceKey: DeviceKey,
             subhead: scene.subhead ? pick(scene.subhead, locale, scene.id, "subhead") : undefined,
           },
           resolvedColors,
+          locale,
         );
       }
 
@@ -178,7 +180,9 @@ function drawCopy(
   theme: Theme,
   text: { headline: string; subhead?: string },
   colors?: { headlineColor?: string; subheadColor?: string },
+  locale?: string,
 ) {
+  const rtl = isRtlLocale(locale);
   const family = withGlyphFallback(theme.fontFamily);
   const headlineColor = colors?.headlineColor ?? theme.headlineColor;
   const subheadColor = colors?.subheadColor ?? theme.subheadColor;
@@ -193,14 +197,14 @@ function drawCopy(
     },
     ...(text.subhead
       ? [
-        {
-          text: text.subhead,
-          font: `${TYPE.subheadWeight} ${tile.width * TYPE.subheadSize * scale}px ${family}`,
-          color: subheadColor,
-          lineHeight: TYPE.subheadLineHeight,
-          letterSpacing: 0,
-        },
-      ]
+          {
+            text: text.subhead,
+            font: `${TYPE.subheadWeight} ${tile.width * TYPE.subheadSize * scale}px ${family}`,
+            color: subheadColor,
+            lineHeight: TYPE.subheadLineHeight,
+            letterSpacing: 0,
+          },
+        ]
       : []),
   ].map((b) => ({ ...b, lines: wrapLines(ctx, b.text, b.font, b.letterSpacing, copy.maxWidth) }));
 
@@ -209,8 +213,11 @@ function drawCopy(
     blocks.reduce((sum, b) => sum + b.lines.length * fontSize(b.font) * b.lineHeight, 0) +
     gap * (blocks.length - 1);
   let y = copy.position === "top" ? copy.y : copy.y - total;
+  const align = rtl && copy.align === "left" ? "right" : copy.align;
+  const x = rtl && copy.align === "left" ? tile.width - copy.x : copy.x;
+
   for (const b of blocks) {
-    y = drawLines(ctx, { ...b, x: copy.x, y, align: copy.align });
+    y = drawLines(ctx, { ...b, x, y, align, rtl });
     y += gap;
   }
 }
@@ -371,9 +378,18 @@ function drawLines(
     letterSpacing: number;
     x: number;
     y: number;
-    align: "left" | "center";
+    align: "left" | "center" | "right";
+    rtl?: boolean;
   },
 ): number {
+  ctx.save();
+  if (o.rtl && "direction" in ctx) {
+    try {
+      (ctx as any).direction = "rtl";
+    } catch {
+      // ignore if unsupported
+    }
+  }
   ctx.font = o.font;
   ctx.fillStyle = o.color;
   ctx.textAlign = o.align;
@@ -387,6 +403,7 @@ function drawLines(
     ctx.fillText(line, o.x, y + (step - size) / 2);
     y += step;
   }
+  ctx.restore();
   return y;
 }
 
@@ -521,7 +538,7 @@ export async function renderPreview(cfg: LoadedConfig, deviceKey: DeviceKey, loc
   ) {
     throw new Error(
       `Preview is ${seconds.toFixed(1)}s; Apple requires ${PREVIEW.minSeconds}-${PREVIEW.maxSeconds}s. ` +
-      `Adjust the segment flows or their holdSeconds and re-capture.`,
+        `Adjust the segment flows or their holdSeconds and re-capture.`,
     );
   }
 
@@ -579,11 +596,44 @@ export async function renderPreview(cfg: LoadedConfig, deviceKey: DeviceKey, loc
   return final;
 }
 
-function pick(map: Record<string, string>, locale: string, sceneId: string, field: string): string {
-  const value = map[locale];
-  if (value === undefined)
-    throw new Error(`Scene "${sceneId}" has no ${field} for locale "${locale}".`);
-  return value;
+/**
+ * Resolves localized copy with smart fallback:
+ * 1. Exact locale (e.g. "hi-IN")
+ * 2. Language-only code (e.g. "hi")
+ * 3. Base/default locale ("en-US" or "en")
+ * 4. First available translation in the map
+ */
+export function pick(
+  map: Record<string, string>,
+  locale: string,
+  sceneId: string,
+  field: string,
+): string {
+  if (!map) {
+    throw new Error(`Scene "${sceneId}" has no ${field} mapping.`);
+  }
+  // 1. Exact locale match
+  if (map[locale] !== undefined) {
+    return map[locale];
+  }
+  // 2. Language-only prefix match (e.g. "hi" for "hi-IN")
+  const lang = locale.split("-")[0];
+  if (lang && map[lang] !== undefined) {
+    return map[lang];
+  }
+  // 3. Fallback to default en-US or en
+  if (map["en-US"] !== undefined) {
+    return map["en-US"];
+  }
+  if (map.en !== undefined) {
+    return map.en;
+  }
+  // 4. Fallback to first available translation
+  const values = Object.values(map);
+  if (values.length > 0 && values[0] !== undefined) {
+    return values[0];
+  }
+  throw new Error(`Scene "${sceneId}" has no ${field} for locale "${locale}".`);
 }
 
 /** Compares finished assets against the Apple spec table and prints a report. */
@@ -604,8 +654,8 @@ export async function verify(
     ok &&= good;
     console.log(
       `  ${good ? "ok  " : "FAIL"} ${basename(file)}  ${width}x${height}` +
-      `${alpha ? (alphaOk ? "  transparent (not for upload)" : "  alpha channel present") : ""}` +
-      `${good ? "" : `  expected ${spec.screenshot.width}x${spec.screenshot.height}, no alpha`}`,
+        `${alpha ? (alphaOk ? "  transparent (not for upload)" : "  alpha channel present") : ""}` +
+        `${good ? "" : `  expected ${spec.screenshot.width}x${spec.screenshot.height}, no alpha`}`,
     );
   }
 

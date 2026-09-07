@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { formatFfmpegConcatList } from "./render.ts";
+import { formatFfmpegConcatList, pick } from "./render.ts";
 
 describe("formatFfmpegConcatList", () => {
   test("formats standard POSIX paths for FFmpeg concat", () => {
@@ -26,5 +26,35 @@ describe("formatFfmpegConcatList", () => {
 
   test("handles empty list", () => {
     expect(formatFfmpegConcatList([])).toBe("");
+  });
+});
+
+describe("pick localized copy helper", () => {
+  test("returns exact locale match when present", () => {
+    const map = { "en-US": "Hello", "hi-IN": "नमस्ते" };
+    expect(pick(map, "hi-IN", "scene1", "headline")).toBe("नमस्ते");
+    expect(pick(map, "en-US", "scene1", "headline")).toBe("Hello");
+  });
+
+  test("falls back to language-only prefix if specific region not present", () => {
+    const map = { "en-US": "Hello", hi: "नमस्ते" };
+    expect(pick(map, "hi-IN", "scene1", "headline")).toBe("नमस्ते");
+  });
+
+  test("falls back to en-US when requested locale is completely missing", () => {
+    const map = { "en-US": "Default English headline" };
+    expect(pick(map, "hi-IN", "scene1", "headline")).toBe("Default English headline");
+    expect(pick(map, "ar-SA", "scene1", "headline")).toBe("Default English headline");
+  });
+
+  test("falls back to first available locale if en-US not present", () => {
+    const map = { "es-ES": "Hola" };
+    expect(pick(map, "hi-IN", "scene1", "headline")).toBe("Hola");
+  });
+
+  test("throws descriptive error when map is completely empty", () => {
+    expect(() => pick({}, "hi-IN", "screenshot_1", "headline")).toThrow(
+      'Scene "screenshot_1" has no headline for locale "hi-IN".',
+    );
   });
 });

@@ -1,14 +1,6 @@
-import {
-  type LucideIcon,
-  MoonIcon,
-  PlayIcon,
-  SmartphoneIcon,
-  SunIcon,
-  TabletIcon,
-  Trash2,
-} from "lucide-react";
+import { Languages, type LucideIcon, PlayIcon, SmartphoneIcon, TabletIcon } from "lucide-react";
 import { RadioGroup as RadioGroupPrimitive } from "radix-ui";
-import { type ReactNode, useState } from "react";
+import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -20,15 +12,11 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { Platform } from "../App";
-import type { StoreManifest } from "../manifest";
+import { isRtlLocale, type StoreManifest } from "../manifest";
 import { DesignPanel } from "./DesignPanel";
-import { ExportPanel } from "./ExportPanel";
-import { ImportButton } from "./ImportButton";
 
 /**
- * The device-type rows, in display order. An entry without a platform renders
- * disabled: iPad stays that way until goldie can capture iPads, which then
- * needs a platform of its own here and in the app's view state.
+ * The device-type rows, in display order.
  */
 const DEVICE_TYPES: Array<{
   key: string;
@@ -42,20 +30,16 @@ const DEVICE_TYPES: Array<{
 ];
 
 /**
- * The left rail: the goldie wordmark with the appearance toggle, what the
- * strip shows (device and locale, when there is a choice), the design
- * controls, and a sticky Export footer.
+ * The left rail: device, locale, and design customization controls.
  */
 export function Sidebar({
   manifest,
   platform,
   device,
   locale,
-  dark,
   onPlatform,
   onDevice,
   onLocale,
-  onDark,
   background,
   frame,
   fontFamily,
@@ -65,6 +49,7 @@ export function Sidebar({
   headlineColor,
   subheadColor,
   fontSizeScale,
+  onOpenLocaleManager,
   onBackground,
   onFrame,
   onFontFamily,
@@ -79,11 +64,9 @@ export function Sidebar({
   platform: Platform;
   device: string;
   locale: string;
-  dark: boolean;
   onPlatform: (v: Platform) => void;
   onDevice: (v: string) => void;
   onLocale: (v: string) => void;
-  onDark: (v: boolean) => void;
   background: string;
   frame: string;
   fontFamily: string;
@@ -93,6 +76,7 @@ export function Sidebar({
   headlineColor?: string;
   subheadColor?: string;
   fontSizeScale?: number;
+  onOpenLocaleManager?: () => void;
   onBackground: (v: string) => void;
   onFrame: (v: string) => void;
   onFontFamily: (v: string) => void;
@@ -103,49 +87,10 @@ export function Sidebar({
   onSubheadColor: (v: string) => void;
   onFontSizeScale: (v: number) => void;
 }) {
-  const [clearing, setClearing] = useState(false);
   const platformDevices = manifest.devices.filter((d) => d.platform === platform);
 
-  const hasScreenshots =
-    manifest.design.scenes.length > 0 ||
-    Object.values(manifest.design.captures).some((c) => (c?.screenshots?.length ?? 0) > 0);
-
-  const handleClearAll = async () => {
-    if (!window.confirm("Are you sure you want to remove all screenshots?")) return;
-    setClearing(true);
-    try {
-      const res = await fetch("/api/delete-all", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      if (res.ok) {
-        window.location.reload();
-      } else {
-        const data = await res.json().catch(() => ({}));
-        alert(data.error || "Failed to remove screenshots");
-        setClearing(false);
-      }
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to remove screenshots");
-      setClearing(false);
-    }
-  };
   return (
-    <aside className="flex w-[300px] shrink-0 flex-col overflow-hidden rounded-2xl border border-sidebar-border bg-sidebar text-sidebar-foreground">
-      <header className="flex h-14 shrink-0 items-center justify-between pr-3 pl-5">
-        <h1 className="text-base font-semibold tracking-tight select-none">
-          <span className="goldie-wordmark">AppAssets</span>
-        </h1>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={() => onDark(!dark)}
-          aria-label={dark ? "Switch to light appearance" : "Switch to dark appearance"}
-        >
-          {dark ? <SunIcon /> : <MoonIcon />}
-        </Button>
-      </header>
-
+    <aside className="flex w-[300px] shrink-0 flex-col overflow-hidden border-r border-border bg-sidebar text-sidebar-foreground">
       <div className="sidebar-scroll flex-1 overflow-y-auto">
         {/* Both stores always show, so an iOS-only setup still surfaces that
             Google Play screenshots exist (and vice versa). */}
@@ -181,31 +126,59 @@ export function Sidebar({
             </RadioGroupPrimitive.Item>
           ))}
         </RadioGroupPrimitive.Root>
-        {platformDevices.length > 1 || manifest.locales.length > 1 ? (
-          <div className="flex flex-col gap-4 p-5">
-            {platformDevices.length > 1 ? (
-              <Field label="Device">
-                <Select
-                  value={device}
-                  onChange={onDevice}
-                  options={platformDevices.map((d) => [
-                    d.key,
-                    d.platform === "ios" || d.platform === "ipad" ? `${d.label}"` : d.label,
-                  ])}
-                />
-              </Field>
-            ) : null}
-            {manifest.locales.length > 1 ? (
-              <Field label="Locale">
+        <div className="flex flex-col gap-4 p-5">
+          {platformDevices.length > 1 ? (
+            <Field label="Device">
+              <Select
+                value={device}
+                onChange={onDevice}
+                options={platformDevices.map((d) => [
+                  d.key,
+                  d.platform === "ios" || d.platform === "ipad" ? `${d.label}"` : d.label,
+                ])}
+              />
+            </Field>
+          ) : null}
+          <Field label="Locale">
+            <div className="flex items-center gap-2">
+              <div className="flex-1">
                 <Select
                   value={locale}
                   onChange={onLocale}
-                  options={manifest.locales.map((l) => [l, l])}
+                  options={manifest.locales.map((l) => [
+                    l,
+                    `${l}${isRtlLocale(l) ? " (RTL)" : ""}`,
+                  ])}
                 />
-              </Field>
-            ) : null}
-          </div>
-        ) : null}
+              </div>
+              {onOpenLocaleManager ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="size-8 shrink-0 border-border hover:border-primary/50"
+                  title="Manage Locales & Translation Matrix"
+                  onClick={onOpenLocaleManager}
+                >
+                  <Languages className="size-4 text-muted-foreground" />
+                </Button>
+              ) : null}
+            </div>
+          </Field>
+          {onOpenLocaleManager ? (
+            <button
+              type="button"
+              onClick={onOpenLocaleManager}
+              className="flex items-center gap-1.5 text-[11px] font-medium text-sky-500 hover:text-sky-400 transition-colors w-fit -mt-2"
+            >
+              <Languages className="size-3.5" />
+              <span>
+                Translation Matrix ({manifest.locales.length}{" "}
+                {manifest.locales.length === 1 ? "locale" : "locales"})
+              </span>
+            </button>
+          ) : null}
+        </div>
         <DesignPanel
           design={manifest.design}
           deviceFrame={
@@ -233,42 +206,8 @@ export function Sidebar({
           onFontSizeScale={onFontSizeScale}
         />
       </div>
-
-      <footer className="shrink-0 bg-sidebar p-4 flex flex-col gap-2.5">
-        <ImportButton className="w-full" />
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/20 gap-1.5 cursor-pointer disabled:opacity-50"
-          onClick={handleClearAll}
-          disabled={clearing || !hasScreenshots}
-          title={hasScreenshots ? "Remove all screenshots" : "No screenshots to remove"}
-        >
-          <Trash2 className="size-4" />
-          {clearing ? "Removing all..." : "Remove all screenshots"}
-        </Button>
-        <ExportPanel
-          background={background}
-          frame={frame}
-          font={fontKey(manifest.design, fontFamily)}
-          template={template}
-          layout={layout}
-          screenOnly={screenOnly}
-          fontSizeScale={fontSizeScale}
-        />
-      </footer>
     </aside>
   );
-}
-
-/**
- * The CLI's --font key for the current font stack: a bundled font's key when
- * the stack names its family, "system" when it is the config's own stack
- * (the CLI then leaves theme.fontFamily alone), else undefined.
- */
-function fontKey(design: StoreManifest["design"], fontFamily: string): string | undefined {
-  if (fontFamily === design.theme.fontFamily) return undefined;
-  return design.fonts.find((f) => fontFamily.startsWith(`"${f.family}"`))?.key ?? "system";
 }
 
 export function Field({

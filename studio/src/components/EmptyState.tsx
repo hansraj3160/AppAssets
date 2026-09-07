@@ -8,7 +8,14 @@ import {
   TabletIcon,
   UploadCloudIcon,
 } from "lucide-react";
-import { type ChangeEvent, type DragEvent, type ReactNode, useEffect, useRef, useState } from "react";
+import {
+  type ChangeEvent,
+  type DragEvent,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { Button } from "@/components/ui/button";
 
 function hasFiles(types: readonly string[] | DOMStringList | null | undefined): boolean {
@@ -72,7 +79,12 @@ export function EmptyState({
           if (!resolved) {
             resolved = true;
             clearTimeout(timer);
-            resolve({ name: file.name, dataUrl, width: img.naturalWidth, height: img.naturalHeight });
+            resolve({
+              name: file.name,
+              dataUrl,
+              width: img.naturalWidth,
+              height: img.naturalHeight,
+            });
           }
         };
         img.onerror = () => {
@@ -244,8 +256,17 @@ export function EmptyState({
         </div>
 
         {/* Prominent Drag & Drop Dropzone Box */}
+        {/* biome-ignore lint/a11y/useSemanticElements: custom dropzone container */}
         <div
+          role="button"
+          tabIndex={0}
           onClick={() => !loading && fileInputRef.current?.click()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              if (!loading) fileInputRef.current?.click();
+            }
+          }}
           onDragEnter={(e) => {
             if (hasFiles(e.dataTransfer.types)) {
               e.preventDefault();
@@ -272,9 +293,7 @@ export function EmptyState({
           {loading ? (
             <div className="flex flex-col items-center justify-center py-4">
               <Loader2Icon className="size-10 animate-spin text-primary" />
-              <p className="mt-3 text-sm font-semibold text-foreground">
-                Importing screenshots…
-              </p>
+              <p className="mt-3 text-sm font-semibold text-foreground">Importing screenshots…</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {targetMode === "current"
                   ? `Routing directly to ${deviceKey}`
@@ -335,14 +354,14 @@ export function EmptyState({
           )}
         </div>
 
-        {error ? (
-          <p className="mt-3 text-xs font-medium text-destructive">{error}</p>
-        ) : null}
+        {error ? <p className="mt-3 text-xs font-medium text-destructive">{error}</p> : null}
 
         {/* CLI Alternative */}
         {command ? (
           <div className="mt-6 flex flex-col items-center">
-            <span className="text-xs text-muted-foreground/70">— or capture automatically with simulator —</span>
+            <span className="text-xs text-muted-foreground/70">
+              — or capture automatically with simulator —
+            </span>
             <CommandChip command={command} />
           </div>
         ) : null}
@@ -373,7 +392,11 @@ function CommandChip({ command }: { command: string }) {
         onClick={copy}
         aria-label={copied ? "Copied" : "Copy command"}
       >
-        {copied ? <CheckIcon className="size-3.5 text-green-500" /> : <CopyIcon className="size-3.5" />}
+        {copied ? (
+          <CheckIcon className="size-3.5 text-green-500" />
+        ) : (
+          <CopyIcon className="size-3.5" />
+        )}
       </Button>
     </div>
   );

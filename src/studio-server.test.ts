@@ -1,10 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import {
+  extractLocalesFromConfig,
   findScreenshotFile,
   getDimensionsFromBuffer,
   importHandler,
+  localesHandler,
+  PRESET_LOCALES,
   replaceCaptureHandler,
   resolveDeviceFromDimensions,
+  updateLocalesInConfig,
 } from "./studio-server.ts";
 
 describe("findScreenshotFile", () => {
@@ -186,10 +190,10 @@ describe("importHandler", () => {
 
     let statusCode = 0;
     let endedWith = "";
-    const listeners: Record<string, Function> = {};
+    const listeners: Record<string, (...args: any[]) => void> = {};
     const req = {
       method: "POST",
-      on: (event: string, cb: Function) => {
+      on: (event: string, cb: (...args: any[]) => void) => {
         listeners[event] = cb;
       },
     } as any;
@@ -204,11 +208,83 @@ describe("importHandler", () => {
     } as any;
 
     handler(req, res);
-    listeners["data"]?.(JSON.stringify({ files: [] }));
-    listeners["end"]?.();
+    listeners.data?.(JSON.stringify({ files: [] }));
+    listeners.end?.();
 
     await new Promise((r) => setTimeout(r, 10));
     expect(statusCode).toBe(400);
     expect(JSON.parse(endedWith).error).toBe("No files provided");
+  });
+});
+
+describe("locales helpers and handler", () => {
+  test("extractLocalesFromConfig extracts single and multiple locales", () => {
+    const single = `
+      devices: ["iphone-6.9"],
+      locales: ["en-US"],
+      appearance: "light",
+    `;
+    expect(extractLocalesFromConfig(single)).toEqual(["en-US"]);
+
+    const multiple = `
+      locales: ["en-US", "ar-SA", "ja-JP"],
+    `;
+    expect(extractLocalesFromConfig(multiple)).toEqual(["en-US", "ar-SA", "ja-JP"]);
+
+    const missing = `
+      devices: ["iphone-6.9"],
+    `;
+    expect(extractLocalesFromConfig(missing)).toEqual(["en-US"]);
+  });
+
+  test("updateLocalesInConfig updates existing locales array in config", () => {
+    const initial = `
+      devices: ["iphone-6.9"],
+      locales: ["en-US"],
+      appearance: "light",
+    `;
+    const updated = updateLocalesInConfig(initial, ["en-US", "ar-SA"]);
+    expect(updated).toContain('locales: ["en-US", "ar-SA"]');
+    expect(extractLocalesFromConfig(updated)).toEqual(["en-US", "ar-SA"]);
+  });
+
+  test("PRESET_LOCALES includes expected App Store locales with RTL markings", () => {
+    const ar = PRESET_LOCALES.find((p) => p.code === "ar-SA");
+    expect(ar).toBeDefined();
+    expect(ar?.rtl).toBe(true);
+
+    const he = PRESET_LOCALES.find((p) => p.code === "he-IL");
+    expect(he).toBeDefined();
+    expect(he?.rtl).toBe(true);
+
+    const en = PRESET_LOCALES.find((p) => p.code === "en-US");
+    expect(en).toBeDefined();
+    expect(en?.rtl).toBe(false);
+  });
+
+  test("localesHandler rejects non-GET/POST methods with 405", () => {
+    const handler = localesHandler({
+      paths: {
+        configPath: "goldie.config.ts",
+        configDir: ".",
+        outDir: "out",
+        webDir: "out/web",
+        designFile: "goldie.design.json",
+        exportZip: "out/export.zip",
+      },
+      cli: ["echo"],
+    });
+
+    let statusCode = 0;
+    const req = { method: "DELETE" } as any;
+    const res = {
+      set statusCode(code: number) {
+        statusCode = code;
+      },
+      end() {},
+    } as any;
+
+    handler(req, res);
+    expect(statusCode).toBe(405);
   });
 });

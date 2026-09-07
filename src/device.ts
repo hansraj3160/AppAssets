@@ -229,10 +229,9 @@ export async function resolveUdid(
   const runtimes = Object.keys(byRuntime)
     .filter((r) => r.includes("iOS"))
     .sort(compareRuntime);
-  const candidateNames = [
-    spec.simulatorName,
-    ...(spec.simulatorNames ?? []),
-  ].filter((name): name is string => Boolean(name));
+  const candidateNames = [spec.simulatorName, ...(spec.simulatorNames ?? [])].filter(
+    (name): name is string => Boolean(name),
+  );
   for (const runtime of runtimes) {
     for (const name of candidateNames) {
       const hit = byRuntime[runtime]?.find((d) => d.name === name);

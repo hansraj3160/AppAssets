@@ -107,6 +107,43 @@ describe("applyDesign Phase 2 features", () => {
     });
     expect(cfg.theme.fontSizeScale).toBe(1.2);
   });
+
+  test("applies locales overrides to config", () => {
+    const cfg = makeConfig();
+    expect(cfg.locales).toEqual(["en-US"]);
+    applyDesign(cfg, {
+      locales: ["en-US", "ar-SA", "ja-JP"],
+    });
+    expect(cfg.locales).toEqual(["en-US", "ar-SA", "ja-JP"]);
+  });
+});
+
+describe("isRtlLocale detection", () => {
+  test("identifies RTL locales correctly", async () => {
+    const { isRtlLocale } = await import("./config.ts");
+    expect(isRtlLocale("ar-SA")).toBe(true);
+    expect(isRtlLocale("ar")).toBe(true);
+    expect(isRtlLocale("he-IL")).toBe(true);
+    expect(isRtlLocale("he")).toBe(true);
+    expect(isRtlLocale("iw")).toBe(true);
+    expect(isRtlLocale("fa-IR")).toBe(true);
+    expect(isRtlLocale("fa")).toBe(true);
+    expect(isRtlLocale("ur-PK")).toBe(true);
+    expect(isRtlLocale("ur")).toBe(true);
+    expect(isRtlLocale("yi")).toBe(true);
+  });
+
+  test("identifies LTR locales correctly", async () => {
+    const { isRtlLocale } = await import("./config.ts");
+    expect(isRtlLocale("en-US")).toBe(false);
+    expect(isRtlLocale("en")).toBe(false);
+    expect(isRtlLocale("es-ES")).toBe(false);
+    expect(isRtlLocale("fr-FR")).toBe(false);
+    expect(isRtlLocale("ja-JP")).toBe(false);
+    expect(isRtlLocale("zh-Hans")).toBe(false);
+    expect(isRtlLocale(undefined)).toBe(false);
+    expect(isRtlLocale("")).toBe(false);
+  });
 });
 
 describe("Config resolution & shadowing prevention", () => {

@@ -7,8 +7,10 @@ import {
   TriangleAlertIcon,
   UploadIcon,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { EmptyState } from "./components/EmptyState";
+import { Header } from "./components/Header";
+import { LocaleManagerModal } from "./components/LocaleManagerModal";
 import { Sidebar } from "./components/Sidebar";
 import { Strip } from "./components/Strip";
 import { useHistory } from "./lib/useHistory";
@@ -68,11 +70,15 @@ export function App() {
   );
   const [error, setError] = useState<Error | null>(null);
 
-  useEffect(() => {
+  const refresh = useCallback(() => {
     Promise.all([loadManifest(), loadDesign()])
       .then(([manifest, design]) => setLoaded({ manifest, design }))
       .catch((e: Error) => setError(e));
   }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
 
   if (error)
     return (
@@ -84,7 +90,7 @@ export function App() {
       />
     );
   if (!loaded) return null;
-  return <Loaded manifest={loaded.manifest} saved={loaded.design} />;
+  return <Loaded manifest={loaded.manifest} saved={loaded.design} onRefresh={refresh} />;
 }
 
 /**
@@ -101,7 +107,15 @@ export function App() {
  * the config when a stored value no longer applies (a device or frame
  * variant removed from the config, for instance).
  */
-function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesign }) {
+function Loaded({
+  manifest,
+  saved,
+  onRefresh,
+}: {
+  manifest: StoreManifest;
+  saved: SavedDesign;
+  onRefresh: () => void;
+}) {
   const design = manifest.design;
   const view = loadView(manifest.app.name);
   // Both store tabs render even when only one platform is configured, so the
@@ -221,6 +235,8 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
       else delete next[sceneId];
       return { ...prev, sceneBadges: next };
     });
+  const [isLocaleModalOpen, setIsLocaleModalOpen] = useState(false);
+
   const setSceneCopy = (sceneId: string, fieldName: "headline" | "subhead", text: string) =>
     set(`copy:${sceneId}:${fieldName}`, (prev) => ({
       ...prev,
@@ -229,6 +245,23 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
         [sceneId]: {
           ...prev.copy[sceneId],
           [fieldName]: { ...prev.copy[sceneId]?.[fieldName], [locale]: text },
+        },
+      },
+    }));
+
+  const setLocaleCopy = (
+    sceneId: string,
+    fieldName: "headline" | "subhead",
+    targetLocale: string,
+    text: string,
+  ) =>
+    set(`copy:${sceneId}:${fieldName}:${targetLocale}`, (prev) => ({
+      ...prev,
+      copy: {
+        ...prev.copy,
+        [sceneId]: {
+          ...prev.copy[sceneId],
+          [fieldName]: { ...prev.copy[sceneId]?.[fieldName], [targetLocale]: text },
         },
       },
     }));
@@ -304,8 +337,12 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
   // a system font for characters the chosen stack cannot draw. Only the bare
   // stack is saved to goldie.design.json.
   const cjk = design.fonts.find((f) => f.key === "noto-sans-sc");
-  const previewFontFamily =
+  const rtlFallbacks = `"Geeza Pro", "Damascus", "Arial", sans-serif`;
+  let previewFontFamily =
     cjk && !fontFamily.includes(cjk.family) ? `${fontFamily}, "${cjk.family}"` : fontFamily;
+  if (!previewFontFamily.includes("Geeza Pro")) {
+    previewFontFamily = `${previewFontFamily}, ${rtlFallbacks}`;
+  }
 
   const platformDevices = manifest.devices.filter((d) => d.platform === platform);
   const spec = platformDevices.find((d) => d.key === device) ?? platformDevices[0];
@@ -329,12 +366,18 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
   // Prevent browser's default behavior of navigating away or rejecting drops on window
   useEffect(() => {
     const handleGlobalDragOver = (e: DragEvent) => {
-      if (e.dataTransfer && Array.from(e.dataTransfer.types).some((t) => t.toLowerCase() === "files")) {
+      if (
+        e.dataTransfer &&
+        Array.from(e.dataTransfer.types).some((t) => t.toLowerCase() === "files")
+      ) {
         e.preventDefault();
       }
     };
     const handleGlobalDrop = (e: DragEvent) => {
-      if (e.dataTransfer && Array.from(e.dataTransfer.types).some((t) => t.toLowerCase() === "files")) {
+      if (
+        e.dataTransfer &&
+        Array.from(e.dataTransfer.types).some((t) => t.toLowerCase() === "files")
+      ) {
         e.preventDefault();
       }
     };
@@ -378,7 +421,12 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
           if (!resolved) {
             resolved = true;
             clearTimeout(timer);
-            resolve({ name: file.name, dataUrl, width: img.naturalWidth, height: img.naturalHeight });
+            resolve({
+              name: file.name,
+              dataUrl,
+              width: img.naturalWidth,
+              height: img.naturalHeight,
+            });
           }
         };
         img.onerror = () => {
@@ -396,7 +444,8 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
   };
 
   const handleCanvasDrop = async (e: React.DragEvent) => {
-    const hasFiles = e.dataTransfer && Array.from(e.dataTransfer.types).some((t) => t.toLowerCase() === "files");
+    const hasFiles =
+      e.dataTransfer && Array.from(e.dataTransfer.types).some((t) => t.toLowerCase() === "files");
     if (!hasFiles) return;
     e.preventDefault();
     dragCounter.current = 0;
@@ -461,142 +510,170 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground select-none">
-      <Sidebar
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-background text-foreground select-none">
+      <Header
         manifest={manifest}
-        platform={platform}
-        device={device}
-        locale={locale}
         dark={dark}
+        onDark={setDark}
+        hasScreenshots={hasScreenshots}
         background={background}
         frame={frame}
         fontFamily={fontFamily}
         template={template}
         layout={layout}
         screenOnly={screenOnly}
-        headlineColor={headlineColor}
-        subheadColor={subheadColor}
         fontSizeScale={fontSizeScale}
-        onPlatform={selectPlatform}
-        onDevice={setDevice}
-        onLocale={setLocale}
-        onDark={setDark}
-        onBackground={setBackground}
-        onFrame={setFrame}
-        onFontFamily={setFontFamily}
-        onTemplate={setTemplate}
-        onLayout={setLayout}
-        onScreenOnly={setScreenOnly}
-        onHeadlineColor={setHeadlineColor}
-        onSubheadColor={setSubheadColor}
-        onFontSizeScale={setFontSizeScale}
       />
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <main
-          className="relative grid flex-1 place-items-center overflow-auto p-10"
-          onDragEnter={(e) => {
-            if (e.dataTransfer.types.includes("Files")) {
-              e.preventDefault();
-              dragCounter.current++;
-              setIsDraggingOverCanvas(true);
-            }
-          }}
-          onDragOver={(e) => {
-            if (e.dataTransfer.types.includes("Files")) {
-              e.preventDefault();
-            }
-          }}
-          onDragLeave={(e) => {
-            if (e.dataTransfer.types.includes("Files")) {
-              e.preventDefault();
-              dragCounter.current--;
-              if (dragCounter.current <= 0) {
-                dragCounter.current = 0;
-                setIsDraggingOverCanvas(false);
-              }
-            }
-          }}
-          onDrop={handleCanvasDrop}
-        >
-          {isDraggingOverCanvas ? (
-            <div className="pointer-events-none absolute inset-6 z-50 flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-primary bg-background/90 backdrop-blur-md shadow-2xl transition-all animate-in fade-in zoom-in-95 duration-150">
-              <div className="mb-4 flex size-20 items-center justify-center rounded-full bg-primary/10 text-primary">
-                <UploadIcon className="size-10 animate-bounce" strokeWidth={2.25} />
-              </div>
-              <h3 className="text-xl font-bold text-foreground">Drop screenshots here</h3>
-              <p className="mt-2 max-w-md text-center text-sm text-muted-foreground">
-                Screenshots will be framed and applied to{" "}
-                <span className="font-semibold text-foreground">All Devices</span> (iPhone, iPad, & Android).
-              </p>
-            </div>
-          ) : null}
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <Sidebar
+          manifest={manifest}
+          platform={platform}
+          device={device}
+          locale={locale}
+          background={background}
+          frame={frame}
+          fontFamily={fontFamily}
+          template={template}
+          layout={layout}
+          screenOnly={screenOnly}
+          headlineColor={headlineColor}
+          subheadColor={subheadColor}
+          fontSizeScale={fontSizeScale}
+          onPlatform={selectPlatform}
+          onDevice={setDevice}
+          onLocale={setLocale}
+          onBackground={setBackground}
+          onFrame={setFrame}
+          onFontFamily={setFontFamily}
+          onTemplate={setTemplate}
+          onLayout={setLayout}
+          onScreenOnly={setScreenOnly}
+          onHeadlineColor={setHeadlineColor}
+          onSubheadColor={setSubheadColor}
+          onFontSizeScale={setFontSizeScale}
+          onOpenLocaleManager={() => setIsLocaleModalOpen(true)}
+        />
 
-          {isImporting ? (
-            <div className="pointer-events-none absolute inset-6 z-50 flex flex-col items-center justify-center rounded-3xl bg-background/90 backdrop-blur-md shadow-2xl animate-in fade-in duration-150">
-              <Loader2Icon className="size-12 animate-spin text-primary" />
-              <h3 className="mt-4 text-lg font-semibold text-foreground">
-                Importing captures across all devices…
-              </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Framing for iPhone, iPad, and Android
-              </p>
-            </div>
-          ) : null}
-          {hasScreenshots && spec && captures ? (
-            <div className="w-full max-w-[1400px]">
-              <Strip
-                design={design}
-                captures={captures}
-                spec={spec}
-                locale={locale}
-                background={background}
-                frameUrl={frameUrl}
-                fontFamily={previewFontFamily}
-                headlineColor={headlineColor}
-                subheadColor={subheadColor}
-                fontSizeScale={fontSizeScale}
-                copy={copy}
-                onCopy={setSceneCopy}
-                order={order}
-                onReorder={setOrder}
-                template={
-                  template === CUSTOM_TEMPLATE && Array.isArray(design.template)
-                    ? design.template
-                    : template
+        <div className="flex min-w-0 flex-1 flex-col">
+          <main
+            className="relative grid flex-1 place-items-center overflow-auto p-10"
+            onDragEnter={(e) => {
+              if (e.dataTransfer.types.includes("Files")) {
+                e.preventDefault();
+                dragCounter.current++;
+                setIsDraggingOverCanvas(true);
+              }
+            }}
+            onDragOver={(e) => {
+              if (e.dataTransfer.types.includes("Files")) {
+                e.preventDefault();
+              }
+            }}
+            onDragLeave={(e) => {
+              if (e.dataTransfer.types.includes("Files")) {
+                e.preventDefault();
+                dragCounter.current--;
+                if (dragCounter.current <= 0) {
+                  dragCounter.current = 0;
+                  setIsDraggingOverCanvas(false);
                 }
-                layout={layout}
-                screenOnly={screenOnly}
-                sceneLayouts={sceneLayouts}
-                onSceneLayout={setSceneLayout}
-                sceneBackgrounds={sceneBackgrounds}
-                onSceneBackground={setSceneBackground}
-                sceneBadges={sceneBadges}
-                onSceneBadge={setSceneBadge}
+              }
+            }}
+            onDrop={handleCanvasDrop}
+          >
+            {isDraggingOverCanvas ? (
+              <div className="pointer-events-none absolute inset-6 z-50 flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-primary bg-background/90 backdrop-blur-md shadow-2xl transition-all animate-in fade-in zoom-in-95 duration-150">
+                <div className="mb-4 flex size-20 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <UploadIcon className="size-10 animate-bounce" strokeWidth={2.25} />
+                </div>
+                <h3 className="text-xl font-bold text-foreground">Drop screenshots here</h3>
+                <p className="mt-2 max-w-md text-center text-sm text-muted-foreground">
+                  Screenshots will be framed and applied to{" "}
+                  <span className="font-semibold text-foreground">All Devices</span> (iPhone, iPad,
+                  & Android).
+                </p>
+              </div>
+            ) : null}
+
+            {isImporting ? (
+              <div className="pointer-events-none absolute inset-6 z-50 flex flex-col items-center justify-center rounded-3xl bg-background/90 backdrop-blur-md shadow-2xl animate-in fade-in duration-150">
+                <Loader2Icon className="size-12 animate-spin text-primary" />
+                <h3 className="mt-4 text-lg font-semibold text-foreground">
+                  Importing captures across all devices…
+                </h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Framing for iPhone, iPad, and Android
+                </p>
+              </div>
+            ) : null}
+            {hasScreenshots && spec && captures ? (
+              <div className="w-full max-w-[1400px]">
+                <Strip
+                  design={design}
+                  captures={captures}
+                  spec={spec}
+                  locale={locale}
+                  background={background}
+                  frameUrl={frameUrl}
+                  fontFamily={previewFontFamily}
+                  headlineColor={headlineColor}
+                  subheadColor={subheadColor}
+                  fontSizeScale={fontSizeScale}
+                  copy={copy}
+                  onCopy={setSceneCopy}
+                  order={order}
+                  onReorder={setOrder}
+                  template={
+                    template === CUSTOM_TEMPLATE && Array.isArray(design.template)
+                      ? design.template
+                      : template
+                  }
+                  layout={layout}
+                  screenOnly={screenOnly}
+                  sceneLayouts={sceneLayouts}
+                  onSceneLayout={setSceneLayout}
+                  sceneBackgrounds={sceneBackgrounds}
+                  onSceneBackground={setSceneBackground}
+                  sceneBadges={sceneBadges}
+                  onSceneBadge={setSceneBadge}
+                />
+              </div>
+            ) : spec ? (
+              <EmptyState
+                icon={CameraIcon}
+                title={`No screenshots for ${deviceLabel(spec)} yet`}
+                body="Drag & drop screenshots anywhere to get started, or browse files to auto-frame:"
+                command="goldie capture && goldie manifest"
+                deviceKey={spec.key}
+                platform={platform}
+                appName={manifest.app.name}
               />
-            </div>
-          ) : spec ? (
-            <EmptyState
-              icon={CameraIcon}
-              title={`No screenshots for ${deviceLabel(spec)} yet`}
-              body="Drag & drop screenshots anywhere to get started, or browse files to auto-frame:"
-              command="goldie capture && goldie manifest"
-              deviceKey={spec.key}
-              platform={platform}
-              appName={manifest.app.name}
-            />
-          ) : (
-            <EmptyState
-              {...ENABLE_PLATFORM[platform]}
-              platform={platform}
-              appName={manifest.app.name}
-            />
-          )}
-        </main>
+            ) : (
+              <EmptyState
+                {...ENABLE_PLATFORM[platform]}
+                platform={platform}
+                appName={manifest.app.name}
+              />
+            )}
+          </main>
+        </div>
       </div>
 
       {toastMessage ? <Toast message={toastMessage} /> : null}
       {saveError ? <Toast message={`Could not save design: ${saveError}`} /> : null}
+
+      <LocaleManagerModal
+        isOpen={isLocaleModalOpen}
+        onClose={() => setIsLocaleModalOpen(false)}
+        manifest={manifest}
+        design={design}
+        copy={copy}
+        onUpdateLocaleCopy={setLocaleCopy}
+        onRefreshManifest={onRefresh}
+        activeLocale={locale}
+        onSelectLocale={setLocale}
+      />
     </div>
   );
 }

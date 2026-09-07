@@ -84,7 +84,12 @@ export function fontStack(key: string): string {
  */
 export function withGlyphFallback(stack: string): string {
   const cjk = FONTS["noto-sans-sc"].family;
-  return stack.includes(cjk) ? stack : `${stack}, "${cjk}"`;
+  const fallbacks = [cjk, "Geeza Pro", "Damascus", "Arial", "sans-serif"];
+  let res = stack;
+  for (const fb of fallbacks) {
+    if (!res.includes(fb)) res += `, "${fb}"`;
+  }
+  return res;
 }
 
 let registered = false;

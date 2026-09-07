@@ -203,3 +203,29 @@ export async function saveDesign(design: SavedDesign): Promise<void> {
   });
   if (!res.ok) throw new Error(`Saving goldie.design.json failed: ${await res.text()}`);
 }
+
+/**
+ * Detects whether a locale uses Right-to-Left (RTL) script (Arabic, Hebrew, Persian, Urdu, etc.).
+ */
+export function isRtlLocale(locale?: string): boolean {
+  if (!locale) return false;
+  const lang = locale.toLowerCase().split(/[-_]/)[0];
+  return (
+    lang === "ar" ||
+    lang === "he" ||
+    lang === "iw" ||
+    lang === "fa" ||
+    lang === "ur" ||
+    lang === "yi"
+  );
+}
+
+/**
+ * The CLI's --font key for the current font stack: a bundled font's key when
+ * the stack names its family, "system" when it is the config's own stack
+ * (the CLI then leaves theme.fontFamily alone), else undefined.
+ */
+export function fontKey(design: StoreManifest["design"], fontFamily: string): string | undefined {
+  if (fontFamily === design.theme.fontFamily) return undefined;
+  return design.fonts.find((f) => fontFamily.startsWith(`"${f.family}"`))?.key ?? "system";
+}

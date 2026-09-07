@@ -49,4 +49,3 @@ export const IPAD_FRAME = {
     screenRadius: 72,
   },
 } as const;
-

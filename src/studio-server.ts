@@ -267,7 +267,7 @@ export function resolveDeviceFromDimensions(
   const aspect = portraitWidth / portraitHeight;
 
   // 1. iPad: aspect ratio ~ 3:4 = 0.75 (e.g. 2064/2752 = 0.75, 2048/2732 = 0.7496)
-  if (aspect >= 0.70 && aspect <= 0.82) {
+  if (aspect >= 0.7 && aspect <= 0.82) {
     return "ipad-13";
   }
 
@@ -284,7 +284,7 @@ export function resolveDeviceFromDimensions(
   if (
     (portraitWidth === 1280 && portraitHeight === 2856) ||
     (portraitWidth === 1080 && (portraitHeight === 1920 || portraitHeight === 2400)) ||
-    (aspect >= 0.53 && aspect <= 0.60)
+    (aspect >= 0.53 && aspect <= 0.6)
   ) {
     return "pixel-10-pro";
   }
@@ -321,14 +321,19 @@ export function replaceCaptureHandler({ paths, cli }: StudioApi): Handler {
 
     readBody(req).then(async (body) => {
       try {
-        const { sceneId, device: preferredDevice, autoRoute, file } = JSON.parse(body) as {
+        const {
+          sceneId,
+          device: preferredDevice,
+          autoRoute,
+          file,
+        } = JSON.parse(body) as {
           sceneId: string;
           device?: string;
           autoRoute?: boolean;
           file: { name: string; dataUrl: string; width?: number; height?: number };
         };
 
-        if (!sceneId || !file || !file.dataUrl) {
+        if (!sceneId || !file?.dataUrl) {
           res.statusCode = 400;
           res.setHeader("Content-Type", "application/json");
           res.end(JSON.stringify({ error: "sceneId and file with dataUrl are required" }));
@@ -368,9 +373,7 @@ export function replaceCaptureHandler({ paths, cli }: StudioApi): Handler {
           } catch {}
         }
 
-        const screenshotMap = new Map(
-          existingManifest.screenshots.map((s) => [s.sceneId, s.file]),
-        );
+        const screenshotMap = new Map(existingManifest.screenshots.map((s) => [s.sceneId, s.file]));
         screenshotMap.set(sceneId, targetFile);
 
         const updatedManifest = {
@@ -390,14 +393,7 @@ export function replaceCaptureHandler({ paths, cli }: StudioApi): Handler {
         try {
           await exec(
             bin!,
-            [
-              ...prefix,
-              "frame",
-              "--config",
-              paths.configPath,
-              "--device",
-              targetDevice,
-            ],
+            [...prefix, "frame", "--config", paths.configPath, "--device", targetDevice],
             { quiet: true },
           );
         } catch (frameErr) {
@@ -1020,6 +1016,191 @@ export function singleExportHandler({ paths, cli }: StudioApi): Handler {
   };
 }
 
+export type PresetLocale = {
+  code: string;
+  label: string;
+  rtl: boolean;
+};
+
+export const PRESET_LOCALES: PresetLocale[] = [
+  { code: "en-US", label: "English (US)", rtl: false },
+  { code: "es-ES", label: "Spanish (Spain)", rtl: false },
+  { code: "es-MX", label: "Spanish (Mexico)", rtl: false },
+  { code: "fr-FR", label: "French (France)", rtl: false },
+  { code: "de-DE", label: "German (Germany)", rtl: false },
+  { code: "it-IT", label: "Italian (Italy)", rtl: false },
+  { code: "pt-BR", label: "Portuguese (Brazil)", rtl: false },
+  { code: "ja-JP", label: "Japanese", rtl: false },
+  { code: "ko-KR", label: "Korean", rtl: false },
+  { code: "zh-Hans", label: "Chinese (Simplified)", rtl: false },
+  { code: "zh-Hant", label: "Chinese (Traditional)", rtl: false },
+  { code: "ar-SA", label: "Arabic (Saudi Arabia)", rtl: true },
+  { code: "he-IL", label: "Hebrew (Israel)", rtl: true },
+  { code: "fa-IR", label: "Persian (Iran)", rtl: true },
+  { code: "ur-PK", label: "Urdu (Pakistan)", rtl: true },
+  { code: "ru-RU", label: "Russian", rtl: false },
+  { code: "hi-IN", label: "Hindi (India)", rtl: false },
+  { code: "tr-TR", label: "Turkish", rtl: false },
+  { code: "nl-NL", label: "Dutch (Netherlands)", rtl: false },
+  { code: "vi-VN", label: "Vietnamese", rtl: false },
+  { code: "th-TH", label: "Thai", rtl: false },
+  { code: "id-ID", label: "Indonesian", rtl: false },
+  { code: "sv-SE", label: "Swedish", rtl: false },
+];
+
+export function extractLocalesFromConfig(content: string): string[] {
+  const match = content.match(/locales:\s*\[([^\]]*)\]/);
+  if (!match) return ["en-US"];
+  const rawItems = match[1].split(",");
+  const locales = rawItems
+    .map((s) => s.trim().replace(/^['"]|['"]$/g, ""))
+    .filter((s) => s.length > 0);
+  return locales.length > 0 ? locales : ["en-US"];
+}
+
+export function updateLocalesInConfig(content: string, locales: string[]): string {
+  const formatted = `locales: [${locales.map((l) => `"${l}"`).join(", ")}]`;
+  const regex = /locales:\s*\[[^\]]*\]/;
+  if (regex.test(content)) {
+    return content.replace(regex, formatted);
+  }
+  const devicesMatch = content.match(/devices:\s*\[[^\]]*\],?/);
+  if (devicesMatch && devicesMatch.index !== undefined) {
+    const pos = devicesMatch.index + devicesMatch[0].length;
+    return `${content.slice(0, pos)}\n  ${formatted},${content.slice(pos)}`;
+  }
+  return content;
+}
+
+/** Handles GET and POST /api/locales */
+export function localesHandler({ paths, cli }: StudioApi): Handler {
+  return (req, res) => {
+    if (req.method === "GET") {
+      (async () => {
+        try {
+          let currentLocales: string[] = [];
+          if (existsSync(paths.designFile)) {
+            try {
+              const design = JSON.parse(await readFile(paths.designFile, "utf8"));
+              if (Array.isArray(design.locales) && design.locales.length > 0) {
+                currentLocales = design.locales;
+              }
+            } catch {}
+          }
+          if (currentLocales.length === 0) {
+            const configFiles = getConfigPaths(paths);
+            for (const cfgPath of configFiles) {
+              try {
+                const content = await readFile(cfgPath, "utf8");
+                currentLocales = extractLocalesFromConfig(content);
+                if (currentLocales.length > 0) break;
+              } catch {}
+            }
+          }
+          if (currentLocales.length === 0) {
+            currentLocales = ["en-US"];
+          }
+
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ locales: currentLocales, presets: PRESET_LOCALES }));
+        } catch (err) {
+          res.statusCode = 500;
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+        }
+      })();
+      return;
+    }
+
+    if (req.method === "POST") {
+      readBody(req).then(async (body) => {
+        try {
+          const payload = JSON.parse(body || "{}") as {
+            action?: "add" | "remove";
+            locale?: string;
+            locales?: string[];
+          };
+
+          let currentLocales: string[] = [];
+          const configFiles = getConfigPaths(paths);
+          for (const cfgPath of configFiles) {
+            try {
+              const content = await readFile(cfgPath, "utf8");
+              currentLocales = extractLocalesFromConfig(content);
+              if (currentLocales.length > 0) break;
+            } catch {}
+          }
+          if (currentLocales.length === 0) currentLocales = ["en-US"];
+
+          let updatedLocales: string[] = [...currentLocales];
+
+          if (Array.isArray(payload.locales) && payload.locales.length > 0) {
+            updatedLocales = Array.from(
+              new Set(payload.locales.map((l) => l.trim()).filter(Boolean)),
+            );
+          } else if (payload.action === "add" && payload.locale) {
+            const l = payload.locale.trim();
+            if (l && !updatedLocales.includes(l)) {
+              updatedLocales.push(l);
+            }
+          } else if (payload.action === "remove" && payload.locale) {
+            const l = payload.locale.trim();
+            if (updatedLocales.length <= 1) {
+              res.statusCode = 400;
+              res.setHeader("Content-Type", "application/json");
+              res.end(JSON.stringify({ error: "Cannot remove the only remaining locale" }));
+              return;
+            }
+            updatedLocales = updatedLocales.filter((item) => item !== l);
+          } else {
+            res.statusCode = 400;
+            res.setHeader("Content-Type", "application/json");
+            res.end(JSON.stringify({ error: "Invalid locale request payload" }));
+            return;
+          }
+
+          if (updatedLocales.length === 0) {
+            updatedLocales = ["en-US"];
+          }
+
+          // Write updated locales into all config files
+          for (const cfgPath of configFiles) {
+            try {
+              const content = await readFile(cfgPath, "utf8");
+              const updatedContent = updateLocalesInConfig(content, updatedLocales);
+              await writeFile(cfgPath, updatedContent, "utf8");
+            } catch {}
+          }
+
+          // Also update designFile if it exists
+          if (existsSync(paths.designFile)) {
+            try {
+              const design = JSON.parse(await readFile(paths.designFile, "utf8"));
+              design.locales = updatedLocales;
+              await writeFile(paths.designFile, JSON.stringify(design, null, 2), "utf8");
+            } catch {}
+          }
+
+          // Run manifest to refresh out/web/store.json
+          const [bin, ...prefix] = cli;
+          await exec(bin!, [...prefix, "manifest", "--config", paths.configPath], { quiet: true });
+
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ok: true, locales: updatedLocales }));
+        } catch (err) {
+          res.statusCode = 500;
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+        }
+      });
+      return;
+    }
+
+    res.statusCode = 405;
+    res.end("Method Not Allowed");
+  };
+}
+
 /** The studio bundle Vite emits; shipped in the npm package. */
 export const STUDIO_DIST = resolve(dirname(fileURLToPath(import.meta.url)), "..", "studio", "dist");
 
@@ -1040,11 +1221,13 @@ export function serveStudio(api: StudioApi, port = 4321): Promise<string> {
   const repCapture = replaceCaptureHandler(api);
   const del = deleteHandler(api);
   const delAll = deleteAllHandler(api);
+  const locales = localesHandler(api);
 
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
     const path = url.pathname;
     if (path === "/api/design") return design(req, res);
+    if (path === "/api/locales") return locales(req, res);
     if (path.startsWith("/api/export-single")) return expSingle(req, res);
     if (path.startsWith("/api/export")) return exp(path.slice("/api/export".length))(req, res);
     if (path === "/api/import") return imp(req, res);

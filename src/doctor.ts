@@ -29,7 +29,9 @@ export async function doctor(cfg: LoadedConfig): Promise<boolean> {
     checks.push({
       name: "macOS host",
       ok: mac,
-      detail: mac ? process.platform : `${process.platform}: iOS and iPad simulators run only on macOS`,
+      detail: mac
+        ? process.platform
+        : `${process.platform}: iOS and iPad simulators run only on macOS`,
       fix: "Run goldie on a Mac, or keep only android devices (pixel-10-pro) in `devices`",
     });
     checks.push({
