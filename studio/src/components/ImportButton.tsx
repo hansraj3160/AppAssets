@@ -17,10 +17,39 @@ export function ImportButton({
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const readFileAsDataUrl = (file: File): Promise<{ name: string; dataUrl: string }> => {
+  const readFileAsDataUrl = (
+    file: File,
+  ): Promise<{ name: string; dataUrl: string; width: number; height: number }> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => resolve({ name: file.name, dataUrl: reader.result as string });
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        const img = new Image();
+        let resolved = false;
+
+        const timer = setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            resolve({ name: file.name, dataUrl, width: 0, height: 0 });
+          }
+        }, 1000);
+
+        img.onload = () => {
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            resolve({ name: file.name, dataUrl, width: img.naturalWidth, height: img.naturalHeight });
+          }
+        };
+        img.onerror = () => {
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            resolve({ name: file.name, dataUrl, width: 0, height: 0 });
+          }
+        };
+        img.src = dataUrl;
+      };
       reader.onerror = () => reject(new Error(`Failed to read file ${file.name}`));
       reader.readAsDataURL(file);
     });
@@ -43,7 +72,7 @@ export function ImportButton({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ files: filePayloads }),
+        body: JSON.stringify({ files: filePayloads, targetMode: "all", autoRoute: false }),
       });
 
       if (!response.ok) {
@@ -51,7 +80,14 @@ export function ImportButton({
         throw new Error(data.error || `Upload failed with status ${response.status}`);
       }
 
-      // Reload page to reflect imported screenshots in Studio
+      const resData = (await response.json().catch(() => ({}))) as {
+        imported?: number;
+        targetDevice?: string;
+      };
+      sessionStorage.setItem(
+        "goldie_toast",
+        `✨ Successfully imported ${resData.imported || filePayloads.length} screenshot(s)!`,
+      );
       window.location.reload();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to import images");

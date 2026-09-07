@@ -392,11 +392,28 @@ export function Strip({
       reader.onload = () => {
         const dataUrl = reader.result as string;
         const img = new Image();
+        let resolved = false;
+
+        const timer = setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            resolve({ dataUrl, width: 0, height: 0 });
+          }
+        }, 1000);
+
         img.onload = () => {
-          resolve({ dataUrl, width: img.naturalWidth, height: img.naturalHeight });
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            resolve({ dataUrl, width: img.naturalWidth, height: img.naturalHeight });
+          }
         };
         img.onerror = () => {
-          resolve({ dataUrl, width: 0, height: 0 });
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            resolve({ dataUrl, width: 0, height: 0 });
+          }
         };
         img.src = dataUrl;
       };
@@ -428,6 +445,7 @@ export function Strip({
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || `Failed with status ${res.status}`);
       }
+      sessionStorage.setItem("goldie_toast", `✨ Updated capture for scene "${sceneId}" on ${tileSpec.key}`);
       window.location.reload();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to replace capture");
@@ -1560,16 +1578,24 @@ function Tile({
 
   return (
     <div
-      className="group relative"
+      className={`group relative transition-all rounded-2xl ${
+        isDragOver ? "ring-4 ring-primary scale-[1.02] z-30" : ""
+      }`}
       onDragEnter={(e) => {
-        if (e.dataTransfer.types.includes("Files")) {
+        const hasFiles =
+          e.dataTransfer &&
+          Array.from(e.dataTransfer.types).some((t) => t.toLowerCase() === "files");
+        if (hasFiles) {
           e.preventDefault();
           e.stopPropagation();
           setIsDragOver(true);
         }
       }}
       onDragOver={(e) => {
-        if (e.dataTransfer.types.includes("Files")) {
+        const hasFiles =
+          e.dataTransfer &&
+          Array.from(e.dataTransfer.types).some((t) => t.toLowerCase() === "files");
+        if (hasFiles) {
           e.preventDefault();
           e.stopPropagation();
           setIsDragOver(true);
@@ -1581,11 +1607,23 @@ function Tile({
         setIsDragOver(false);
       }}
       onDrop={(e) => {
-        if (e.dataTransfer.types.includes("Files")) {
+        const hasFiles =
+          e.dataTransfer &&
+          Array.from(e.dataTransfer.types).some((t) => t.toLowerCase() === "files");
+        if (hasFiles) {
           e.preventDefault();
           e.stopPropagation();
           setIsDragOver(false);
-          const file = e.dataTransfer.files?.[0];
+          let file: File | undefined = e.dataTransfer.files?.[0];
+          if (!file && e.dataTransfer.items) {
+            for (const item of Array.from(e.dataTransfer.items)) {
+              const f = item.getAsFile();
+              if (f) {
+                file = f;
+                break;
+              }
+            }
+          }
           if (file && onReplace) {
             onReplace(file);
           }

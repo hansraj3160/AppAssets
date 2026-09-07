@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   findScreenshotFile,
   getDimensionsFromBuffer,
+  importHandler,
   replaceCaptureHandler,
   resolveDeviceFromDimensions,
 } from "./studio-server.ts";
@@ -75,6 +76,14 @@ describe("resolveDeviceFromDimensions", () => {
     expect(resolveDeviceFromDimensions(0, 0, "pixel-10-pro")).toBe("pixel-10-pro");
     expect(resolveDeviceFromDimensions(0, 0, "invalid")).toBe("iphone-6.9");
   });
+
+  test("honors mobile preferredDevice for phone aspect ratios", () => {
+    // 1080x2400 is aspect 0.45; if user prefers iphone-6.9, routes to iphone-6.9
+    expect(resolveDeviceFromDimensions(1080, 2400, "iphone-6.9")).toBe("iphone-6.9");
+    expect(resolveDeviceFromDimensions(1080, 2400, "pixel-10-pro")).toBe("pixel-10-pro");
+    // iPad aspect (~0.75) stays iPad even if iphone was requested
+    expect(resolveDeviceFromDimensions(2064, 2752, "iphone-6.9")).toBe("ipad-13");
+  });
 });
 
 describe("getDimensionsFromBuffer", () => {
@@ -102,6 +111,38 @@ describe("getDimensionsFromBuffer", () => {
 describe("replaceCaptureHandler", () => {
   test("rejects non-POST requests with 405", () => {
     const handler = replaceCaptureHandler({
+      paths: {
+        configPath: "goldie.config.ts",
+        configDir: ".",
+        outDir: "out",
+        webDir: "out/web",
+        designFile: "goldie.design.json",
+        exportZip: "out/export.zip",
+      },
+      cli: ["echo"],
+    });
+
+    let statusCode = 0;
+    let endedWith = "";
+    const req = { method: "GET" } as any;
+    const res = {
+      set statusCode(code: number) {
+        statusCode = code;
+      },
+      end(body: string) {
+        endedWith = body;
+      },
+    } as any;
+
+    handler(req, res);
+    expect(statusCode).toBe(405);
+    expect(endedWith).toBe("POST only");
+  });
+});
+
+describe("importHandler", () => {
+  test("rejects non-POST requests with 405", () => {
+    const handler = importHandler({
       paths: {
         configPath: "goldie.config.ts",
         configDir: ".",

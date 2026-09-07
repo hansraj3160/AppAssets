@@ -310,13 +310,52 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
   const platformDevices = manifest.devices.filter((d) => d.platform === platform);
   const spec = platformDevices.find((d) => d.key === device) ?? platformDevices[0];
   const captures = spec ? design.captures[spec.key] : undefined;
+  const hasScreenshots = Boolean(
+    spec &&
+      captures &&
+      design.scenes.length > 0 &&
+      ((captures.screenshots && captures.screenshots.length > 0) ||
+        (captures.clips && captures.clips.length > 0)),
+  );
   const frameUrl = frame
     ? `frames/${frame}.png`
     : (design.customFrameUrl ?? `frames/${design.frameVariants[0]}.png`);
 
   const [isDraggingOverCanvas, setIsDraggingOverCanvas] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const dragCounter = useRef(0);
+
+  // Prevent browser's default behavior of navigating away or rejecting drops on window
+  useEffect(() => {
+    const handleGlobalDragOver = (e: DragEvent) => {
+      if (e.dataTransfer && Array.from(e.dataTransfer.types).some((t) => t.toLowerCase() === "files")) {
+        e.preventDefault();
+      }
+    };
+    const handleGlobalDrop = (e: DragEvent) => {
+      if (e.dataTransfer && Array.from(e.dataTransfer.types).some((t) => t.toLowerCase() === "files")) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("dragover", handleGlobalDragOver);
+    window.addEventListener("drop", handleGlobalDrop);
+    return () => {
+      window.removeEventListener("dragover", handleGlobalDragOver);
+      window.removeEventListener("drop", handleGlobalDrop);
+    };
+  }, []);
+
+  // Display persistent session toast across page reloads
+  useEffect(() => {
+    const savedToast = sessionStorage.getItem("goldie_toast");
+    if (savedToast) {
+      sessionStorage.removeItem("goldie_toast");
+      setToastMessage(savedToast);
+      const timer = setTimeout(() => setToastMessage(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   const readFileData = (
     file: File,
@@ -326,11 +365,28 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
       reader.onload = () => {
         const dataUrl = reader.result as string;
         const img = new Image();
+        let resolved = false;
+
+        const timer = setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            resolve({ name: file.name, dataUrl, width: 0, height: 0 });
+          }
+        }, 1000);
+
         img.onload = () => {
-          resolve({ name: file.name, dataUrl, width: img.naturalWidth, height: img.naturalHeight });
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            resolve({ name: file.name, dataUrl, width: img.naturalWidth, height: img.naturalHeight });
+          }
         };
         img.onerror = () => {
-          resolve({ name: file.name, dataUrl, width: 0, height: 0 });
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            resolve({ name: file.name, dataUrl, width: 0, height: 0 });
+          }
         };
         img.src = dataUrl;
       };
@@ -340,12 +396,23 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
   };
 
   const handleCanvasDrop = async (e: React.DragEvent) => {
-    if (!e.dataTransfer.types.includes("Files")) return;
+    const hasFiles = e.dataTransfer && Array.from(e.dataTransfer.types).some((t) => t.toLowerCase() === "files");
+    if (!hasFiles) return;
     e.preventDefault();
     dragCounter.current = 0;
     setIsDraggingOverCanvas(false);
 
-    const files = Array.from(e.dataTransfer.files).filter(
+    const droppedFiles: File[] = [];
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      droppedFiles.push(...Array.from(e.dataTransfer.files));
+    } else if (e.dataTransfer.items) {
+      for (const item of Array.from(e.dataTransfer.items)) {
+        const f = item.getAsFile();
+        if (f) droppedFiles.push(f);
+      }
+    }
+
+    const files = droppedFiles.filter(
       (f) => f.type.startsWith("image/") || /\.(png|jpe?g|webp)$/i.test(f.name),
     );
     if (files.length === 0) return;
@@ -356,12 +423,36 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
       const res = await fetch("/api/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ files: payloads, autoRoute: true }),
+        body: JSON.stringify({
+          files: payloads,
+          preferredDevice: device,
+          targetMode: "all",
+          autoRoute: false,
+        }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || `Upload failed with status ${res.status}`);
       }
+      const data = (await res.json()) as {
+        ok: boolean;
+        imported: number;
+        targetDevice?: string;
+        targetPlatform?: Platform;
+      };
+
+      if (data.targetPlatform && data.targetDevice) {
+        storeView(manifest.app.name, {
+          platform: data.targetPlatform,
+          device: data.targetDevice,
+          locale,
+          dark,
+        });
+      }
+      sessionStorage.setItem(
+        "goldie_toast",
+        `✨ Successfully imported ${data.imported || files.length} screenshot(s) into ${data.targetDevice || device}!`,
+      );
       window.location.reload();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to import images");
@@ -435,10 +526,8 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
               </div>
               <h3 className="text-xl font-bold text-foreground">Drop screenshots here</h3>
               <p className="mt-2 max-w-md text-center text-sm text-muted-foreground">
-                Images will be automatically routed to{" "}
-                <span className="font-semibold text-foreground">iPhone</span>,{" "}
-                <span className="font-semibold text-foreground">iPad</span>, or{" "}
-                <span className="font-semibold text-foreground">Android</span> based on their resolution.
+                Screenshots will be framed and applied to{" "}
+                <span className="font-semibold text-foreground">All Devices</span> (iPhone, iPad, & Android).
               </p>
             </div>
           ) : null}
@@ -447,14 +536,14 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
             <div className="pointer-events-none absolute inset-6 z-50 flex flex-col items-center justify-center rounded-3xl bg-background/90 backdrop-blur-md shadow-2xl animate-in fade-in duration-150">
               <Loader2Icon className="size-12 animate-spin text-primary" />
               <h3 className="mt-4 text-lg font-semibold text-foreground">
-                Processing & auto-routing captures…
+                Importing captures across all devices…
               </h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                Updating store manifest and device assets
+                Framing for iPhone, iPad, and Android
               </p>
             </div>
           ) : null}
-          {spec && captures ? (
+          {hasScreenshots && spec && captures ? (
             <div className="w-full max-w-[1400px]">
               <Strip
                 design={design}
@@ -489,16 +578,24 @@ function Loaded({ manifest, saved }: { manifest: StoreManifest; saved: SavedDesi
           ) : spec ? (
             <EmptyState
               icon={CameraIcon}
-              title={`No screenshots for the ${deviceLabel(spec)} yet`}
-              body={`Ask your coding agent to capture the ${deviceLabel(spec)}, or run:`}
+              title={`No screenshots for ${deviceLabel(spec)} yet`}
+              body="Drag & drop screenshots anywhere to get started, or browse files to auto-frame:"
               command="goldie capture && goldie manifest"
+              deviceKey={spec.key}
+              platform={platform}
+              appName={manifest.app.name}
             />
           ) : (
-            <EmptyState {...ENABLE_PLATFORM[platform]} />
+            <EmptyState
+              {...ENABLE_PLATFORM[platform]}
+              platform={platform}
+              appName={manifest.app.name}
+            />
           )}
         </main>
       </div>
 
+      {toastMessage ? <Toast message={toastMessage} /> : null}
       {saveError ? <Toast message={`Could not save design: ${saveError}`} /> : null}
     </div>
   );

@@ -5,7 +5,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { dirname, extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { exec } from "./exec.ts";
-import type { DeviceKey } from "./specs.ts";
+import { DEVICES, type DeviceKey } from "./specs.ts";
 import { storeZipPath, zipDirs } from "./zip.ts";
 
 /**
@@ -271,6 +271,14 @@ export function resolveDeviceFromDimensions(
     return "ipad-13";
   }
 
+  // If a mobile phone preferred device is specified and the aspect ratio is a phone (aspect < 0.65),
+  // honor user's preferred device (e.g. using Android screenshots on iPhone or vice versa).
+  if (preferredDevice === "iphone-6.9" || preferredDevice === "pixel-10-pro") {
+    if (aspect < 0.65) {
+      return preferredDevice;
+    }
+  }
+
   // 2. Android (Pixel 10 Pro / 9 Pro):
   // Screen sizes: 1280x2856 (aspect 0.448), 1080x2400 (aspect 0.45), 1080x1920 (aspect 0.5625)
   if (
@@ -327,7 +335,9 @@ export function replaceCaptureHandler({ paths, cli }: StudioApi): Handler {
           return;
         }
 
-        const base64Data = file.dataUrl.replace(/^data:image\/\w+;base64,/, "");
+        const base64Data = file.dataUrl.includes(";base64,")
+          ? file.dataUrl.split(";base64,")[1]!
+          : file.dataUrl.replace(/^data:[^;]+;base64,/, "");
         const buffer = Buffer.from(base64Data, "base64");
 
         const bufDim = getDimensionsFromBuffer(buffer);
@@ -419,9 +429,11 @@ export function importHandler({ paths, cli }: StudioApi): Handler {
 
     readBody(req).then(async (body) => {
       try {
-        const { files, autoRoute } = JSON.parse(body) as {
+        const { files, autoRoute, preferredDevice, targetMode } = JSON.parse(body) as {
           files: Array<{ name: string; dataUrl: string; width?: number; height?: number }>;
           autoRoute?: boolean;
+          preferredDevice?: string;
+          targetMode?: "current" | "auto" | "all";
         };
         if (!Array.isArray(files) || files.length === 0) {
           res.statusCode = 400;
@@ -433,19 +445,24 @@ export function importHandler({ paths, cli }: StudioApi): Handler {
         const allDevices: DeviceKey[] = ["iphone-6.9", "ipad-13", "pixel-10-pro"];
         const filesByDevice = new Map<DeviceKey, typeof files>();
 
-        if (autoRoute) {
+        if (targetMode === "current" && preferredDevice) {
+          filesByDevice.set(preferredDevice as DeviceKey, files);
+        } else if (targetMode === "auto") {
           for (const f of files) {
-            const base64Data = f.dataUrl.replace(/^data:image\/\w+;base64,/, "");
+            const base64Data = f.dataUrl.includes(";base64,")
+              ? f.dataUrl.split(";base64,")[1]!
+              : f.dataUrl.replace(/^data:[^;]+;base64,/, "");
             const buffer = Buffer.from(base64Data, "base64");
             const bufDim = getDimensionsFromBuffer(buffer);
             const w = f.width ?? bufDim?.width ?? 0;
             const h = f.height ?? bufDim?.height ?? 0;
-            const dev = resolveDeviceFromDimensions(w, h);
+            const dev = resolveDeviceFromDimensions(w, h, preferredDevice);
             const list = filesByDevice.get(dev) ?? [];
             list.push(f);
             filesByDevice.set(dev, list);
           }
         } else {
+          // Default: apply to all configured devices (iphone-6.9, ipad-13, pixel-10-pro)
           for (const dev of allDevices) {
             filesByDevice.set(dev, files);
           }
@@ -476,7 +493,9 @@ export function importHandler({ paths, cli }: StudioApi): Handler {
             const id = rawName.replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
             const label = rawName.replace(/[_-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
-            const base64Data = f.dataUrl.replace(/^data:image\/\w+;base64,/, "");
+            const base64Data = f.dataUrl.includes(";base64,")
+              ? f.dataUrl.split(";base64,")[1]!
+              : f.dataUrl.replace(/^data:[^;]+;base64,/, "");
             const buffer = Buffer.from(base64Data, "base64");
             const targetFile = join(rawDir, `${id}.png`);
             await writeFile(targetFile, buffer);
@@ -548,10 +567,26 @@ export function importHandler({ paths, cli }: StudioApi): Handler {
         const [bin, ...prefix] = cli;
         await exec(bin!, [...prefix, "manifest", "--config", paths.configPath], { quiet: true });
 
+        const targetDevices = Array.from(filesByDevice.keys());
+        const primaryDevice =
+          preferredDevice && targetDevices.includes(preferredDevice as DeviceKey)
+            ? preferredDevice
+            : targetDevices[0] || "iphone-6.9";
+        const targetPlatform = DEVICES[primaryDevice as DeviceKey]?.platform ?? "ios";
+
         res.statusCode = 200;
         res.setHeader("Content-Type", "application/json");
-        res.end(JSON.stringify({ ok: true, imported: files.length }));
+        res.end(
+          JSON.stringify({
+            ok: true,
+            imported: files.length,
+            devices: targetDevices,
+            targetDevice: primaryDevice,
+            targetPlatform,
+          }),
+        );
       } catch (err) {
+        console.error("Import error in importHandler:", err);
         res.statusCode = 500;
         res.setHeader("Content-Type", "application/json");
         res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
