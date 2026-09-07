@@ -70,7 +70,7 @@ export const DEVICES: Record<DeviceKey, DeviceSpec> = {
     ],
     native: { width: 2064, height: 2752 },
     screenshot: { width: 2064, height: 2752 },
-    preview: { width: 1440, height: 1920 },
+    preview: { width: 1200, height: 1600 },
   },
   // Framed with the bundled Pixel 10 Pro art (src/frame.ts), not the config's
   // frame variant, which is iPhone art with iPhone geometry. The Pixel 9 Pro
