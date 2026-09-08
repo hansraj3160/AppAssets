@@ -197,14 +197,14 @@ function drawCopy(
     },
     ...(text.subhead
       ? [
-          {
-            text: text.subhead,
-            font: `${TYPE.subheadWeight} ${tile.width * TYPE.subheadSize * scale}px ${family}`,
-            color: subheadColor,
-            lineHeight: TYPE.subheadLineHeight,
-            letterSpacing: 0,
-          },
-        ]
+        {
+          text: text.subhead,
+          font: `${TYPE.subheadWeight} ${tile.width * TYPE.subheadSize * scale}px ${family}`,
+          color: subheadColor,
+          lineHeight: TYPE.subheadLineHeight,
+          letterSpacing: 0,
+        },
+      ]
       : []),
   ].map((b) => ({ ...b, lines: wrapLines(ctx, b.text, b.font, b.letterSpacing, copy.maxWidth) }));
 
@@ -538,7 +538,7 @@ export async function renderPreview(cfg: LoadedConfig, deviceKey: DeviceKey, loc
   ) {
     throw new Error(
       `Preview is ${seconds.toFixed(1)}s; Apple requires ${PREVIEW.minSeconds}-${PREVIEW.maxSeconds}s. ` +
-        `Adjust the segment flows or their holdSeconds and re-capture.`,
+      `Adjust the segment flows or their holdSeconds and re-capture.`,
     );
   }
 
@@ -654,8 +654,8 @@ export async function verify(
     ok &&= good;
     console.log(
       `  ${good ? "ok  " : "FAIL"} ${basename(file)}  ${width}x${height}` +
-        `${alpha ? (alphaOk ? "  transparent (not for upload)" : "  alpha channel present") : ""}` +
-        `${good ? "" : `  expected ${spec.screenshot.width}x${spec.screenshot.height}, no alpha`}`,
+      `${alpha ? (alphaOk ? "  transparent (not for upload)" : "  alpha channel present") : ""}` +
+      `${good ? "" : `  expected ${spec.screenshot.width}x${spec.screenshot.height}, no alpha`}`,
     );
   }
 

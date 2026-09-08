@@ -763,7 +763,11 @@ export function Strip({
             : undefined
         }
         isDownloading={isDownloading}
-        onAiCopy={entry.sceneId ? () => setActiveAiSceneId(entry.sceneId!) : undefined}
+        onAiCopy={
+          (entry.targetSceneId ?? entry.sceneId)
+            ? () => setActiveAiSceneId((entry.targetSceneId ?? entry.sceneId)!)
+            : undefined
+        }
         sceneId={entry.sceneId}
         // Named only while the lightbox is closed: once open, the scene inside
         // it carries the name, and a duplicate would abort the transition.
@@ -969,7 +973,14 @@ export function Strip({
           }}
           isDownloading={downloadingKey === entries[open].key}
           onAiCopy={
-            entries[open]?.sceneId ? () => setActiveAiSceneId(entries[open].sceneId!) : undefined
+            (entries[open]?.targetSceneId ?? entries[open]?.sceneId)
+              ? () =>
+                  setActiveAiSceneId(
+                    (entries[open].targetSceneId ??
+                      entries[open].sceneId ??
+                      entries[open].key.split("#")[0])!,
+                  )
+              : undefined
           }
           onClose={() => setOpen(null)}
           // Stepping swaps the scene in place with no morph.

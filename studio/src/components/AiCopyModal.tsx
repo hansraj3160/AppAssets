@@ -10,7 +10,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { StoreManifest } from "../manifest";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -59,6 +59,7 @@ export function AiCopyModal({
   const [screenAnalysis, setScreenAnalysis] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<AiSuggestion[]>([]);
   const [appliedIndex, setAppliedIndex] = useState<number | null>(null);
+  const autoFetchedForRef = useRef<string | null>(null);
 
   const app = manifest?.app;
   const appDescription = app?.description?.[locale] || app?.description?.["en-US"];
@@ -89,9 +90,21 @@ export function AiCopyModal({
           }),
         });
 
-        const data = await res.json();
+        let data: {
+          ok?: boolean;
+          error?: string;
+          screenAnalysis?: string;
+          suggestions?: AiSuggestion[];
+        } = {};
+        const text = await res.text();
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = { error: text || `HTTP ${res.status} ${res.statusText}` };
+        }
+
         if (!res.ok) {
-          throw new Error(data.error || "Failed to generate AI copy");
+          throw new Error(data.error || `Failed to generate AI copy (HTTP ${res.status})`);
         }
 
         setScreenAnalysis(data.screenAnalysis || null);
@@ -105,12 +118,22 @@ export function AiCopyModal({
     [sceneId, device, locale, selectedTone, customPrompt, app, appDescription],
   );
 
-  // Auto-generate on open if we have no suggestions yet
+  // Auto-generate on open once per scene/device/locale without looping on error
   useEffect(() => {
-    if (isOpen && suggestions.length === 0 && !loading) {
+    if (!isOpen) {
+      autoFetchedForRef.current = null;
+      return;
+    }
+
+    const currentKey = `${sceneId}-${device}-${locale}`;
+    if (autoFetchedForRef.current !== currentKey) {
+      autoFetchedForRef.current = currentKey;
+      setError(null);
+      setSuggestions([]);
+      setScreenAnalysis(null);
       fetchAiSuggestions();
     }
-  }, [isOpen, suggestions.length, loading, fetchAiSuggestions]);
+  }, [isOpen, sceneId, device, locale, fetchAiSuggestions]);
 
   const handleApplyBoth = (suggestion: AiSuggestion, index: number) => {
     onApplyCopy(sceneId, "headline", suggestion.headline);

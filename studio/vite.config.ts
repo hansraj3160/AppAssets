@@ -4,6 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin, type ViteDevServer } from "vite";
 import {
+  aiCopyHandler,
   deleteAllHandler,
   deleteHandler,
   designHandler,
@@ -59,9 +60,11 @@ function goldieApi(): Plugin {
   const del = deleteHandler(api);
   const delAll = deleteAllHandler(api);
   const locales = localesHandler(api);
+  const aiCopy = aiCopyHandler(api);
   return {
     name: "goldie-api",
     configureServer(server: ViteDevServer) {
+      server.middlewares.use("/api/ai/generate-copy", aiCopy);
       server.middlewares.use("/api/design", design);
       server.middlewares.use("/api/locales", locales);
       server.middlewares.use("/api/export-single", expSingle);

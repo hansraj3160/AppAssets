@@ -1,9 +1,10 @@
 import { spawn } from "node:child_process";
-import { createReadStream, existsSync, statSync } from "node:fs";
+import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
 import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createCanvas, loadImage } from "@napi-rs/canvas";
 import { exec } from "./exec.ts";
 import { DEVICES, type DeviceKey } from "./specs.ts";
 import { storeZipPath, zipDirs } from "./zip.ts";
@@ -1042,6 +1043,66 @@ export function singleExportHandler({ paths, cli }: StudioApi): Handler {
   };
 }
 
+/** Finds and loads GEMINI_API_KEY from process.env or .env file in config dir, workspace root, or cwd */
+export function getGeminiApiKey(paths?: StudioPaths): string | undefined {
+  if (process.env.GEMINI_API_KEY?.trim()) {
+    return process.env.GEMINI_API_KEY.trim();
+  }
+
+  const envCandidates: string[] = [];
+  if (paths?.configPath) {
+    envCandidates.push(join(dirname(paths.configPath), ".env"));
+  }
+  envCandidates.push(
+    join(process.cwd(), ".env"),
+    join(process.cwd(), "..", ".env"),
+    resolve(dirname(fileURLToPath(import.meta.url)), "..", ".env"),
+  );
+
+  for (const envPath of envCandidates) {
+    if (existsSync(envPath)) {
+      try {
+        const content = readFileSync(envPath, "utf8");
+        const match = content.match(/^\s*GEMINI_API_KEY\s*=\s*["']?([^"'\r\n#]+)["']?/m);
+        if (match?.[1]?.trim()) {
+          const key = match[1].trim();
+          process.env.GEMINI_API_KEY = key;
+          return key;
+        }
+      } catch {}
+    }
+  }
+  return undefined;
+}
+
+/** Downsamples screenshot to max ~640px JPEG to drastically reduce upload payload size and latency */
+export async function optimizeScreenshotForAi(
+  imageBuffer: Buffer,
+  maxDimension = 640,
+): Promise<{ base64: string; mimeType: string }> {
+  try {
+    const img = await loadImage(imageBuffer);
+    const scale = Math.min(1, maxDimension / Math.max(img.width, img.height));
+    const w = Math.round(img.width * scale);
+    const h = Math.round(img.height * scale);
+
+    const canvas = createCanvas(w, h);
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0, w, h);
+    const jpegBuffer = canvas.toBuffer("image/jpeg", 75);
+    return {
+      base64: jpegBuffer.toString("base64"),
+      mimeType: "image/jpeg",
+    };
+  } catch {
+    // Fallback to raw buffer if canvas downsampling fails
+    return {
+      base64: imageBuffer.toString("base64"),
+      mimeType: "image/png",
+    };
+  }
+}
+
 /** Handles POST /api/ai/generate-copy for visual screenshot analysis and ASO copy generation with Gemini Vision. */
 export function aiCopyHandler({ paths }: StudioApi): Handler {
   return (req, res) => {
@@ -1080,41 +1141,87 @@ export function aiCopyHandler({ paths }: StudioApi): Handler {
           return;
         }
 
-        const apiKey = process.env.GEMINI_API_KEY;
+        const apiKey = getGeminiApiKey(paths);
         if (!apiKey) {
           res.statusCode = 400;
           res.setHeader("Content-Type", "application/json");
           res.end(
             JSON.stringify({
               error:
-                "GEMINI_API_KEY is not configured. Please add GEMINI_API_KEY=your_key in the .env file.",
+                "GEMINI_API_KEY is not configured. Please ensure GEMINI_API_KEY=your_key is in the .env file.",
             }),
           );
           return;
         }
 
-        // Find screenshot file: try raw device folder, then fallback devices, then screenshots folder
-        const candidatePaths = [
-          join(paths.outDir, "raw", device, `${sceneId}.png`),
-          join(paths.outDir, "raw", "iphone-6.9", `${sceneId}.png`),
-          join(paths.outDir, "raw", "pixel-10-pro", `${sceneId}.png`),
-          join(paths.outDir, "raw", "ipad-13", `${sceneId}.png`),
-        ];
+        // Clean candidate names (handle #slice, trailing -1, etc.)
+        const cleanSceneId = sceneId.split("#")[0];
+        const cleanBaseSceneId = cleanSceneId.replace(/-\d+$/, "");
+        const candidateNames = Array.from(
+          new Set([sceneId, cleanSceneId, cleanBaseSceneId].filter(Boolean)),
+        );
+
+        const devicesToTry = Array.from(
+          new Set([device, "iphone-6.9", "pixel-10-pro", "ipad-13"].filter(Boolean)),
+        );
 
         let screenshotPath: string | null = null;
-        for (const p of candidatePaths) {
-          if (existsSync(p)) {
-            screenshotPath = p;
-            break;
+
+        // 1. Direct match in raw folder
+        for (const dev of devicesToTry) {
+          for (const name of candidateNames) {
+            for (const ext of [".png", ".jpg", ".jpeg", ".webp"]) {
+              const p = join(paths.outDir, "raw", dev, `${name}${ext}`);
+              if (existsSync(p)) {
+                screenshotPath = p;
+                break;
+              }
+            }
+            if (screenshotPath) break;
+          }
+          if (screenshotPath) break;
+        }
+
+        // 2. Try screenshots folder for each device
+        if (!screenshotPath) {
+          for (const dev of devicesToTry) {
+            const screenshotsDir = join(paths.outDir, "screenshots", dev, locale);
+            if (existsSync(screenshotsDir)) {
+              const files = await readdir(screenshotsDir);
+              for (const name of candidateNames) {
+                const matched = findScreenshotFile(files, name);
+                if (matched) {
+                  screenshotPath = join(screenshotsDir, matched);
+                  break;
+                }
+              }
+            }
+            if (screenshotPath) break;
           }
         }
 
+        // 3. Loose fallback in raw folder
         if (!screenshotPath) {
-          const screenshotsDir = join(paths.outDir, "screenshots", device, locale);
-          if (existsSync(screenshotsDir)) {
-            const files = await readdir(screenshotsDir);
-            const matched = findScreenshotFile(files, sceneId);
-            if (matched) screenshotPath = join(screenshotsDir, matched);
+          for (const dev of devicesToTry) {
+            const rawDir = join(paths.outDir, "raw", dev);
+            if (existsSync(rawDir)) {
+              const files = await readdir(rawDir);
+              for (const name of candidateNames) {
+                const matched = files.find(
+                  (f) =>
+                    f.toLowerCase().includes(name.toLowerCase()) &&
+                    (f.endsWith(".png") ||
+                      f.endsWith(".jpg") ||
+                      f.endsWith(".jpeg") ||
+                      f.endsWith(".webp")),
+                );
+                if (matched) {
+                  screenshotPath = join(rawDir, matched);
+                  break;
+                }
+              }
+            }
+            if (screenshotPath) break;
           }
         }
 
@@ -1123,49 +1230,41 @@ export function aiCopyHandler({ paths }: StudioApi): Handler {
           res.setHeader("Content-Type", "application/json");
           res.end(
             JSON.stringify({
-              error: `Screenshot file for scene "${sceneId}" not found on disk.`,
+              error: `Screenshot file for scene "${sceneId}" not found in out/raw or out/screenshots.`,
             }),
           );
           return;
         }
 
         const imageBuffer = await readFile(screenshotPath);
-        const imageBase64 = imageBuffer.toString("base64");
-        const ext = extname(screenshotPath).toLowerCase();
-        const mimeType =
-          ext === ".jpg" || ext === ".jpeg"
-            ? "image/jpeg"
-            : ext === ".webp"
-              ? "image/webp"
-              : "image/png";
+        const { base64: imageBase64, mimeType } = await optimizeScreenshotForAi(imageBuffer, 640);
 
-        // Build ASO prompt
-        const appName = appContext?.name ? `App Name: "${appContext.name}"` : "";
+        // Build concise, token-efficient ASO prompt
+        const appName = appContext?.name ? `App: "${appContext.name}"` : "";
         const appCat = appContext?.category ? `Category: ${appContext.category}` : "";
-        const appDesc = appContext?.description ? `App Summary: ${appContext.description}` : "";
+        const appDesc = appContext?.description
+          ? `Summary: ${appContext.description.slice(0, 160)}`
+          : "";
+        const customGuide = customPrompt ? `Direction: "${customPrompt}"` : "";
         const toneInstruction =
           tone && tone !== "all"
-            ? `Preferred primary tone: ${tone}.`
-            : "Provide a diverse mix of tones (Punchy, Benefit-Driven, Action-Oriented, Minimalist).";
-        const customGuide = customPrompt ? `Additional User Direction: "${customPrompt}"` : "";
+            ? `Target Tone: ${tone}. Return 3 options in this style.`
+            : "Provide 3 options with diverse marketing angles (Punchy, Benefit-Driven, Action-Oriented).";
 
-        const promptText = `You are an elite App Store Optimization (ASO) and mobile app marketing copywriter.
-Analyze this mobile application screenshot carefully.
+        const contextInfo = [appName, appCat, appDesc, customGuide, toneInstruction]
+          .filter(Boolean)
+          .join(" | ");
 
-Context:
-${[appName, appCat, appDesc, toneInstruction, customGuide].filter(Boolean).join("\n")}
-Target Language/Locale: ${locale} (Generate headlines and subheads natively in this language/locale).
+        const promptText = `Analyze this mobile UI screenshot as an elite App Store copywriter.
+Context: ${contextInfo}
+Target Language/Locale: ${locale}
 
-Rules for App Store Screenshot Copy:
-1. Headline MUST be punchy, concise, and captivating (max 4-6 words, under 35 characters).
-2. Subhead must clearly describe the user benefit or feature shown on this specific screen (max 10-14 words, under 85 characters).
-3. Focus directly on the actual visual UI screen contents (e.g. transactions, budget charts, group splitting, calendar, profile, notifications, etc.).
-4. Avoid generic placeholders like "Welcome to the App" or "Amazing Features".
-5. Return 3 to 4 distinct options with different marketing angles.
-
-Return ONLY a valid JSON object matching this schema:
+Rules:
+1. Headline: punchy, under 30 characters.
+2. Subhead: highlights user benefit or screen feature, under 80 characters.
+3. Return exactly 3 options in JSON:
 {
-  "screenAnalysis": "1-sentence summary of what feature or UI is visible on this screen",
+  "screenAnalysis": "1-sentence summary of visible UI",
   "suggestions": [
     {
       "tone": "Punchy" | "Benefit-Driven" | "Action-Oriented" | "Minimalist",
@@ -1175,8 +1274,13 @@ Return ONLY a valid JSON object matching this schema:
   ]
 }`;
 
-        // Attempt primary model, fallback if needed
-        const candidateModels = ["gemini-3.6-flash", "gemini-flash-latest"];
+        // High-speed, low-latency models with zero thinking-overhead
+        const candidateModels = [
+          "gemini-3.5-flash-lite",
+          "gemini-flash-lite-latest",
+          "gemini-3.5-flash",
+          "gemini-3.6-flash",
+        ];
         let rawContent: string | null = null;
         let lastError: string | null = null;
 
@@ -1203,6 +1307,8 @@ Return ONLY a valid JSON object matching this schema:
                   ],
                   generationConfig: {
                     responseMimeType: "application/json",
+                    maxOutputTokens: 350,
+                    temperature: 0.7,
                   },
                 }),
               },
@@ -1221,7 +1327,14 @@ Return ONLY a valid JSON object matching this schema:
         }
 
         if (!rawContent) {
-          throw new Error(`Gemini API error: ${lastError || "Failed to generate copy"}`);
+          let readableError = lastError || "Failed to generate copy from Gemini API.";
+          try {
+            const parsedErr = JSON.parse(readableError);
+            if (parsedErr?.error?.message) {
+              readableError = parsedErr.error.message;
+            }
+          } catch {}
+          throw new Error(`Gemini API: ${readableError}`);
         }
 
         let parsed: any;
