@@ -1,0 +1,430 @@
+import {
+  AlertCircle,
+  Check,
+  Feather,
+  Loader2,
+  RefreshCw,
+  Sparkles,
+  Target,
+  TrendingUp,
+  X,
+  Zap,
+} from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import type { StoreManifest } from "../manifest";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+
+export interface AiSuggestion {
+  tone: string;
+  headline: string;
+  subhead: string;
+}
+
+export interface AiCopyModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  sceneId: string;
+  sceneHeadline?: string;
+  sceneSubhead?: string;
+  device: string;
+  locale: string;
+  manifest?: StoreManifest;
+  onApplyCopy: (sceneId: string, field: "headline" | "subhead", text: string) => void;
+}
+
+const TONES = [
+  { id: "all", label: "All Tones", icon: Sparkles },
+  { id: "punchy", label: "Punchy & Bold", icon: Zap },
+  { id: "benefit", label: "Benefit-Driven", icon: TrendingUp },
+  { id: "action", label: "Action-Oriented", icon: Target },
+  { id: "minimalist", label: "Minimalist", icon: Feather },
+];
+
+export function AiCopyModal({
+  isOpen,
+  onClose,
+  sceneId,
+  sceneHeadline = "",
+  sceneSubhead = "",
+  device,
+  locale,
+  manifest,
+  onApplyCopy,
+}: AiCopyModalProps) {
+  const [selectedTone, setSelectedTone] = useState("all");
+  const [customPrompt, setCustomPrompt] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [screenAnalysis, setScreenAnalysis] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<AiSuggestion[]>([]);
+  const [appliedIndex, setAppliedIndex] = useState<number | null>(null);
+
+  const app = manifest?.app;
+  const appDescription = app?.description?.[locale] || app?.description?.["en-US"];
+
+  const fetchAiSuggestions = useCallback(
+    async (overrideTone?: string) => {
+      setLoading(true);
+      setError(null);
+      setAppliedIndex(null);
+
+      try {
+        const res = await fetch("/api/ai/generate-copy", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sceneId,
+            device,
+            locale,
+            tone: overrideTone ?? selectedTone,
+            customPrompt: customPrompt.trim() || undefined,
+            appContext: app
+              ? {
+                  name: app.name,
+                  category: app.category,
+                  description: appDescription,
+                }
+              : undefined,
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to generate AI copy");
+        }
+
+        setScreenAnalysis(data.screenAnalysis || null);
+        setSuggestions(data.suggestions || []);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [sceneId, device, locale, selectedTone, customPrompt, app, appDescription],
+  );
+
+  // Auto-generate on open if we have no suggestions yet
+  useEffect(() => {
+    if (isOpen && suggestions.length === 0 && !loading) {
+      fetchAiSuggestions();
+    }
+  }, [isOpen, suggestions.length, loading, fetchAiSuggestions]);
+
+  const handleApplyBoth = (suggestion: AiSuggestion, index: number) => {
+    onApplyCopy(sceneId, "headline", suggestion.headline);
+    onApplyCopy(sceneId, "subhead", suggestion.subhead);
+    setAppliedIndex(index);
+    setTimeout(() => setAppliedIndex(null), 2000);
+  };
+
+  const handleApplyHeadlineOnly = (headline: string) => {
+    onApplyCopy(sceneId, "headline", headline);
+  };
+
+  const handleApplySubheadOnly = (subhead: string) => {
+    onApplyCopy(sceneId, "subhead", subhead);
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="AI Copy Assistant"
+      className="animate-in fade-in fixed inset-0 z-50 flex duration-150 items-center justify-center bg-black/80 p-3 sm:p-6 backdrop-blur-sm overflow-hidden"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape" && e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="relative flex h-[85vh] max-h-[85vh] w-full max-w-4xl flex-col rounded-2xl border border-border bg-card shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 text-foreground">
+        {/* Header */}
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-4 bg-muted/30">
+          <div className="flex items-center gap-3">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 text-white shadow-md">
+              <Sparkles className="size-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-semibold leading-tight">AI Copy Assistant</h2>
+                <span className="rounded-md bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-primary tracking-wide">
+                  GEMINI VISION
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Visual screen analysis & high-converting App Store copy for{" "}
+                <span className="font-semibold text-foreground">"{sceneId}"</span> ({locale})
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+          >
+            <X className="size-5" />
+          </button>
+        </div>
+
+        {/* Tone Selector & Custom Input Bar */}
+        <div className="shrink-0 border-b border-border bg-background/60 p-4 flex flex-col gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            {/* Tone Selector Pills */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {TONES.map((t) => {
+                const Icon = t.icon;
+                const isSelected = selectedTone === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedTone(t.id);
+                      fetchAiSuggestions(t.id);
+                    }}
+                    className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-all cursor-pointer ${
+                      isSelected
+                        ? "bg-primary text-primary-foreground shadow-xs"
+                        : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground"
+                    }`}
+                  >
+                    <Icon className="size-3.5" />
+                    <span>{t.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Re-generate Button */}
+            <Button
+              size="sm"
+              disabled={loading}
+              onClick={() => fetchAiSuggestions()}
+              className="gap-1.5 cursor-pointer bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:opacity-90 shadow-sm"
+            >
+              {loading ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="size-3.5" />
+              )}
+              <span>Regenerate</span>
+            </Button>
+          </div>
+
+          {/* Optional Direction Input */}
+          <div className="flex items-center gap-2">
+            <Input
+              value={customPrompt}
+              onChange={(e) => setCustomPrompt(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") fetchAiSuggestions();
+              }}
+              placeholder="Optional direction (e.g. 'Focus on group trip expenses', 'Make it humorous', etc.)"
+              className="h-8 text-xs flex-1 bg-muted/40"
+            />
+            {customPrompt ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => fetchAiSuggestions()}
+                disabled={loading}
+                className="h-8 text-xs cursor-pointer"
+              >
+                Apply Direction
+              </Button>
+            ) : null}
+          </div>
+        </div>
+
+        {/* Content Area */}
+        <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-4">
+          {/* Current Canvas Copy */}
+          {(sceneHeadline || sceneSubhead) && (
+            <div className="flex items-center justify-between rounded-xl border border-border/70 bg-muted/20 px-4 py-2.5 text-xs text-muted-foreground">
+              <div className="flex items-center gap-3 truncate">
+                <span className="font-semibold text-foreground/80 uppercase text-[10px] tracking-wider shrink-0">
+                  Current Copy:
+                </span>
+                <span className="font-medium text-foreground truncate">
+                  {sceneHeadline || "(No headline)"}
+                </span>
+                <span className="text-muted-foreground/60">•</span>
+                <span className="truncate text-muted-foreground">
+                  {sceneSubhead || "(No subhead)"}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Screen Analysis Callout */}
+          {screenAnalysis && (
+            <div className="flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 p-3.5 text-xs animate-in fade-in duration-200">
+              <div className="rounded-md bg-primary/20 p-1 text-primary shrink-0 mt-0.5">
+                <Sparkles className="size-3.5" />
+              </div>
+              <div className="flex flex-col gap-0.5">
+                <span className="font-semibold text-primary text-[11px] uppercase tracking-wider">
+                  Vision Analysis
+                </span>
+                <p className="text-foreground/90 leading-relaxed">{screenAnalysis}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Loading Indicator */}
+          {loading && (
+            <div className="flex flex-col items-center justify-center py-16 gap-3 text-center animate-in fade-in">
+              <div className="relative flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <Sparkles className="size-7 animate-pulse text-primary" />
+                <Loader2 className="absolute size-10 animate-spin text-primary/40" />
+              </div>
+              <p className="text-sm font-semibold text-foreground">
+                Analyzing screen with Gemini Vision…
+              </p>
+              <p className="text-xs text-muted-foreground max-w-sm">
+                Examining visual layout, cards, charts, and text to craft high-converting App Store
+                marketing copy.
+              </p>
+            </div>
+          )}
+
+          {/* Error Message */}
+          {error && !loading && (
+            <div className="flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-xs text-destructive">
+              <AlertCircle className="size-4 shrink-0 mt-0.5" />
+              <div className="flex-1 flex flex-col gap-1">
+                <span className="font-semibold">Generation Failed</span>
+                <p className="text-destructive/90">{error}</p>
+                <div className="pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fetchAiSuggestions()}
+                    className="border-destructive/30 text-destructive hover:bg-destructive/10 cursor-pointer text-xs"
+                  >
+                    Try Again
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Generated Suggestions Grid */}
+          {!loading && suggestions.length > 0 && (
+            <div className="grid grid-cols-1 gap-3.5 animate-in fade-in">
+              {suggestions.map((suggestion, index) => {
+                const isApplied = appliedIndex === index;
+                const headlineChars = suggestion.headline.length;
+                const subheadChars = suggestion.subhead.length;
+
+                return (
+                  <div
+                    key={`${suggestion.tone}-${suggestion.headline}`}
+                    className={`group relative flex flex-col justify-between gap-3 rounded-xl border p-4.5 transition-all ${
+                      isApplied
+                        ? "border-emerald-500/60 bg-emerald-500/10 shadow-sm"
+                        : "border-border bg-card/80 hover:border-primary/40 hover:shadow-md"
+                    }`}
+                  >
+                    {/* Top Row: Tone Tag & Character Counters */}
+                    <div className="flex items-center justify-between">
+                      <span className="rounded-md bg-secondary px-2 py-0.5 text-[10px] font-semibold text-secondary-foreground">
+                        {suggestion.tone}
+                      </span>
+                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                        <span>
+                          Headline:{" "}
+                          <span
+                            className={
+                              headlineChars > 35 ? "text-amber-500 font-semibold" : "font-medium"
+                            }
+                          >
+                            {headlineChars}
+                          </span>
+                          /35
+                        </span>
+                        <span>•</span>
+                        <span>
+                          Subhead:{" "}
+                          <span
+                            className={
+                              subheadChars > 85 ? "text-amber-500 font-semibold" : "font-medium"
+                            }
+                          >
+                            {subheadChars}
+                          </span>
+                          /85
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Headline & Subhead Preview */}
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <h4 className="text-base font-bold text-foreground leading-snug">
+                          {suggestion.headline}
+                        </h4>
+                        <button
+                          type="button"
+                          onClick={() => handleApplyHeadlineOnly(suggestion.headline)}
+                          className="opacity-0 group-hover:opacity-100 text-[10px] text-primary hover:underline shrink-0 cursor-pointer transition-opacity"
+                          title="Apply only headline"
+                        >
+                          Use headline only
+                        </button>
+                      </div>
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          {suggestion.subhead}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => handleApplySubheadOnly(suggestion.subhead)}
+                          className="opacity-0 group-hover:opacity-100 text-[10px] text-primary hover:underline shrink-0 cursor-pointer transition-opacity"
+                          title="Apply only subhead"
+                        >
+                          Use subhead only
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Action Bar */}
+                    <div className="flex items-center justify-end border-t border-border/50 pt-3 mt-1">
+                      <Button
+                        size="sm"
+                        onClick={() => handleApplyBoth(suggestion, index)}
+                        className={`gap-1.5 cursor-pointer text-xs transition-all ${
+                          isApplied
+                            ? "bg-emerald-600 text-white hover:bg-emerald-600"
+                            : "bg-primary text-primary-foreground hover:opacity-90"
+                        }`}
+                      >
+                        {isApplied ? (
+                          <>
+                            <Check className="size-3.5" />
+                            <span>Applied to Scene!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="size-3.5" />
+                            <span>Apply to Scene</span>
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

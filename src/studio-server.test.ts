@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { PassThrough } from "node:stream";
 import {
+  aiCopyHandler,
   extractLocalesFromConfig,
   findScreenshotFile,
   getDimensionsFromBuffer,
@@ -8,6 +13,7 @@ import {
   PRESET_LOCALES,
   replaceCaptureHandler,
   resolveDeviceFromDimensions,
+  singleExportHandler,
   updateLocalesInConfig,
 } from "./studio-server.ts";
 
@@ -286,5 +292,244 @@ describe("locales helpers and handler", () => {
 
     handler(req, res);
     expect(statusCode).toBe(405);
+  });
+});
+
+describe("singleExportHandler", () => {
+  test("returns 400 when sceneId query parameter is omitted", async () => {
+    const handler = singleExportHandler({
+      paths: {
+        configPath: "goldie.config.ts",
+        configDir: ".",
+        outDir: "out",
+        webDir: "out/web",
+        designFile: "goldie.design.json",
+        exportZip: "out/export.zip",
+      },
+      cli: ["echo"],
+    });
+
+    let statusCode = 0;
+    let endedWith = "";
+    const req = { method: "GET", url: "/api/export-single?device=iphone-6.9" } as any;
+    const res = {
+      set statusCode(code: number) {
+        statusCode = code;
+      },
+      end(body: string) {
+        endedWith = body;
+      },
+    } as any;
+
+    handler(req, res);
+    expect(statusCode).toBe(400);
+    expect(endedWith).toContain("sceneId query param required");
+  });
+
+  test("serves existing screenshot with proper headers when up-to-date", async () => {
+    const tmp = await mkdtemp(join(tmpdir(), "goldie-test-"));
+    const outDir = join(tmp, "out");
+    const screenshotsDir = join(outDir, "screenshots", "iphone-6.9", "en-US");
+    await mkdir(screenshotsDir, { recursive: true });
+    const imgPath = join(screenshotsDir, "01-home.png");
+    await writeFile(imgPath, "fake-png-content");
+
+    const handler = singleExportHandler({
+      paths: {
+        configPath: join(tmp, "goldie.config.ts"),
+        configDir: tmp,
+        outDir,
+        webDir: join(outDir, "web"),
+        designFile: join(tmp, "goldie.design.json"),
+        exportZip: join(outDir, "export.zip"),
+      },
+      cli: ["echo"],
+    });
+
+    let statusCode = 0;
+    const headers: Record<string, string | number> = {};
+
+    const req = {
+      method: "GET",
+      url: "/api/export-single?sceneId=home&device=iphone-6.9&locale=en-US",
+    } as any;
+    const res = new PassThrough() as any;
+    res.writeHead = (code: number, h: Record<string, string | number>) => {
+      statusCode = code;
+      Object.assign(headers, h);
+    };
+
+    handler(req, res);
+    await new Promise((r) => setTimeout(r, 60));
+
+    expect(statusCode).toBe(200);
+    expect(headers["Content-Type"]).toBe("image/png");
+    expect(headers["Content-Disposition"]).toContain('filename="home-iphone-6.9.png"');
+    expect(headers["Cache-Control"]).toBe("no-store");
+
+    await rm(tmp, { recursive: true, force: true });
+  });
+
+  test("returns 404 if screenshot not found and frame CLI does not generate it", async () => {
+    const tmp = await mkdtemp(join(tmpdir(), "goldie-test-"));
+    const outDir = join(tmp, "out");
+    await mkdir(outDir, { recursive: true });
+
+    const handler = singleExportHandler({
+      paths: {
+        configPath: join(tmp, "goldie.config.ts"),
+        configDir: tmp,
+        outDir,
+        webDir: join(outDir, "web"),
+        designFile: join(tmp, "goldie.design.json"),
+        exportZip: join(outDir, "export.zip"),
+      },
+      cli: ["echo"],
+    });
+
+    let statusCode = 0;
+    let endedWith = "";
+    const req = {
+      method: "GET",
+      url: "/api/export-single?sceneId=missing&device=iphone-6.9&locale=en-US",
+    } as any;
+    const res = {
+      set statusCode(code: number) {
+        statusCode = code;
+      },
+      end(body: string) {
+        endedWith = body;
+      },
+    } as any;
+
+    handler(req, res);
+    await new Promise((r) => setTimeout(r, 60));
+
+    expect(statusCode).toBe(404);
+    expect(endedWith).toContain('Screenshot for scene "missing" not found');
+
+    await rm(tmp, { recursive: true, force: true });
+  });
+});
+
+describe("aiCopyHandler", () => {
+  test("rejects non-POST requests with 405", () => {
+    const handler = aiCopyHandler({
+      paths: {
+        configPath: "goldie.config.ts",
+        configDir: ".",
+        outDir: "out",
+        webDir: "out/web",
+        designFile: "goldie.design.json",
+        exportZip: "out/export.zip",
+      },
+      cli: ["echo"],
+    });
+
+    let statusCode = 0;
+    let endedWith = "";
+    const req = { method: "GET" } as any;
+    const res = {
+      set statusCode(code: number) {
+        statusCode = code;
+      },
+      end(body: string) {
+        endedWith = body;
+      },
+    } as any;
+
+    handler(req, res);
+    expect(statusCode).toBe(405);
+    expect(endedWith).toBe("POST only");
+  });
+
+  test("returns 400 when sceneId is missing in body", async () => {
+    const handler = aiCopyHandler({
+      paths: {
+        configPath: "goldie.config.ts",
+        configDir: ".",
+        outDir: "out",
+        webDir: "out/web",
+        designFile: "goldie.design.json",
+        exportZip: "out/export.zip",
+      },
+      cli: ["echo"],
+    });
+
+    let statusCode = 0;
+    let endedWith = "";
+    const listeners: Record<string, (...args: any[]) => void> = {};
+    const req = {
+      method: "POST",
+      on: (event: string, cb: (...args: any[]) => void) => {
+        listeners[event] = cb;
+      },
+    } as any;
+    const res = {
+      set statusCode(code: number) {
+        statusCode = code;
+      },
+      setHeader: () => {},
+      end(body: string) {
+        endedWith = body;
+      },
+    } as any;
+
+    handler(req, res);
+    listeners.data?.(JSON.stringify({}));
+    listeners.end?.();
+
+    await new Promise((r) => setTimeout(r, 20));
+    expect(statusCode).toBe(400);
+    expect(JSON.parse(endedWith).error).toBe("sceneId is required");
+  });
+
+  test("returns 404 when screenshot image is not found on disk", async () => {
+    const tmp = await mkdtemp(join(tmpdir(), "goldie-ai-test-"));
+    const outDir = join(tmp, "out");
+    await mkdir(outDir, { recursive: true });
+
+    const handler = aiCopyHandler({
+      paths: {
+        configPath: join(tmp, "goldie.config.ts"),
+        configDir: tmp,
+        outDir,
+        webDir: join(outDir, "web"),
+        designFile: join(tmp, "goldie.design.json"),
+        exportZip: join(outDir, "export.zip"),
+      },
+      cli: ["echo"],
+    });
+
+    let statusCode = 0;
+    let endedWith = "";
+    const listeners: Record<string, (...args: any[]) => void> = {};
+    const req = {
+      method: "POST",
+      on: (event: string, cb: (...args: any[]) => void) => {
+        listeners[event] = cb;
+      },
+    } as any;
+    const res = {
+      set statusCode(code: number) {
+        statusCode = code;
+      },
+      setHeader: () => {},
+      end(body: string) {
+        endedWith = body;
+      },
+    } as any;
+
+    handler(req, res);
+    listeners.data?.(JSON.stringify({ sceneId: "nonexistent_scene" }));
+    listeners.end?.();
+
+    await new Promise((r) => setTimeout(r, 50));
+    expect(statusCode).toBe(404);
+    expect(JSON.parse(endedWith).error).toContain(
+      'Screenshot file for scene "nonexistent_scene" not found',
+    );
+
+    await rm(tmp, { recursive: true, force: true });
   });
 });

@@ -12,6 +12,7 @@ import { EmptyState } from "./components/EmptyState";
 import { Header } from "./components/Header";
 import { LocaleManagerModal } from "./components/LocaleManagerModal";
 import { Sidebar } from "./components/Sidebar";
+import { StoreMockupPreview } from "./components/StoreMockupPreview";
 import { Strip } from "./components/Strip";
 import { useHistory } from "./lib/useHistory";
 import {
@@ -147,6 +148,7 @@ function Loaded({
   const [dark, setDark] = useState(
     new URLSearchParams(window.location.search).get("dark") === "1" || view.dark === true,
   );
+  const [canvasView, setCanvasView] = useState<"editor" | "store">("editor");
   const knownLayout = (key: string | undefined) =>
     key && design.layouts.some((l) => l.key === key) ? key : undefined;
   const { state, set } = useHistory<DesignState>(() => ({
@@ -523,6 +525,8 @@ function Loaded({
         layout={layout}
         screenOnly={screenOnly}
         fontSizeScale={fontSizeScale}
+        viewMode={canvasView}
+        onViewModeChange={setCanvasView}
       />
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -608,8 +612,10 @@ function Loaded({
               </div>
             ) : null}
             {hasScreenshots && spec && captures ? (
-              <div className="w-full max-w-[1400px]">
-                <Strip
+              canvasView === "store" ? (
+                <StoreMockupPreview
+                  manifest={manifest}
+                  platform={platform}
                   design={design}
                   captures={captures}
                   spec={spec}
@@ -621,9 +627,7 @@ function Loaded({
                   subheadColor={subheadColor}
                   fontSizeScale={fontSizeScale}
                   copy={copy}
-                  onCopy={setSceneCopy}
                   order={order}
-                  onReorder={setOrder}
                   template={
                     template === CUSTOM_TEMPLATE && Array.isArray(design.template)
                       ? design.template
@@ -632,13 +636,43 @@ function Loaded({
                   layout={layout}
                   screenOnly={screenOnly}
                   sceneLayouts={sceneLayouts}
-                  onSceneLayout={setSceneLayout}
                   sceneBackgrounds={sceneBackgrounds}
-                  onSceneBackground={setSceneBackground}
                   sceneBadges={sceneBadges}
-                  onSceneBadge={setSceneBadge}
                 />
-              </div>
+              ) : (
+                <div className="w-full max-w-[1400px]">
+                  <Strip
+                    manifest={manifest}
+                    design={design}
+                    captures={captures}
+                    spec={spec}
+                    locale={locale}
+                    background={background}
+                    frameUrl={frameUrl}
+                    fontFamily={previewFontFamily}
+                    headlineColor={headlineColor}
+                    subheadColor={subheadColor}
+                    fontSizeScale={fontSizeScale}
+                    copy={copy}
+                    onCopy={setSceneCopy}
+                    order={order}
+                    onReorder={setOrder}
+                    template={
+                      template === CUSTOM_TEMPLATE && Array.isArray(design.template)
+                        ? design.template
+                        : template
+                    }
+                    layout={layout}
+                    screenOnly={screenOnly}
+                    sceneLayouts={sceneLayouts}
+                    onSceneLayout={setSceneLayout}
+                    sceneBackgrounds={sceneBackgrounds}
+                    onSceneBackground={setSceneBackground}
+                    sceneBadges={sceneBadges}
+                    onSceneBadge={setSceneBadge}
+                  />
+                </div>
+              )
             ) : spec ? (
               <EmptyState
                 icon={CameraIcon}

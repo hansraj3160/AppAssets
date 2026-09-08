@@ -4,6 +4,9 @@ node_modules
 studio/node_modules
 studio/dist
 *.tsbuildinfo
+.env
+.env.*
+.env.local
 
 # App-specific config; copy goldie.config.example.ts
 appassets.config.ts

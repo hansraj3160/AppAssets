@@ -23,6 +23,7 @@ import {
   SCREEN_SHADOW,
   TYPE,
 } from "../../../src/layouts";
+import { CUSTOM_TEMPLATE } from "../App";
 import {
   type Decoration,
   type Design,
@@ -30,10 +31,13 @@ import {
   type DeviceCaptures,
   type DeviceEntry,
   type FrameGeometry,
+  fontKey,
   isRtlLocale,
   type SceneCopy,
+  type StoreManifest,
   type Theme,
 } from "../manifest";
+import { AiCopyModal } from "./AiCopyModal";
 import { CHECKERBOARD, layoutOptions, TRANSPARENT } from "./DesignPanel";
 import { Select } from "./Sidebar";
 import { Button } from "./ui/button";
@@ -43,7 +47,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 /** Tiles shown at once; the App Store product page shows this many before scrolling. */
 const PAGE_SIZE = 5;
 /** Apple's cap on screenshots per device family. */
-const MAX_SCREENSHOTS = 10;
+export const MAX_SCREENSHOTS = 10;
 
 /**
  * Page-turn animation: the incoming page slides in from the side the arrow
@@ -83,7 +87,290 @@ const pageSlide = {
  * numbers the files in the order shown. The preview tile stays first, as
  * the store shows it.
  */
+
+/** Position of a scene id in the saved order; unlisted ids sort last, in config order. */
+export function rankOf(order: string[], id: string): number {
+  const i = order.indexOf(id);
+  return i === -1 ? Number.POSITIVE_INFINITY : i;
+}
+
+/**
+ * Mirror of the CLI's backgroundLuminance: mean relative luminance of the
+ * value's six-digit hex colors, or null when it has none.
+ */
+export function backgroundLuminance(css: string): number | null {
+  const hexes = css.match(/#[0-9a-fA-F]{6}/g);
+  if (!hexes || hexes.length === 0) return null;
+  const luminance = (hex: string) => {
+    const channel = (offset: number) => {
+      const c = parseInt(hex.slice(offset, offset + 2), 16) / 255;
+      return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    };
+    return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
+  };
+  return hexes.reduce((sum, hex) => sum + luminance(hex), 0) / hexes.length;
+}
+
+/** Resolves headline and subhead colors, honoring global overrides or background luminance. */
+export function resolveColors({
+  bg,
+  headlineColor,
+  subheadColor,
+  themeHeadlineColor,
+  themeSubheadColor,
+}: {
+  bg: string;
+  headlineColor?: string;
+  subheadColor?: string;
+  themeHeadlineColor: string;
+  themeSubheadColor: string;
+}) {
+  const bgLum = backgroundLuminance(bg);
+  const isDark = bgLum !== null && bgLum < 0.5;
+  const isLight = bgLum !== null && bgLum >= 0.5;
+  const lightColor = (c: string) => (backgroundLuminance(c) ?? 0) > 0.5;
+  const resolvedHeadline = headlineColor
+    ? headlineColor
+    : isDark
+      ? "#FFFFFF"
+      : isLight && lightColor(themeHeadlineColor)
+        ? "#0E1B2A"
+        : themeHeadlineColor;
+  const resolvedSubhead = subheadColor
+    ? subheadColor
+    : isDark
+      ? "#D9E1EA"
+      : isLight && lightColor(themeSubheadColor)
+        ? "#5A6A7D"
+        : themeSubheadColor;
+  return { headlineColor: resolvedHeadline, subheadColor: resolvedSubhead };
+}
+
+export type ScreenshotEntry = {
+  key: string;
+  sceneId: string;
+  slice: number;
+  width: number;
+  height: number;
+  layoutKey: string;
+  sceneBg: string;
+  render: (editable?: boolean) => ReactNode;
+};
+
+export function buildScreenshotEntries({
+  design,
+  captures,
+  spec,
+  locale,
+  background,
+  frameUrl,
+  fontFamily,
+  headlineColor,
+  subheadColor,
+  fontSizeScale = 1,
+  copy = {},
+  order = [],
+  template,
+  layout,
+  screenOnly,
+  sceneLayouts = {},
+  sceneBackgrounds = {},
+  sceneBadges = {},
+  onCopy,
+}: {
+  design: Design;
+  captures: DeviceCaptures;
+  spec: DeviceEntry;
+  locale: string;
+  background: string;
+  frameUrl: string;
+  fontFamily: string;
+  headlineColor?: string;
+  subheadColor?: string;
+  fontSizeScale?: number;
+  copy?: Record<string, SceneCopy>;
+  order?: string[];
+  template: string | string[];
+  layout: string;
+  screenOnly: boolean;
+  sceneLayouts?: Record<string, string>;
+  sceneBackgrounds?: Record<string, string>;
+  sceneBadges?: Record<
+    string,
+    {
+      text: string;
+      position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
+      background?: string;
+      color?: string;
+    }
+  >;
+  onCopy?: (sceneId: string, field: "headline" | "subhead", text: string) => void;
+}): ScreenshotEntry[] {
+  const theme = design.theme;
+  const scenes =
+    order.length > 0
+      ? [...design.scenes].sort((a, b) => rankOf(order, a.id) - rankOf(order, b.id))
+      : design.scenes;
+  const resolved = resolveScenes(scenes, {
+    template: Array.isArray(template)
+      ? (template as LayoutKey[])
+      : isTemplateKey(template)
+        ? template
+        : undefined,
+    layout,
+    sceneLayouts,
+  });
+  const layoutOf = (scene: DesignScene) => resolved.find((r) => r.scene.id === scene.id)!;
+
+  const allShots = scenes.flatMap((scene) => {
+    const capture = captures.screenshots.find((s) => s.sceneId === scene.id);
+    return capture ? [{ scene, capture }] : [];
+  });
+  let used = 0;
+  const shots = allShots.filter(({ scene }) => {
+    used += layoutOf(scene).layout.span;
+    return used <= MAX_SCREENSHOTS;
+  });
+
+  const deviceFrameUrl = spec.frame?.url ?? frameUrl;
+  const geom = spec.frame?.geom;
+
+  const entries: ScreenshotEntry[] = [];
+  for (const { scene, capture } of shots) {
+    const { layout: layoutSpec, secondScene } = layoutOf(scene);
+    const second = secondScene
+      ? captures.screenshots.find((s) => s.sceneId === secondScene)
+      : undefined;
+    const sceneBg = sceneBackgrounds[scene.id] || scene.background || background;
+    const colors = resolveColors({
+      bg: sceneBg,
+      headlineColor,
+      subheadColor,
+      themeHeadlineColor: theme.headlineColor,
+      themeSubheadColor: theme.subheadColor,
+    });
+    const userBadge = sceneBadges[scene.id];
+    const customBadgeDec: Decoration[] = userBadge
+      ? [
+          {
+            kind: "badge",
+            text: { [locale]: userBadge.text },
+            position: userBadge.position,
+            background: userBadge.background,
+            color: userBadge.color,
+          },
+        ]
+      : [];
+    const decorations = [...design.decorations, ...(scene.decorations ?? []), ...customBadgeDec];
+    for (let slice = 0; slice < layoutSpec.span; slice++) {
+      entries.push({
+        key: layoutSpec.span > 1 ? `${scene.id}#${slice + 1}` : scene.id,
+        sceneId: scene.id,
+        slice,
+        width: spec.screenshot.width,
+        height: spec.screenshot.height,
+        layoutKey: layoutSpec.key,
+        sceneBg,
+        render: (editable = false) => (
+          <ScreenshotScene
+            spec={layoutSpec}
+            slice={slice}
+            tile={spec.screenshot}
+            theme={theme}
+            screenOnly={screenOnly}
+            background={sceneBg}
+            frameUrl={deviceFrameUrl}
+            geom={geom}
+            fontFamily={fontFamily}
+            headline={copy[scene.id]?.headline?.[locale] ?? scene.headline[locale] ?? ""}
+            subhead={copy[scene.id]?.subhead?.[locale] ?? scene.subhead?.[locale]}
+            headlineColor={colors.headlineColor}
+            subheadColor={colors.subheadColor}
+            fontSizeScale={fontSizeScale}
+            captureUrl={capture.url}
+            secondCaptureUrl={second?.url}
+            secondSceneId={secondScene}
+            decorations={decorations}
+            locale={locale}
+            onEdit={editable && onCopy ? (field, text) => onCopy(scene.id, field, text) : undefined}
+          />
+        ),
+      });
+    }
+  }
+  return entries;
+}
+
+/** Downloads a single full-resolution screenshot with live design parameters. */
+export async function downloadSingleScreenshot({
+  sceneId,
+  slice,
+  device,
+  locale,
+  background,
+  frameUrl,
+  fontFamily,
+  template,
+  layout,
+  screenOnly,
+  fontSizeScale,
+  design,
+}: {
+  sceneId: string;
+  slice?: number;
+  device: string;
+  locale: string;
+  background?: string;
+  frameUrl?: string;
+  fontFamily?: string;
+  template?: string | string[];
+  layout?: string;
+  screenOnly?: boolean;
+  fontSizeScale?: number;
+  design?: Design;
+}): Promise<void> {
+  const params = new URLSearchParams({
+    sceneId,
+    device,
+    locale,
+    force: "1",
+  });
+  if (slice !== undefined) params.set("slice", String(slice));
+  if (background) params.set("background", background);
+  if (frameUrl) params.set("frame", frameUrl);
+  if (design && fontFamily) {
+    const font = fontKey(design, fontFamily);
+    if (font) params.set("font", font);
+  }
+  if (template && template !== CUSTOM_TEMPLATE) {
+    params.set("template", Array.isArray(template) ? template.join(",") : template);
+  }
+  if (layout) params.set("layout", layout);
+  if (screenOnly) params.set("screenOnly", "true");
+  if (fontSizeScale && fontSizeScale !== 1) {
+    params.set("fontSizeScale", String(fontSizeScale));
+  }
+
+  const res = await fetch(`/api/export-single?${params.toString()}`);
+  if (!res.ok) {
+    const errorText = await res.text().catch(() => "Download failed");
+    throw new Error(errorText || "Download failed");
+  }
+
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const sliceSuffix = slice && slice > 1 ? `-${slice}` : "";
+  a.download = `${sceneId}${sliceSuffix}-${device}.png`;
+  document.body.appendChild(a);
+  a.click();
+  window.URL.revokeObjectURL(url);
+  a.remove();
+}
+
 export function Strip({
+  manifest,
   design,
   captures,
   spec: tileSpec,
@@ -108,6 +395,7 @@ export function Strip({
   sceneLayouts,
   onSceneLayout,
 }: {
+  manifest?: StoreManifest;
   design: Design;
   captures: DeviceCaptures;
   spec: DeviceEntry;
@@ -153,7 +441,6 @@ export function Strip({
   sceneLayouts: Record<string, string>;
   onSceneLayout: (sceneId: string, key: string | undefined) => void;
 }) {
-  const theme = design.theme;
   const scenes =
     order.length > 0
       ? [...design.scenes].sort((a, b) => rankOf(order, a.id) - rankOf(order, b.id))
@@ -182,29 +469,6 @@ export function Strip({
   const defaultLayoutOf = (scene: DesignScene) =>
     unforced.find((r) => r.scene.id === scene.id)!.layout.key;
 
-  // Resolves headline and subhead colors, honoring global overrides or background luminance.
-  const resolveColors = (bg: string) => {
-    const bgLum = backgroundLuminance(bg);
-    const isDark = bgLum !== null && bgLum < 0.5;
-    const isLight = bgLum !== null && bgLum >= 0.5;
-    const lightColor = (c: string) => (backgroundLuminance(c) ?? 0) > 0.5;
-    const resolvedHeadline = headlineColor
-      ? headlineColor
-      : isDark
-        ? "#FFFFFF"
-        : isLight && lightColor(theme.headlineColor)
-          ? "#0E1B2A"
-          : theme.headlineColor;
-    const resolvedSubhead = subheadColor
-      ? subheadColor
-      : isDark
-        ? "#D9E1EA"
-        : isLight && lightColor(theme.subheadColor)
-          ? "#5A6A7D"
-          : theme.subheadColor;
-    return { headlineColor: resolvedHeadline, subheadColor: resolvedSubhead };
-  };
-
   const allShots = scenes.flatMap((scene) => {
     const capture = captures.screenshots.find((s) => s.sceneId === scene.id);
     return capture ? [{ scene, capture }] : [];
@@ -226,11 +490,6 @@ export function Strip({
       : [];
 
   const totalSeconds = segments.reduce((s, c) => s + c.durationSeconds, 0);
-
-  // A device with its own bezel art (android) ignores the frame picker: the
-  // picker's variants are iPhone art, with iPhone geometry.
-  const deviceFrameUrl = tileSpec.frame?.url ?? frameUrl;
-  const geom = tileSpec.frame?.geom;
 
   type Entry = {
     key: string;
@@ -269,68 +528,48 @@ export function Strip({
       scene: () => <PreviewScene segments={segments} />,
     });
   }
-  for (const { scene, capture } of shots) {
-    const { layout: spec, secondScene } = layoutOf(scene);
-    const second = secondScene
-      ? captures.screenshots.find((s) => s.sceneId === secondScene)
+  const screenshotItems = buildScreenshotEntries({
+    design,
+    captures,
+    spec: tileSpec,
+    locale,
+    background,
+    frameUrl,
+    fontFamily,
+    headlineColor,
+    subheadColor,
+    fontSizeScale,
+    copy,
+    order,
+    template,
+    layout,
+    screenOnly,
+    sceneLayouts,
+    sceneBackgrounds,
+    sceneBadges,
+    onCopy,
+  });
+
+  for (const item of screenshotItems) {
+    const scene = scenes.find((s) => s.id === item.sceneId);
+    const layoutControl = scene
+      ? {
+          value: sceneLayouts[item.sceneId],
+          defaultKey: defaultLayoutOf(scene),
+          onChange: (key: string | undefined) => onSceneLayout(item.sceneId, key),
+        }
       : undefined;
-    const layoutControl = {
-      value: sceneLayouts[scene.id],
-      defaultKey: defaultLayoutOf(scene),
-      onChange: (key: string | undefined) => onSceneLayout(scene.id, key),
-    };
-    const sceneBg = sceneBackgrounds[scene.id] || scene.background || background;
-    const colors = resolveColors(sceneBg);
-    const userBadge = sceneBadges[scene.id];
-    const customBadgeDec: Decoration[] = userBadge
-      ? [
-          {
-            kind: "badge",
-            text: { [locale]: userBadge.text },
-            position: userBadge.position,
-            background: userBadge.background,
-            color: userBadge.color,
-          },
-        ]
-      : [];
-    const decorations = [...design.decorations, ...(scene.decorations ?? []), ...customBadgeDec];
-    for (let slice = 0; slice < spec.span; slice++) {
-      entries.push({
-        key: spec.span > 1 ? `${scene.id}#${slice + 1}` : scene.id,
-        width: tileSpec.screenshot.width,
-        height: tileSpec.screenshot.height,
-        bad: false,
-        editable: true,
-        // Only the first slice drags; the second follows it.
-        sceneId: slice === 0 ? scene.id : undefined,
-        targetSceneId: scene.id,
-        layout: layoutControl,
-        scene: (editable) => (
-          <ScreenshotScene
-            spec={spec}
-            slice={slice}
-            tile={tileSpec.screenshot}
-            theme={theme}
-            screenOnly={screenOnly}
-            background={sceneBg}
-            frameUrl={deviceFrameUrl}
-            geom={geom}
-            fontFamily={fontFamily}
-            headline={copy[scene.id]?.headline?.[locale] ?? scene.headline[locale] ?? ""}
-            subhead={copy[scene.id]?.subhead?.[locale] ?? scene.subhead?.[locale]}
-            headlineColor={colors.headlineColor}
-            subheadColor={colors.subheadColor}
-            fontSizeScale={fontSizeScale}
-            captureUrl={capture.url}
-            secondCaptureUrl={second?.url}
-            secondSceneId={secondScene}
-            decorations={decorations}
-            locale={locale}
-            onEdit={editable ? (field, text) => onCopy(scene.id, field, text) : undefined}
-          />
-        ),
-      });
-    }
+    entries.push({
+      key: item.key,
+      width: item.width,
+      height: item.height,
+      bad: false,
+      editable: true,
+      sceneId: item.slice === 0 ? item.sceneId : undefined,
+      targetSceneId: item.sceneId,
+      layout: layoutControl,
+      scene: (editable) => item.render(editable),
+    });
   }
 
   const [open, setOpenState] = useState<number | null>(null);
@@ -395,6 +634,8 @@ export function Strip({
   };
 
   const [replacingSceneId, setReplacingSceneId] = useState<string | null>(null);
+  const [downloadingKey, setDownloadingKey] = useState<string | null>(null);
+  const [activeAiSceneId, setActiveAiSceneId] = useState<string | null>(null);
 
   const readFileData = (
     file: File,
@@ -468,8 +709,40 @@ export function Strip({
     }
   };
 
+  const handleDownloadScreenshot = async (
+    entryKey: string,
+    targetSceneId?: string,
+    sceneId?: string,
+  ) => {
+    const parts = entryKey.split("#");
+    const resolvedSceneId = targetSceneId ?? sceneId ?? parts[0];
+    const slice = parts[1] ? parseInt(parts[1], 10) : undefined;
+    setDownloadingKey(entryKey);
+    try {
+      await downloadSingleScreenshot({
+        sceneId: resolvedSceneId,
+        slice,
+        device: tileSpec.key,
+        locale,
+        background: (targetSceneId && sceneBackgrounds[targetSceneId]) || background,
+        frameUrl,
+        fontFamily,
+        template,
+        layout,
+        screenOnly,
+        fontSizeScale,
+        design,
+      });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to download screenshot");
+    } finally {
+      setDownloadingKey(null);
+    }
+  };
+
   const tileAt = (i: number) => {
     const entry = entries[i];
+    const isDownloading = downloadingKey === entry.key;
     return (
       <Tile
         key={entry.key}
@@ -484,6 +757,13 @@ export function Strip({
         onDelete={entry.sceneId ? () => handleDelete(entry.sceneId!) : undefined}
         onReplace={entry.sceneId ? (file) => handleReplaceCapture(entry.sceneId!, file) : undefined}
         isReplacing={entry.sceneId ? replacingSceneId === entry.sceneId : false}
+        onDownload={
+          entry.key !== "preview"
+            ? () => handleDownloadScreenshot(entry.key, entry.targetSceneId, entry.sceneId)
+            : undefined
+        }
+        isDownloading={isDownloading}
+        onAiCopy={entry.sceneId ? () => setActiveAiSceneId(entry.sceneId!) : undefined}
         sceneId={entry.sceneId}
         // Named only while the lightbox is closed: once open, the scene inside
         // it carries the name, and a duplicate would abort the transition.
@@ -664,8 +944,6 @@ export function Strip({
           layouts={design.layouts}
           index={open}
           count={entries.length}
-          device={tileSpec.key}
-          locale={locale}
           globalBackground={background}
           sceneBackground={
             entries[open].targetSceneId ? sceneBackgrounds[entries[open].targetSceneId!] : undefined
@@ -683,6 +961,16 @@ export function Strip({
               onSceneBadge(entries[open].targetSceneId!, b);
             }
           }}
+          onDownload={() => {
+            const parts = entries[open].key.split("#");
+            const resolvedSceneId =
+              entries[open].targetSceneId ?? entries[open].sceneId ?? parts[0];
+            handleDownloadScreenshot(entries[open].key, resolvedSceneId, entries[open].sceneId);
+          }}
+          isDownloading={downloadingKey === entries[open].key}
+          onAiCopy={
+            entries[open]?.sceneId ? () => setActiveAiSceneId(entries[open].sceneId!) : undefined
+          }
           onClose={() => setOpen(null)}
           // Stepping swaps the scene in place with no morph.
           onStep={(delta) => {
@@ -690,6 +978,28 @@ export function Strip({
             const next = Math.min(entries.length - 1, Math.max(0, open + delta));
             setNamed(next);
             setOpenState(next);
+          }}
+        />
+      ) : null}
+
+      {activeAiSceneId ? (
+        <AiCopyModal
+          isOpen={true}
+          onClose={() => setActiveAiSceneId(null)}
+          sceneId={activeAiSceneId}
+          sceneHeadline={
+            copy[activeAiSceneId]?.headline?.[locale] ??
+            design.scenes.find((s) => s.id === activeAiSceneId)?.headline[locale]
+          }
+          sceneSubhead={
+            copy[activeAiSceneId]?.subhead?.[locale] ??
+            design.scenes.find((s) => s.id === activeAiSceneId)?.subhead?.[locale]
+          }
+          device={tileSpec.key}
+          locale={locale}
+          manifest={manifest}
+          onApplyCopy={(sId, field, text) => {
+            onCopy(sId, field, text);
           }}
         />
       ) : null}
@@ -971,13 +1281,14 @@ function Lightbox({
   layouts,
   index,
   count,
-  device,
-  locale,
   globalBackground,
   sceneBackground,
   onSceneBackground,
   badge,
   onSceneBadge,
+  onDownload,
+  isDownloading,
+  onAiCopy,
   onClose,
   onStep,
 }: {
@@ -999,8 +1310,6 @@ function Lightbox({
   layouts: Design["layouts"];
   index: number;
   count: number;
-  device?: string;
-  locale?: string;
   globalBackground: string;
   sceneBackground?: string;
   onSceneBackground?: (bg: string | undefined) => void;
@@ -1020,6 +1329,9 @@ function Lightbox({
         }
       | undefined,
   ) => void;
+  onDownload?: () => void;
+  isDownloading?: boolean;
+  onAiCopy?: () => void;
   onClose: () => void;
   onStep: (delta: number) => void;
 }) {
@@ -1088,27 +1400,32 @@ function Lightbox({
             <SceneBadgePopover badge={badge} onChange={onSceneBadge ?? (() => {})} />
           </>
         ) : null}
-        {entry.key !== "preview" ? (
+        {entry.key !== "preview" && onAiCopy ? (
           <Button
             type="button"
             variant="outline"
             size="sm"
-            className="cursor-pointer gap-1.5 rounded-lg border-white/20 bg-white/10 text-xs text-white backdrop-blur-md hover:bg-white/20 hover:text-white"
-            onClick={() => {
-              const parts = entry.key.split("#");
-              const sceneId = entry.targetSceneId ?? entry.sceneId ?? parts[0];
-              const slice = parts[1] ? parseInt(parts[1], 10) : undefined;
-              const sliceQuery = slice ? `&slice=${slice}` : "";
-              const a = document.createElement("a");
-              a.href = `/api/export-single?sceneId=${encodeURIComponent(sceneId)}&device=${encodeURIComponent(device || "iphone-6.9")}&locale=${encodeURIComponent(locale || "en-US")}${sliceQuery}`;
-              a.download =
-                slice && slice > 1
-                  ? `${sceneId}-${slice}-${device || "screenshot"}.png`
-                  : `${sceneId}-${device || "screenshot"}.png`;
-              a.click();
-            }}
+            className="cursor-pointer gap-1.5 rounded-lg border-indigo-400/40 bg-indigo-500/20 text-xs text-white backdrop-blur-md hover:bg-indigo-500/30 hover:text-white shadow-sm"
+            onClick={onAiCopy}
           >
-            <Download className="size-3.5" />
+            <Sparkles className="size-3.5 text-indigo-300" />
+            AI Copy
+          </Button>
+        ) : null}
+        {entry.key !== "preview" && onDownload ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={isDownloading}
+            className="cursor-pointer gap-1.5 rounded-lg border-white/20 bg-white/10 text-xs text-white backdrop-blur-md hover:bg-white/20 hover:text-white disabled:opacity-50"
+            onClick={onDownload}
+          >
+            {isDownloading ? (
+              <Loader2 className="size-3.5 text-white animate-spin" />
+            ) : (
+              <Download className="size-3.5" />
+            )}
             Download PNG
           </Button>
         ) : null}
@@ -1220,7 +1537,7 @@ function Canvas({
  * headline and subhead are contentEditable and report their text when
  * editing ends (blur, or Enter).
  */
-function ScreenshotScene({
+export function ScreenshotScene({
   spec,
   slice,
   tile,
@@ -1573,6 +1890,9 @@ function Tile({
   onDelete,
   onReplace,
   isReplacing,
+  onDownload,
+  isDownloading,
+  onAiCopy,
   sceneId,
   transitionName,
   draggable,
@@ -1586,6 +1906,9 @@ function Tile({
   onDelete?: () => void;
   onReplace?: (file: File) => void;
   isReplacing?: boolean;
+  onDownload?: () => void;
+  isDownloading?: boolean;
+  onAiCopy?: () => void;
   sceneId?: string;
   transitionName?: string;
   draggable: boolean;
@@ -1715,6 +2038,44 @@ function Tile({
         </button>
       ) : null}
 
+      {/* 1-Click Instant Screenshot Download button */}
+      {onDownload && !isReplacing ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDownload();
+          }}
+          disabled={isDownloading}
+          className="absolute bottom-2 right-2 z-30 flex size-7 cursor-pointer items-center justify-center rounded-full bg-background/90 text-foreground border border-border/80 shadow-md backdrop-blur-md transition-all opacity-0 group-hover:opacity-100 hover:scale-110 active:scale-95 disabled:opacity-50"
+          aria-label={sceneId ? `Download screenshot for ${sceneId}` : "Download screenshot"}
+          title={sceneId ? `Download screenshot for "${sceneId}"` : "Download screenshot"}
+        >
+          {isDownloading ? (
+            <Loader2 className="size-3.5 text-primary animate-spin" />
+          ) : (
+            <Download className="size-3.5" strokeWidth={2} />
+          )}
+        </button>
+      ) : null}
+
+      {/* 1-Click Gemini Vision AI Copy Assistant button */}
+      {onAiCopy && !isReplacing ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onAiCopy();
+          }}
+          className="absolute bottom-2 left-2 z-30 flex items-center gap-1 rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 px-2.5 py-1 text-[10px] font-bold text-white shadow-md backdrop-blur-md transition-all opacity-0 group-hover:opacity-100 hover:scale-105 active:scale-95 cursor-pointer"
+          aria-label={sceneId ? `AI Copy for ${sceneId}` : "AI Copy"}
+          title={sceneId ? `AI Copy Assistant for "${sceneId}"` : "AI Copy Assistant"}
+        >
+          <Sparkles className="size-3" />
+          <span>AI Copy</span>
+        </button>
+      ) : null}
+
       {/* Drag & drop highlight on this specific card */}
       {isDragOver ? (
         <div className="pointer-events-none absolute inset-0 z-40 flex flex-col items-center justify-center rounded-2xl bg-primary/20 backdrop-blur-xs ring-2 ring-primary ring-offset-2">
@@ -1740,27 +2101,4 @@ function Tile({
       ) : null}
     </div>
   );
-}
-
-/** Position of a scene id in the saved order; unlisted ids sort last, in config order. */
-function rankOf(order: string[], id: string): number {
-  const i = order.indexOf(id);
-  return i === -1 ? Number.POSITIVE_INFINITY : i;
-}
-
-/**
- * Mirror of the CLI's backgroundLuminance: mean relative luminance of the
- * value's six-digit hex colors, or null when it has none.
- */
-function backgroundLuminance(css: string): number | null {
-  const hexes = css.match(/#[0-9a-fA-F]{6}/g);
-  if (!hexes || hexes.length === 0) return null;
-  const luminance = (hex: string) => {
-    const channel = (offset: number) => {
-      const c = parseInt(hex.slice(offset, offset + 2), 16) / 255;
-      return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-    };
-    return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
-  };
-  return hexes.reduce((sum, hex) => sum + luminance(hex), 0) / hexes.length;
 }

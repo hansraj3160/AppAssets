@@ -4,8 +4,10 @@ import {
   ChevronUp,
   DownloadIcon,
   FolderArchive,
+  Layers,
   Loader2Icon,
   MoonIcon,
+  Smartphone,
   SunIcon,
   Trash2,
 } from "lucide-react";
@@ -28,6 +30,8 @@ export function Header({
   layout,
   screenOnly,
   fontSizeScale,
+  viewMode = "editor",
+  onViewModeChange,
 }: {
   manifest: StoreManifest;
   dark: boolean;
@@ -40,6 +44,8 @@ export function Header({
   layout: string;
   screenOnly: boolean;
   fontSizeScale?: number;
+  viewMode?: "editor" | "store";
+  onViewModeChange?: (mode: "editor" | "store") => void;
 }) {
   const [clearing, setClearing] = useState(false);
 
@@ -187,6 +193,40 @@ export function Header({
         >
           {dark ? <SunIcon className="size-4" /> : <MoonIcon className="size-4" />}
         </Button>
+      </div>
+
+      {/* Center: View Switcher (Studio Canvas vs Store Preview) */}
+      <div className="flex items-center gap-1 rounded-xl bg-muted/60 dark:bg-muted/40 p-1 border border-border/60 shadow-2xs">
+        <button
+          type="button"
+          onClick={() => onViewModeChange?.("editor")}
+          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+            viewMode === "editor"
+              ? "bg-background text-foreground shadow-xs"
+              : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+          }`}
+        >
+          <Layers className="size-3.5" />
+          <span className="hidden sm:inline">Studio Canvas</span>
+          <span className="sm:hidden">Canvas</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onViewModeChange?.("store")}
+          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+            viewMode === "store"
+              ? "bg-background text-foreground shadow-xs"
+              : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+          }`}
+        >
+          <Smartphone className="size-3.5 text-blue-500" />
+          <span className="hidden sm:inline">Store Preview</span>
+          <span className="sm:hidden">Store</span>
+          <span className="ml-0.5 rounded-full bg-blue-500/15 px-1.5 py-0.2 text-[9px] font-bold text-blue-600 dark:text-blue-400">
+            Live
+          </span>
+        </button>
       </div>
 
       {/* Action Buttons: Import, Remove All, Export Screenshots */}

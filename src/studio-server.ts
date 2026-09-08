@@ -946,6 +946,15 @@ export function singleExportHandler({ paths, cli }: StudioApi): Handler {
     const sliceParam = url.searchParams.get("slice");
     const sliceNum = sliceParam !== null ? parseInt(sliceParam, 10) : undefined;
 
+    const force = url.searchParams.get("force") === "1" || url.searchParams.get("force") === "true";
+    const background = url.searchParams.get("background");
+    const frame = url.searchParams.get("frame");
+    const font = url.searchParams.get("font");
+    const template = url.searchParams.get("template");
+    const layout = url.searchParams.get("layout");
+    const screenOnly = url.searchParams.get("screenOnly") === "true";
+    const fontSizeScale = url.searchParams.get("fontSizeScale");
+
     if (!sceneId) {
       res.statusCode = 400;
       res.end("sceneId query param required");
@@ -963,8 +972,23 @@ export function singleExportHandler({ paths, cli }: StudioApi): Handler {
           if (matched) targetFile = join(screenshotsDir, matched);
         }
 
-        // If file not found yet, run frame first
-        if (!targetFile || !existsSync(targetFile)) {
+        const designExists = existsSync(paths.designFile);
+        const isStale =
+          !targetFile ||
+          !existsSync(targetFile) ||
+          (designExists && statSync(paths.designFile).mtimeMs > statSync(targetFile).mtimeMs);
+
+        // If file not found, stale, or explicitly forced, run frame
+        if (force || isStale) {
+          const flags: string[] = [];
+          if (background) flags.push("--background", background);
+          if (frame) flags.push("--frame", frame);
+          if (font) flags.push("--font", font);
+          if (template && template !== "none") flags.push("--template", template);
+          if (layout) flags.push("--layout", layout);
+          if (screenOnly) flags.push("--screen-only");
+          if (fontSizeScale) flags.push("--font-size-scale", fontSizeScale);
+
           const [bin, ...prefix] = cli;
           await exec(
             bin!,
@@ -977,6 +1001,7 @@ export function singleExportHandler({ paths, cli }: StudioApi): Handler {
               device,
               "--locale",
               locale,
+              ...flags,
             ],
             { quiet: true },
           );
@@ -1006,6 +1031,7 @@ export function singleExportHandler({ paths, cli }: StudioApi): Handler {
           "Content-Type": "image/png",
           "Content-Length": stat.size,
           "Content-Disposition": `attachment; filename="${sceneId}${sliceSuffix}-${device}.png"`,
+          "Cache-Control": "no-store",
         });
         createReadStream(targetFile).pipe(res);
       } catch (err) {
@@ -1013,6 +1039,216 @@ export function singleExportHandler({ paths, cli }: StudioApi): Handler {
         res.end(err instanceof Error ? err.message : String(err));
       }
     })();
+  };
+}
+
+/** Handles POST /api/ai/generate-copy for visual screenshot analysis and ASO copy generation with Gemini Vision. */
+export function aiCopyHandler({ paths }: StudioApi): Handler {
+  return (req, res) => {
+    if (req.method !== "POST") {
+      res.statusCode = 405;
+      res.end("POST only");
+      return;
+    }
+
+    readBody(req).then(async (body) => {
+      try {
+        const {
+          sceneId,
+          device = "iphone-6.9",
+          locale = "en-US",
+          tone,
+          customPrompt,
+          appContext,
+        } = JSON.parse(body || "{}") as {
+          sceneId?: string;
+          device?: string;
+          locale?: string;
+          tone?: string;
+          customPrompt?: string;
+          appContext?: {
+            name?: string;
+            category?: string;
+            description?: string;
+          };
+        };
+
+        if (!sceneId) {
+          res.statusCode = 400;
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify({ error: "sceneId is required" }));
+          return;
+        }
+
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) {
+          res.statusCode = 400;
+          res.setHeader("Content-Type", "application/json");
+          res.end(
+            JSON.stringify({
+              error:
+                "GEMINI_API_KEY is not configured. Please add GEMINI_API_KEY=your_key in the .env file.",
+            }),
+          );
+          return;
+        }
+
+        // Find screenshot file: try raw device folder, then fallback devices, then screenshots folder
+        const candidatePaths = [
+          join(paths.outDir, "raw", device, `${sceneId}.png`),
+          join(paths.outDir, "raw", "iphone-6.9", `${sceneId}.png`),
+          join(paths.outDir, "raw", "pixel-10-pro", `${sceneId}.png`),
+          join(paths.outDir, "raw", "ipad-13", `${sceneId}.png`),
+        ];
+
+        let screenshotPath: string | null = null;
+        for (const p of candidatePaths) {
+          if (existsSync(p)) {
+            screenshotPath = p;
+            break;
+          }
+        }
+
+        if (!screenshotPath) {
+          const screenshotsDir = join(paths.outDir, "screenshots", device, locale);
+          if (existsSync(screenshotsDir)) {
+            const files = await readdir(screenshotsDir);
+            const matched = findScreenshotFile(files, sceneId);
+            if (matched) screenshotPath = join(screenshotsDir, matched);
+          }
+        }
+
+        if (!screenshotPath || !existsSync(screenshotPath)) {
+          res.statusCode = 404;
+          res.setHeader("Content-Type", "application/json");
+          res.end(
+            JSON.stringify({
+              error: `Screenshot file for scene "${sceneId}" not found on disk.`,
+            }),
+          );
+          return;
+        }
+
+        const imageBuffer = await readFile(screenshotPath);
+        const imageBase64 = imageBuffer.toString("base64");
+        const ext = extname(screenshotPath).toLowerCase();
+        const mimeType =
+          ext === ".jpg" || ext === ".jpeg"
+            ? "image/jpeg"
+            : ext === ".webp"
+              ? "image/webp"
+              : "image/png";
+
+        // Build ASO prompt
+        const appName = appContext?.name ? `App Name: "${appContext.name}"` : "";
+        const appCat = appContext?.category ? `Category: ${appContext.category}` : "";
+        const appDesc = appContext?.description ? `App Summary: ${appContext.description}` : "";
+        const toneInstruction =
+          tone && tone !== "all"
+            ? `Preferred primary tone: ${tone}.`
+            : "Provide a diverse mix of tones (Punchy, Benefit-Driven, Action-Oriented, Minimalist).";
+        const customGuide = customPrompt ? `Additional User Direction: "${customPrompt}"` : "";
+
+        const promptText = `You are an elite App Store Optimization (ASO) and mobile app marketing copywriter.
+Analyze this mobile application screenshot carefully.
+
+Context:
+${[appName, appCat, appDesc, toneInstruction, customGuide].filter(Boolean).join("\n")}
+Target Language/Locale: ${locale} (Generate headlines and subheads natively in this language/locale).
+
+Rules for App Store Screenshot Copy:
+1. Headline MUST be punchy, concise, and captivating (max 4-6 words, under 35 characters).
+2. Subhead must clearly describe the user benefit or feature shown on this specific screen (max 10-14 words, under 85 characters).
+3. Focus directly on the actual visual UI screen contents (e.g. transactions, budget charts, group splitting, calendar, profile, notifications, etc.).
+4. Avoid generic placeholders like "Welcome to the App" or "Amazing Features".
+5. Return 3 to 4 distinct options with different marketing angles.
+
+Return ONLY a valid JSON object matching this schema:
+{
+  "screenAnalysis": "1-sentence summary of what feature or UI is visible on this screen",
+  "suggestions": [
+    {
+      "tone": "Punchy" | "Benefit-Driven" | "Action-Oriented" | "Minimalist",
+      "headline": "...",
+      "subhead": "..."
+    }
+  ]
+}`;
+
+        // Attempt primary model, fallback if needed
+        const candidateModels = ["gemini-3.6-flash", "gemini-flash-latest"];
+        let rawContent: string | null = null;
+        let lastError: string | null = null;
+
+        for (const model of candidateModels) {
+          try {
+            const geminiRes = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  contents: [
+                    {
+                      parts: [
+                        { text: promptText },
+                        {
+                          inlineData: {
+                            mimeType,
+                            data: imageBase64,
+                          },
+                        },
+                      ],
+                    },
+                  ],
+                  generationConfig: {
+                    responseMimeType: "application/json",
+                  },
+                }),
+              },
+            );
+
+            if (geminiRes.ok) {
+              const data = (await geminiRes.json()) as any;
+              rawContent = data.candidates?.[0]?.content?.parts?.[0]?.text;
+              if (rawContent) break;
+            } else {
+              lastError = await geminiRes.text().catch(() => "");
+            }
+          } catch (e) {
+            lastError = e instanceof Error ? e.message : String(e);
+          }
+        }
+
+        if (!rawContent) {
+          throw new Error(`Gemini API error: ${lastError || "Failed to generate copy"}`);
+        }
+
+        let parsed: any;
+        try {
+          parsed = JSON.parse(rawContent);
+        } catch {
+          const cleaned = rawContent.replace(/```(?:json)?\n?|\n?```/g, "").trim();
+          parsed = JSON.parse(cleaned);
+        }
+
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "application/json");
+        res.end(
+          JSON.stringify({
+            ok: true,
+            sceneId,
+            screenAnalysis: parsed.screenAnalysis || "UI Screen analysis completed.",
+            suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions : [],
+          }),
+        );
+      } catch (err) {
+        console.error("AI Copy generation error in aiCopyHandler:", err);
+        res.statusCode = 500;
+        res.setHeader("Content-Type", "application/json");
+        res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+      }
+    });
   };
 }
 
@@ -1222,12 +1458,14 @@ export function serveStudio(api: StudioApi, port = 4321): Promise<string> {
   const del = deleteHandler(api);
   const delAll = deleteAllHandler(api);
   const locales = localesHandler(api);
+  const aiCopy = aiCopyHandler(api);
 
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
     const path = url.pathname;
     if (path === "/api/design") return design(req, res);
     if (path === "/api/locales") return locales(req, res);
+    if (path === "/api/ai/generate-copy") return aiCopy(req, res);
     if (path.startsWith("/api/export-single")) return expSingle(req, res);
     if (path.startsWith("/api/export")) return exp(path.slice("/api/export".length))(req, res);
     if (path === "/api/import") return imp(req, res);
