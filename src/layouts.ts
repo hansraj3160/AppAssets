@@ -13,10 +13,16 @@ export const LAYOUT_KEYS = [
   "copy-below",
   "hero",
   "offset",
+  "offset-left",
   "tilt",
+  "tilt-left",
   "tilt-right",
   "duo",
   "duo-tilt",
+  "duo-flat",
+  "duo-v",
+  "trio",
+  "bottom-sheet",
   "panorama",
   "panorama-duo",
   "minimal",
@@ -197,6 +203,64 @@ export const LAYOUTS: Record<LayoutKey, LayoutSpec> = {
     copy: { position: "none", align: "center" },
     devices: single({ widthRatio: 0.92, x: 0.5, y: 0.5 }),
   },
+  "offset-left": {
+    key: "offset-left",
+    label: "Offset left",
+    description: "Left-aligned copy, device pushed to the bottom left.",
+    span: 1,
+    copy: { position: "top", align: "left", heightRatio: 0.26 },
+    devices: single({ widthRatio: 0.9, x: 0.38, y: 0.76 }),
+  },
+  "tilt-left": {
+    key: "tilt-left",
+    label: "Tilt left",
+    description: "Left-aligned copy, device tilted into the bottom left corner.",
+    span: 1,
+    copy: { position: "top", align: "left", heightRatio: 0.26 },
+    devices: single({ widthRatio: 0.9, x: 0.36, y: 0.78, rotate: -10 }),
+  },
+  "duo-flat": {
+    key: "duo-flat",
+    label: "Duo flat",
+    description: "Two upright devices side-by-side for comparison.",
+    span: 1,
+    copy: { position: "top", align: "center", heightRatio: 0.22 },
+    devices: [
+      { widthRatio: 0.52, x: 0.28, y: 0.68, rotate: 0, capture: "secondary" },
+      { widthRatio: 0.52, x: 0.72, y: 0.68, rotate: 0, capture: "primary" },
+    ],
+  },
+  "duo-v": {
+    key: "duo-v",
+    label: "Duo V-tilt",
+    description: "Two screens angled inward toward the centre.",
+    span: 1,
+    copy: { position: "top", align: "center", heightRatio: 0.24 },
+    devices: [
+      { widthRatio: 0.62, x: 0.3, y: 0.7, rotate: 6, capture: "secondary" },
+      { widthRatio: 0.62, x: 0.7, y: 0.7, rotate: -6, capture: "primary" },
+    ],
+  },
+  trio: {
+    key: "trio",
+    label: "Trio",
+    description: "Three screens: a dominant centre device flanked by two angled screens.",
+    span: 1,
+    copy: { position: "top", align: "center", heightRatio: 0.22 },
+    devices: [
+      { widthRatio: 0.54, x: 0.22, y: 0.72, rotate: -8, capture: "secondary" },
+      { widthRatio: 0.54, x: 0.78, y: 0.72, rotate: 8, capture: "secondary" },
+      { widthRatio: 0.68, x: 0.5, y: 0.74, rotate: 0, capture: "primary" },
+    ],
+  },
+  "bottom-sheet": {
+    key: "bottom-sheet",
+    label: "Bottom peek",
+    description: "Device rising from the bottom with extra room for headline and copy.",
+    span: 1,
+    copy: { position: "top", align: "center", heightRatio: 0.32 },
+    devices: single({ widthRatio: 0.88, x: 0.5, y: 0.82 }),
+  },
 };
 
 export function isLayoutKey(key: string): key is LayoutKey {
@@ -216,6 +280,8 @@ export const TEMPLATE_KEYS = [
   "magazine",
   "storyboard",
   "dynamic",
+  "trio-flow",
+  "showcase-pro",
 ] as const;
 export type TemplateKey = (typeof TEMPLATE_KEYS)[number];
 
@@ -262,6 +328,18 @@ export const TEMPLATES: Record<TemplateKey, TemplateSpec> = {
     label: "Dynamic",
     description: "Everything tilted: a tilt, a tilted pair, a panorama, a breather.",
     sequence: ["tilt", "duo-tilt", "panorama", "minimal", "tilt-right"],
+  },
+  "trio-flow": {
+    key: "trio-flow",
+    label: "Trio Flow",
+    description: "Starts with a 3-device cascade, then offset and paired screens.",
+    sequence: ["trio", "offset-left", "duo-flat", "tilt-left", "hero"],
+  },
+  "showcase-pro": {
+    key: "showcase-pro",
+    label: "Showcase Pro",
+    description: "Hero first, then trio cascade, offset, V-tilted pair and bottom peek.",
+    sequence: ["hero", "trio", "offset", "duo-v", "bottom-sheet"],
   },
 };
 

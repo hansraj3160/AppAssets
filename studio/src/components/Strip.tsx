@@ -38,6 +38,7 @@ import {
   type Theme,
 } from "../manifest";
 import { AiCopyModal } from "./AiCopyModal";
+import { BadgePickerPopover } from "./BadgePickerPopover";
 import { CHECKERBOARD, layoutOptions, TRANSPARENT } from "./DesignPanel";
 import { Select } from "./Sidebar";
 import { Button } from "./ui/button";
@@ -202,6 +203,7 @@ export function buildScreenshotEntries({
       position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
       background?: string;
       color?: string;
+      slice?: number;
     }
   >;
   onCopy?: (sceneId: string, field: "headline" | "subhead", text: string) => void;
@@ -249,22 +251,26 @@ export function buildScreenshotEntries({
       themeHeadlineColor: theme.headlineColor,
       themeSubheadColor: theme.subheadColor,
     });
-    const userBadge = sceneBadges[scene.id];
-    const customBadgeDec: Decoration[] = userBadge
-      ? [
-          {
-            kind: "badge",
-            text: { [locale]: userBadge.text },
-            position: userBadge.position,
-            background: userBadge.background,
-            color: userBadge.color,
-          },
-        ]
-      : [];
-    const decorations = [...design.decorations, ...(scene.decorations ?? []), ...customBadgeDec];
     for (let slice = 0; slice < layoutSpec.span; slice++) {
+      const sliceKey = `${scene.id}#${slice + 1}`;
+      const userBadge =
+        sceneBadges[sliceKey] ??
+        (slice === (sceneBadges[scene.id]?.slice ?? 0) ? sceneBadges[scene.id] : undefined);
+      const customBadgeDec: Decoration[] = userBadge
+        ? [
+            {
+              kind: "badge",
+              text: { [locale]: userBadge.text },
+              position: userBadge.position,
+              background: userBadge.background,
+              color: userBadge.color,
+              slice,
+            },
+          ]
+        : [];
+      const decorations = [...design.decorations, ...(scene.decorations ?? []), ...customBadgeDec];
       entries.push({
-        key: layoutSpec.span > 1 ? `${scene.id}#${slice + 1}` : scene.id,
+        key: layoutSpec.span > 1 ? sliceKey : scene.id,
         sceneId: scene.id,
         slice,
         width: spec.screenshot.width,
@@ -505,6 +511,8 @@ export function Strip({
     sceneId?: string;
     /** The underlying screenshot scene id regardless of slice */
     targetSceneId?: string;
+    /** Slice index in a multi-span scene (0-indexed) */
+    slice?: number;
     /** The lightbox's per-scene layout override control (screenshots only). */
     layout?: {
       value: string | undefined;
@@ -567,6 +575,7 @@ export function Strip({
       editable: true,
       sceneId: item.slice === 0 ? item.sceneId : undefined,
       targetSceneId: item.sceneId,
+      slice: item.slice,
       layout: layoutControl,
       scene: (editable) => item.render(editable),
     });
@@ -958,11 +967,20 @@ export function Strip({
             }
           }}
           badge={
-            entries[open].targetSceneId ? sceneBadges[entries[open].targetSceneId!] : undefined
+            entries[open].slice !== undefined && entries[open].slice > 0
+              ? sceneBadges[entries[open].key]
+              : (sceneBadges[entries[open].key] ??
+                (entries[open].targetSceneId
+                  ? sceneBadges[entries[open].targetSceneId!]
+                  : undefined))
           }
           onSceneBadge={(b) => {
-            if (entries[open]?.targetSceneId && onSceneBadge) {
-              onSceneBadge(entries[open].targetSceneId!, b);
+            if (onSceneBadge) {
+              const badgeKey =
+                entries[open].slice !== undefined && entries[open].slice > 0
+                  ? entries[open].key
+                  : entries[open].targetSceneId!;
+              onSceneBadge(badgeKey, b);
             }
           }}
           onDownload={() => {
@@ -1113,174 +1131,6 @@ function SceneBackgroundPopover({
   );
 }
 
-function SceneBadgePopover({
-  badge,
-  onChange,
-}: {
-  badge?: {
-    text: string;
-    position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
-    background?: string;
-    color?: string;
-  };
-  onChange: (
-    b:
-      | {
-          text: string;
-          position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
-          background?: string;
-          color?: string;
-        }
-      | undefined,
-  ) => void;
-}) {
-  const [text, setText] = useState(badge?.text ?? "");
-  const [position, setPosition] = useState<
-    "top-left" | "top-right" | "bottom-left" | "bottom-right"
-  >(badge?.position ?? "top-right");
-  const [bg, setBg] = useState(badge?.background ?? "#2563EB");
-  const [color, setColor] = useState(badge?.color ?? "#FFFFFF");
-
-  useEffect(() => {
-    if (badge) {
-      setText(badge.text);
-      setPosition(badge.position);
-      if (badge.background) setBg(badge.background);
-      if (badge.color) setColor(badge.color);
-    } else {
-      setText("");
-      setPosition("top-right");
-      setBg("#2563EB");
-      setColor("#FFFFFF");
-    }
-  }, [badge]);
-
-  const handleApply = () => {
-    if (!text.trim()) {
-      onChange(undefined);
-    } else {
-      onChange({
-        text: text.trim(),
-        position,
-        background: bg,
-        color,
-      });
-    }
-  };
-
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className={`cursor-pointer gap-1.5 rounded-lg border-white/20 text-xs text-white backdrop-blur-md hover:bg-white/20 hover:text-white ${
-            badge ? "bg-primary/40 border-primary/50" : "bg-white/10"
-          }`}
-        >
-          <Sparkles className="size-3.5" />
-          {badge ? `Badge: ${badge.text}` : "Add Badge"}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        side="top"
-        align="center"
-        className="w-72 p-3 dark bg-popover text-foreground"
-      >
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between text-xs font-semibold">
-            <span>Badge Pill</span>
-            {badge ? (
-              <button
-                type="button"
-                onClick={() => onChange(undefined)}
-                className="text-[10px] text-destructive hover:underline cursor-pointer"
-              >
-                Remove Badge
-              </button>
-            ) : null}
-          </div>
-
-          <div className="flex flex-col gap-1 text-[11px]">
-            <span className="text-muted-foreground">Badge Text</span>
-            <Input
-              value={text}
-              placeholder="e.g. NEW, 50% OFF, FEATURED"
-              onChange={(e) => setText(e.target.value)}
-              className="h-7 text-xs"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1 text-[11px]">
-            <span className="text-muted-foreground">Position</span>
-            <div className="grid grid-cols-2 gap-1">
-              {(["top-left", "top-right", "bottom-left", "bottom-right"] as const).map((pos) => (
-                <button
-                  key={pos}
-                  type="button"
-                  onClick={() => setPosition(pos)}
-                  className={`h-6 rounded border text-[10px] capitalize cursor-pointer transition-colors ${
-                    position === pos
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "border-border hover:bg-accent text-muted-foreground"
-                  }`}
-                >
-                  {pos.replace("-", " ")}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 text-[11px]">
-            <div className="flex flex-col gap-1">
-              <span className="text-muted-foreground">Pill Color</span>
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="color"
-                  value={bg.startsWith("#") ? bg : "#2563EB"}
-                  onChange={(e) => setBg(e.target.value.toUpperCase())}
-                  className="size-6 rounded border border-border cursor-pointer"
-                />
-                <Input
-                  value={bg}
-                  onChange={(e) => setBg(e.target.value)}
-                  className="h-6 text-[10px] font-mono uppercase"
-                />
-              </div>
-            </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-muted-foreground">Text Color</span>
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="color"
-                  value={color.startsWith("#") ? color : "#FFFFFF"}
-                  onChange={(e) => setColor(e.target.value.toUpperCase())}
-                  className="size-6 rounded border border-border cursor-pointer"
-                />
-                <Input
-                  value={color}
-                  onChange={(e) => setColor(e.target.value)}
-                  className="h-6 text-[10px] font-mono uppercase"
-                />
-              </div>
-            </div>
-          </div>
-
-          <Button
-            type="button"
-            size="sm"
-            className="h-7 text-xs mt-1 w-full cursor-pointer"
-            onClick={handleApply}
-          >
-            Apply Badge
-          </Button>
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
 /**
  * Full-viewport view of one tile: the same composition, rendered as large as
  * the window allows at the spec's aspect ratio. Click outside, Escape, or the
@@ -1408,7 +1258,7 @@ function Lightbox({
               globalBackground={globalBackground}
               onChange={onSceneBackground ?? (() => {})}
             />
-            <SceneBadgePopover badge={badge} onChange={onSceneBadge ?? (() => {})} />
+            <BadgePickerPopover badge={badge} onChange={onSceneBadge ?? (() => {})} />
           </>
         ) : null}
         {entry.key !== "preview" && onAiCopy ? (
@@ -1677,13 +1527,18 @@ export function ScreenshotScene({
           </div>
         ) : null}
 
-        <Decorations decorations={decorations} tile={tile} locale={locale} color={headlineColor} />
+        <Decorations
+          decorations={decorations.filter((d) => d.kind !== "badge")}
+          tile={tile}
+          locale={locale}
+          color={headlineColor}
+        />
 
         {c.devices.map((device) => {
           const url = device.capture === "secondary" ? secondCaptureUrl : captureUrl;
           return (
             <DeviceView
-              key={device.capture}
+              key={`${device.capture}-${device.frame.left}-${device.frame.top}`}
               device={device}
               tile={tile}
               frameUrl={screenOnly ? null : frameUrl}
@@ -1693,6 +1548,15 @@ export function ScreenshotScene({
           );
         })}
       </div>
+
+      <Decorations
+        decorations={decorations.filter(
+          (d) => d.kind === "badge" && (d.slice === undefined ? slice === 0 : d.slice === slice),
+        )}
+        tile={tile}
+        locale={locale}
+        color={headlineColor}
+      />
     </Canvas>
   );
 }
@@ -1808,6 +1672,8 @@ function Decorations({
               fontWeight: BADGE.weight,
               whiteSpace: "nowrap",
               direction: isRtlLocale(locale) ? "rtl" : "ltr",
+              boxShadow: "0 4px 14px rgba(0, 0, 0, 0.22)",
+              border: "1px solid rgba(255, 255, 255, 0.16)",
             }}
           >
             {d.text[locale] ?? ""}

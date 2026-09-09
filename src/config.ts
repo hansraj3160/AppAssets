@@ -70,6 +70,8 @@ export type Decoration =
       /** Pill fill and text color; default to the headline color on a translucent white. */
       background?: string;
       color?: string;
+      /** Slice index in a multi-span scene (defaults to 0 for the first tile). */
+      slice?: number;
     }
   | {
       kind: "image";
@@ -325,6 +327,7 @@ export type DesignOverrides = {
       position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
       background?: string;
       color?: string;
+      slice?: number;
     }
   >;
   /** Scaling multiplier for headline and subhead copy. */
@@ -416,20 +419,22 @@ export function applyDesign(cfg: LoadedConfig, design: DesignOverrides): void {
     }
   }
   if (design.sceneBadges) {
-    for (const scene of cfg.scenes) {
-      if (isScreenshot(scene) && design.sceneBadges[scene.id]) {
-        const b = design.sceneBadges[scene.id];
-        const textMap: Record<string, string> = {};
-        for (const loc of cfg.locales) textMap[loc] = b.text;
-        const badgeDec: Decoration = {
-          kind: "badge",
-          text: textMap,
-          position: b.position,
-          background: b.background,
-          color: b.color,
-        };
-        scene.decorations = [...(scene.decorations ?? []), badgeDec];
-      }
+    for (const [key, b] of Object.entries(design.sceneBadges)) {
+      const [sceneId, sliceStr] = key.split("#");
+      const scene = cfg.scenes.find((s) => s.id === sceneId);
+      if (!scene || !isScreenshot(scene)) continue;
+      const textMap: Record<string, string> = {};
+      for (const loc of cfg.locales) textMap[loc] = b.text;
+      const sliceNum = sliceStr ? Number.parseInt(sliceStr, 10) - 1 : b.slice;
+      const badgeDec: Decoration = {
+        kind: "badge",
+        text: textMap,
+        position: b.position,
+        background: b.background,
+        color: b.color,
+        ...(sliceNum !== undefined && !Number.isNaN(sliceNum) ? { slice: sliceNum } : {}),
+      };
+      scene.decorations = [...(scene.decorations ?? []), badgeDec];
     }
   }
   if (design.locales && Array.isArray(design.locales) && design.locales.length > 0) {

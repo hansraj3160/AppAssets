@@ -13,6 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { Platform } from "../App";
 import { isRtlLocale, type StoreManifest } from "../manifest";
+import type { BadgeData } from "./BadgePickerPopover";
 import { DesignPanel } from "./DesignPanel";
 
 import { SidebarSection } from "./SidebarSection";
@@ -61,6 +62,8 @@ export function Sidebar({
   onHeadlineColor,
   onSubheadColor,
   onFontSizeScale,
+  sceneBadges,
+  onSceneBadge,
 }: {
   manifest: StoreManifest;
   platform: Platform;
@@ -88,6 +91,8 @@ export function Sidebar({
   onHeadlineColor: (v: string) => void;
   onSubheadColor: (v: string) => void;
   onFontSizeScale: (v: number) => void;
+  sceneBadges?: Record<string, BadgeData>;
+  onSceneBadge?: (sceneId: string, badge: BadgeData | undefined) => void;
 }) {
   const platformDevices = manifest.devices.filter((d) => d.platform === platform);
 
@@ -220,6 +225,8 @@ export function Sidebar({
           onHeadlineColor={onHeadlineColor}
           onSubheadColor={onSubheadColor}
           onFontSizeScale={onFontSizeScale}
+          sceneBadges={sceneBadges}
+          onSceneBadge={onSceneBadge}
         />
       </div>
     </aside>

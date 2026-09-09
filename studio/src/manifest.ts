@@ -19,6 +19,7 @@ export type Decoration =
       position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
       background?: string;
       color?: string;
+      slice?: number;
     }
   | { kind: "image"; src: string; x: number; y: number; width: number; rotate?: number };
 
@@ -175,6 +176,7 @@ export type SavedDesign = {
       position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
       background?: string;
       color?: string;
+      slice?: number;
     }
   >;
 };

@@ -66,9 +66,46 @@ describe("compose", () => {
     expect(c.copy).not.toBeNull();
   });
 
-  test("duo and panorama-duo need a second capture, the rest do not", () => {
-    const duo = LAYOUT_KEYS.filter((k) => needsSecondCapture(LAYOUTS[k]));
-    expect(duo.sort()).toEqual(["duo", "duo-tilt", "panorama-duo"]);
+  test("multi-screen layouts need a second capture, the rest do not", () => {
+    const multi = LAYOUT_KEYS.filter((k) => needsSecondCapture(LAYOUTS[k]));
+    expect(multi.sort()).toEqual(["duo", "duo-flat", "duo-tilt", "duo-v", "panorama-duo", "trio"]);
+  });
+
+  test("trio composes 3 devices with center device in foreground", () => {
+    const c = compose(LAYOUTS.trio, tile, theme);
+    expect(c.devices).toHaveLength(3);
+    expect(c.devices[0]!.capture).toBe("secondary");
+    expect(c.devices[1]!.capture).toBe("secondary");
+    expect(c.devices[2]!.capture).toBe("primary");
+    // Left device sits to the left of center, right device sits to the right
+    expect(c.devices[0]!.frame.left).toBeLessThan(c.devices[2]!.frame.left);
+    expect(c.devices[1]!.frame.left).toBeGreaterThan(c.devices[2]!.frame.left);
+    // Center device is largest
+    expect(c.devices[2]!.frame.width).toBeGreaterThan(c.devices[0]!.frame.width);
+  });
+
+  test("duo-flat composes two upright side-by-side devices", () => {
+    const c = compose(LAYOUTS["duo-flat"], tile, theme);
+    expect(c.devices).toHaveLength(2);
+    expect(c.devices[0]!.rotate).toBe(0);
+    expect(c.devices[1]!.rotate).toBe(0);
+    expect(c.devices[0]!.frame.left).toBeLessThan(c.devices[1]!.frame.left);
+    expect(c.devices[0]!.frame.width).toBeCloseTo(c.devices[1]!.frame.width);
+  });
+
+  test("offset-left and tilt-left position devices towards the left", () => {
+    const offLeft = compose(LAYOUTS["offset-left"], tile, theme);
+    const offRight = compose(LAYOUTS.offset, tile, theme);
+    expect(offLeft.devices[0]!.frame.left).toBeLessThan(offRight.devices[0]!.frame.left);
+
+    const tiltLeft = compose(LAYOUTS["tilt-left"], tile, theme);
+    expect(tiltLeft.devices[0]!.rotate).toBe(-10);
+  });
+
+  test("bottom-sheet allocates generous copy space above device", () => {
+    const c = compose(LAYOUTS["bottom-sheet"], tile, theme);
+    expect(c.copy!.box.height).toBeCloseTo(tile.height * 0.32);
+    expect(c.devices[0]!.frame.top).toBeGreaterThan(tile.height * 0.4);
   });
 
   test("bottom copy anchors at the bottom edge", () => {
@@ -133,5 +170,25 @@ describe("resolveScenes", () => {
     });
     expect(r.map((x) => x.secondScene)).toEqual(["b", "a", "a"]);
     expect(resolveScenes([{ id: "only" }], { template: ["duo"] })[0]!.secondScene).toBeUndefined();
+  });
+
+  test("trio-flow and showcase-pro assign new layout sequences", () => {
+    const r = resolveScenes(scenes.slice(0, 5), { template: "trio-flow" });
+    expect(r.map((x) => x.layout.key)).toEqual([
+      "trio",
+      "offset-left",
+      "duo-flat",
+      "tilt-left",
+      "hero",
+    ]);
+
+    const sp = resolveScenes(scenes.slice(0, 5), { template: "showcase-pro" });
+    expect(sp.map((x) => x.layout.key)).toEqual([
+      "hero",
+      "trio",
+      "offset",
+      "duo-v",
+      "bottom-sheet",
+    ]);
   });
 });

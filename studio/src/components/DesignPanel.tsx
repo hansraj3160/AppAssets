@@ -1,5 +1,6 @@
-import { CheckIcon, LayoutTemplate, Palette, RotateCcw, Sparkles, Type } from "lucide-react";
+import { CheckIcon, LayoutTemplate, Palette, RotateCcw, Sparkles, Tag, Type } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -7,6 +8,7 @@ import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CUSTOM_TEMPLATE } from "../App";
 import type { Design, LayoutEntry } from "../manifest";
+import { type BadgeData, BadgePickerPopover } from "./BadgePickerPopover";
 import { FontPicker } from "./FontPicker";
 import { Field, Select } from "./Sidebar";
 import { SidebarSection } from "./SidebarSection";
@@ -151,6 +153,8 @@ export function DesignPanel({
   onHeadlineColor,
   onSubheadColor,
   onFontSizeScale,
+  sceneBadges,
+  onSceneBadge,
 }: {
   design: Design;
   /** The shown device brings its own bezel art (android), so the frame picker does not apply. */
@@ -164,6 +168,7 @@ export function DesignPanel({
   headlineColor?: string;
   subheadColor?: string;
   fontSizeScale?: number;
+  sceneBadges?: Record<string, BadgeData>;
   onBackground: (v: string) => void;
   onFrame: (v: string) => void;
   onFontFamily: (v: string) => void;
@@ -173,6 +178,7 @@ export function DesignPanel({
   onHeadlineColor: (v: string) => void;
   onSubheadColor: (v: string) => void;
   onFontSizeScale: (v: number) => void;
+  onSceneBadge?: (sceneId: string, badge: BadgeData | undefined) => void;
 }) {
   // Each choice is a full CSS font stack, so the Strip can use it as-is. A
   // config stack that matches none of them shows as "custom (from config)".
@@ -386,6 +392,87 @@ export function DesignPanel({
               />
             </div>
           </Field>
+        </div>
+      </SidebarSection>
+
+      {/* Section 5: Store Badges & Stickers (Trust & Awards) */}
+      <SidebarSection
+        id="store-badges"
+        icon={Tag}
+        title="Store Badges & Stickers"
+        summary={
+          sceneBadges && Object.keys(sceneBadges).length > 0
+            ? `${Object.keys(sceneBadges).length} active`
+            : "Trust & Awards"
+        }
+        defaultOpen={false}
+      >
+        <div className="flex flex-col gap-3">
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
+            Apply store-tested trust badges, awards, and feature stickers to any scene.
+          </p>
+
+          <div className="flex flex-col gap-2">
+            {design.scenes.map((scene, idx) => {
+              const badge = sceneBadges?.[scene.id] ?? sceneBadges?.[`${scene.id}#1`];
+              const headlineSnippet =
+                typeof scene.headline === "string"
+                  ? scene.headline
+                  : Object.values(scene.headline)[0] || `Scene ${idx + 1}`;
+
+              return (
+                <div
+                  key={scene.id}
+                  className="flex items-center justify-between p-2 rounded-lg border border-border/70 bg-card/40 gap-2"
+                >
+                  <div className="min-w-0 flex-1 flex flex-col">
+                    <span className="text-[11px] font-semibold text-foreground truncate">
+                      {headlineSnippet}
+                    </span>
+                    <span className="text-[9px] text-muted-foreground font-mono">{scene.id}</span>
+                  </div>
+
+                  <div className="shrink-0 flex items-center gap-1.5">
+                    {badge ? (
+                      <BadgePickerPopover
+                        badge={badge}
+                        onChange={(b) => onSceneBadge?.(scene.id, b)}
+                        side="left"
+                        align="center"
+                        trigger={
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold max-w-[130px] truncate shadow-xs border border-white/10 cursor-pointer hover:opacity-90 transition-opacity"
+                            style={{ backgroundColor: badge.background, color: badge.color }}
+                            title="Edit badge"
+                          >
+                            <span className="truncate">{badge.text}</span>
+                          </button>
+                        }
+                      />
+                    ) : (
+                      <BadgePickerPopover
+                        badge={undefined}
+                        onChange={(b) => onSceneBadge?.(scene.id, b)}
+                        side="left"
+                        align="center"
+                        trigger={
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-6 px-2 text-[10px] gap-1 cursor-pointer border-dashed border-border hover:border-primary/50 text-muted-foreground hover:text-foreground"
+                          >
+                            <Tag className="size-2.5 text-amber-500" />+ Badge
+                          </Button>
+                        }
+                      />
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </SidebarSection>
     </div>

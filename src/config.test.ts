@@ -100,6 +100,81 @@ describe("applyDesign Phase 2 features", () => {
     });
   });
 
+  test("applies rich store trust badges and awards with multi-locale mapping", () => {
+    const cfg = makeConfig();
+    cfg.locales = ["en-US", "es-ES"];
+    applyDesign(cfg, {
+      sceneBadges: {
+        home: {
+          text: "4.9 ★ (50K+ Reviews)",
+          position: "top-left",
+          background: "#1E293B",
+          color: "#FBBF24",
+        },
+        detail: {
+          text: "Editor's Choice 🏆",
+          position: "top-right",
+          background: "#4338CA",
+          color: "#FDE047",
+        },
+      },
+    });
+    const home = cfg.scenes[0] as any;
+    expect(home.decorations[0]).toEqual({
+      kind: "badge",
+      text: { "en-US": "4.9 ★ (50K+ Reviews)", "es-ES": "4.9 ★ (50K+ Reviews)" },
+      position: "top-left",
+      background: "#1E293B",
+      color: "#FBBF24",
+    });
+    const detail = cfg.scenes[1] as any;
+    expect(detail.decorations[0]).toEqual({
+      kind: "badge",
+      text: { "en-US": "Editor's Choice 🏆", "es-ES": "Editor's Choice 🏆" },
+      position: "top-right",
+      background: "#4338CA",
+      color: "#FDE047",
+    });
+  });
+
+  test("applies per-slice badges for multi-span panorama layouts (e.g. home#1, home#2)", () => {
+    const cfg = makeConfig();
+    applyDesign(cfg, {
+      sceneBadges: {
+        "home#1": {
+          text: "4.9 ★ (50K+ Reviews)",
+          position: "top-right",
+          background: "#F59E0B",
+          color: "#0F172A",
+        },
+        "home#2": {
+          text: "Apple Design Award 🌟",
+          position: "top-left",
+          background: "#0EA5E9",
+          color: "#FFFFFF",
+        },
+      },
+    });
+    const home = cfg.scenes[0] as any;
+    expect(home.decorations).toHaveLength(2);
+    expect(home.decorations[0]).toEqual({
+      kind: "badge",
+      text: { "en-US": "4.9 ★ (50K+ Reviews)" },
+      position: "top-right",
+      background: "#F59E0B",
+      color: "#0F172A",
+      slice: 0,
+    });
+    expect(home.decorations[1]).toEqual({
+      kind: "badge",
+      text: { "en-US": "Apple Design Award 🌟" },
+      position: "top-left",
+      background: "#0EA5E9",
+      color: "#FFFFFF",
+      slice: 1,
+    });
+  });
+
   test("applies fontSizeScale override to theme", () => {
     const cfg = makeConfig();
     applyDesign(cfg, {

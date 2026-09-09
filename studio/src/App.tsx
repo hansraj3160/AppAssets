@@ -228,13 +228,23 @@ function Loaded({
           position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
           background?: string;
           color?: string;
+          slice?: number;
         }
       | undefined,
   ) =>
     set("sceneBadges", (prev) => {
       const next = { ...prev.sceneBadges };
-      if (badge) next[sceneId] = badge;
-      else delete next[sceneId];
+      if (badge) {
+        next[sceneId] = badge;
+        if (!sceneId.includes("#")) {
+          delete next[`${sceneId}#1`];
+        }
+      } else {
+        delete next[sceneId];
+        if (!sceneId.includes("#")) {
+          delete next[`${sceneId}#1`];
+        }
+      }
       return { ...prev, sceneBadges: next };
     });
   const [isLocaleModalOpen, setIsLocaleModalOpen] = useState(false);
@@ -556,6 +566,8 @@ function Loaded({
           onHeadlineColor={setHeadlineColor}
           onSubheadColor={setSubheadColor}
           onFontSizeScale={setFontSizeScale}
+          sceneBadges={sceneBadges}
+          onSceneBadge={setSceneBadge}
           onOpenLocaleManager={() => setIsLocaleModalOpen(true)}
         />
 
@@ -737,6 +749,7 @@ type DesignState = {
       position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
       background?: string;
       color?: string;
+      slice?: number;
     }
   >;
   /** Screenshot scene ids as arranged by dragging tiles; empty means the config's order. */

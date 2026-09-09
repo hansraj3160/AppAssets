@@ -64,18 +64,6 @@ export const THEME_PRESETS: ThemePreset[] = [
     fontSizeScale: 1,
   },
   {
-    id: "cyberpunk-gaming",
-    name: "Cyberpunk & Social",
-    tagline: "Vibrant neon purple & violet",
-    background: "linear-gradient(160deg, #180B2B 0%, #3B0764 50%, #701A75 100%)",
-    frame: "17-pro-blue",
-    fontFamily: '"DM Sans", system-ui, sans-serif',
-    fontName: "DM Sans",
-    headlineColor: "#C084FC",
-    subheadColor: "#DDD6FE",
-    fontSizeScale: 1.15,
-  },
-  {
     id: "clean-classic",
     name: "Clean SaaS",
     tagline: "Arctic light & high contrast",

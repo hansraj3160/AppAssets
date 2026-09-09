@@ -278,7 +278,7 @@ async function drawDecorations(
   ctx: SKRSContext2D,
   cfg: LoadedConfig,
   decorations: Decoration[],
-  c: Composition,
+  _c: Composition,
   tile: { width: number; height: number },
   locale: string,
   sceneId: string,
@@ -293,8 +293,10 @@ async function drawDecorations(
       const w = ctx.measureText(text).width + 2 * tile.width * BADGE.padX;
       const h = size * 1.2 + 2 * tile.width * BADGE.padY;
       const inset = Math.min(tile.width, tile.height) * BADGE.inset;
-      const left = d.position.endsWith("left") ? inset : c.width - inset - w;
-      const top = d.position.startsWith("top") ? inset : c.height - inset - h;
+      const slice = d.slice ?? 0;
+      const sliceOffset = slice * tile.width;
+      const left = sliceOffset + (d.position.endsWith("left") ? inset : tile.width - inset - w);
+      const top = d.position.startsWith("top") ? inset : tile.height - inset - h;
       ctx.fillStyle = d.background ?? "rgba(255, 255, 255, 0.85)";
       ctx.beginPath();
       ctx.roundRect(left, top, w, h, h / 2);
