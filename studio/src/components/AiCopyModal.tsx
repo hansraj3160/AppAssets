@@ -1,9 +1,11 @@
 import {
   AlertCircle,
   Check,
+  Clock,
   Feather,
   Loader2,
   RefreshCw,
+  Shield,
   Sparkles,
   Target,
   TrendingUp,
@@ -59,10 +61,27 @@ export function AiCopyModal({
   const [screenAnalysis, setScreenAnalysis] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<AiSuggestion[]>([]);
   const [appliedIndex, setAppliedIndex] = useState<number | null>(null);
+  const [rateLimit, setRateLimit] = useState<{ limit: number; remaining: number } | null>(null);
+  const [cooldownSeconds, setCooldownSeconds] = useState<number | null>(null);
   const autoFetchedForRef = useRef<string | null>(null);
 
   const app = manifest?.app;
   const appDescription = app?.description?.[locale] || app?.description?.["en-US"];
+
+  // Countdown timer for rate-limit cooldown
+  useEffect(() => {
+    if (cooldownSeconds === null || cooldownSeconds <= 0) return;
+    const timer = setInterval(() => {
+      setCooldownSeconds((prev) => {
+        if (prev === null || prev <= 1) {
+          clearInterval(timer);
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldownSeconds]);
 
   const fetchAiSuggestions = useCallback(
     async (overrideTone?: string) => {
@@ -95,6 +114,9 @@ export function AiCopyModal({
           error?: string;
           screenAnalysis?: string;
           suggestions?: AiSuggestion[];
+          rateLimit?: { limit: number; remaining: number; resetTime: number };
+          retryAfter?: number;
+          limit?: number;
         } = {};
         const text = await res.text();
         try {
@@ -103,10 +125,31 @@ export function AiCopyModal({
           data = { error: text || `HTTP ${res.status} ${res.statusText}` };
         }
 
+        if (data.rateLimit) {
+          setRateLimit({
+            limit: data.rateLimit.limit,
+            remaining: data.rateLimit.remaining,
+          });
+        }
+
+        if (res.status === 429) {
+          setCooldownSeconds(data.retryAfter || 60);
+          if (data.limit !== undefined) {
+            setRateLimit({
+              limit: data.limit,
+              remaining: 0,
+            });
+          }
+          throw new Error(
+            data.error || "Rate limit reached. Please wait a moment before trying again.",
+          );
+        }
+
         if (!res.ok) {
           throw new Error(data.error || `Failed to generate AI copy (HTTP ${res.status})`);
         }
 
+        setCooldownSeconds(null);
         setScreenAnalysis(data.screenAnalysis || null);
         setSuggestions(data.suggestions || []);
       } catch (err) {
@@ -178,6 +221,21 @@ export function AiCopyModal({
                 <span className="rounded-md bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-primary tracking-wide">
                   GEMINI VISION
                 </span>
+                {rateLimit ? (
+                  <span
+                    className={`rounded-md px-2 py-0.5 text-[10px] font-semibold tracking-wide flex items-center gap-1 transition-colors ${
+                      rateLimit.remaining <= 2
+                        ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                        : "bg-muted text-muted-foreground border border-border/60"
+                    }`}
+                    title="Fair-use rate limit quota"
+                  >
+                    <Shield className="size-2.5" />
+                    <span>
+                      {rateLimit.remaining}/{rateLimit.limit} left
+                    </span>
+                  </span>
+                ) : null}
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
                 Visual screen analysis & high-converting App Store copy for{" "}
@@ -207,11 +265,12 @@ export function AiCopyModal({
                   <button
                     key={t.id}
                     type="button"
+                    disabled={cooldownSeconds !== null && cooldownSeconds > 0}
                     onClick={() => {
                       setSelectedTone(t.id);
                       fetchAiSuggestions(t.id);
                     }}
-                    className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-all cursor-pointer ${
+                    className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-all cursor-pointer disabled:opacity-50 ${
                       isSelected
                         ? "bg-primary text-primary-foreground shadow-xs"
                         : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -224,39 +283,47 @@ export function AiCopyModal({
               })}
             </div>
 
-            {/* Re-generate Button */}
+            {/* Re-generate Button with Cooldown state */}
             <Button
               size="sm"
-              disabled={loading}
+              disabled={loading || (cooldownSeconds !== null && cooldownSeconds > 0)}
               onClick={() => fetchAiSuggestions()}
-              className="gap-1.5 cursor-pointer bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:opacity-90 shadow-sm"
+              className="gap-1.5 cursor-pointer bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:opacity-90 shadow-sm disabled:opacity-50"
             >
               {loading ? (
                 <Loader2 className="size-3.5 animate-spin" />
               ) : (
                 <RefreshCw className="size-3.5" />
               )}
-              <span>Regenerate</span>
+              <span>{cooldownSeconds ? `Wait ${cooldownSeconds}s` : "Regenerate"}</span>
             </Button>
           </div>
 
-          {/* Optional Direction Input */}
+          {/* Optional Direction Input with 300-char limiter */}
           <div className="flex items-center gap-2">
-            <Input
-              value={customPrompt}
-              onChange={(e) => setCustomPrompt(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") fetchAiSuggestions();
-              }}
-              placeholder="Optional direction (e.g. 'Focus on group trip expenses', 'Make it humorous', etc.)"
-              className="h-8 text-xs flex-1 bg-muted/40"
-            />
+            <div className="relative flex-1">
+              <Input
+                value={customPrompt}
+                maxLength={300}
+                onChange={(e) => setCustomPrompt(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") fetchAiSuggestions();
+                }}
+                placeholder="Optional direction (max 300 chars, e.g. 'Focus on zero fees and security')"
+                className="h-8 text-xs w-full bg-muted/40 pr-14"
+              />
+              {customPrompt.length > 200 ? (
+                <span className="absolute right-2 top-2 text-[10px] text-muted-foreground font-mono">
+                  {customPrompt.length}/300
+                </span>
+              ) : null}
+            </div>
             {customPrompt ? (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => fetchAiSuggestions()}
-                disabled={loading}
+                disabled={loading || (cooldownSeconds !== null && cooldownSeconds > 0)}
                 className="h-8 text-xs cursor-pointer"
               >
                 Apply Direction
@@ -317,23 +384,47 @@ export function AiCopyModal({
             </div>
           )}
 
-          {/* Error Message */}
+          {/* Error Message with Cooldown card */}
           {error && !loading && (
-            <div className="flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-xs text-destructive">
-              <AlertCircle className="size-4 shrink-0 mt-0.5" />
+            <div
+              className={`flex items-start gap-3 rounded-xl border p-4 text-xs ${
+                cooldownSeconds
+                  ? "border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-200"
+                  : "border-destructive/30 bg-destructive/10 text-destructive"
+              }`}
+            >
+              {cooldownSeconds ? (
+                <Clock className="size-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+              ) : (
+                <AlertCircle className="size-4 shrink-0 mt-0.5" />
+              )}
               <div className="flex-1 flex flex-col gap-1">
-                <span className="font-semibold">Generation Failed</span>
-                <p className="text-destructive/90">{error}</p>
-                <div className="pt-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => fetchAiSuggestions()}
-                    className="border-destructive/30 text-destructive hover:bg-destructive/10 cursor-pointer text-xs"
-                  >
-                    Try Again
-                  </Button>
-                </div>
+                <span className="font-semibold">
+                  {cooldownSeconds ? "Generation Limit Reached" : "Generation Failed"}
+                </span>
+                <p className="opacity-90">{error}</p>
+                {cooldownSeconds ? (
+                  <div className="pt-2 flex items-center gap-2">
+                    <span className="text-[11px] font-medium flex items-center gap-1.5">
+                      Cooldown remaining:{" "}
+                      <span className="font-bold underline">
+                        {Math.floor(cooldownSeconds / 60)}:
+                        {String(cooldownSeconds % 60).padStart(2, "0")}
+                      </span>
+                    </span>
+                  </div>
+                ) : (
+                  <div className="pt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fetchAiSuggestions()}
+                      className="border-destructive/30 text-destructive hover:bg-destructive/10 cursor-pointer text-xs"
+                    >
+                      Try Again
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           )}

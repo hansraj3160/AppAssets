@@ -7,9 +7,11 @@ import {
   aiCopyHandler,
   extractLocalesFromConfig,
   findScreenshotFile,
+  getClientIp,
   getDimensionsFromBuffer,
   importHandler,
   localesHandler,
+  MemoryRateLimiter,
   PRESET_LOCALES,
   replaceCaptureHandler,
   resolveDeviceFromDimensions,
@@ -531,5 +533,191 @@ describe("aiCopyHandler", () => {
     );
 
     await rm(tmp, { recursive: true, force: true });
+  });
+
+  test("aiCopyHandler rejects customPrompt exceeding 300 characters with 400", async () => {
+    const tmp = await mkdtemp(join(tmpdir(), "goldie-test-"));
+    const handler = aiCopyHandler({
+      paths: {
+        outDir: tmp,
+        configDir: tmp,
+        configPath: join(tmp, "appassets.config.ts"),
+        designFile: join(tmp, "goldie.design.json"),
+        webDir: join(tmp, "web"),
+        exportZip: join(tmp, "export.zip"),
+      }, 
+      cli: ["echo"],
+    });
+
+    let statusCode = 0;
+    let endedWith = "";
+    const listeners: Record<string, (...args: any[]) => void> = {};
+    const req = {
+      method: "POST",
+      headers: {},
+      socket: { remoteAddress: "127.0.0.1" },
+      on: (event: string, cb: (...args: any[]) => void) => {
+        listeners[event] = cb;
+      },
+    } as any;
+    const res = {
+      set statusCode(code: number) {
+        statusCode = code;
+      },
+      setHeader: () => {},
+      end(body: string) {
+        endedWith = body;
+      },
+    } as any;
+
+    handler(req, res);
+    listeners.data?.(
+      JSON.stringify({
+        sceneId: "home",
+        customPrompt: "A".repeat(301),
+      }),
+    );
+    listeners.end?.();
+
+    await new Promise((r) => setTimeout(r, 20));
+    expect(statusCode).toBe(400);
+    expect(JSON.parse(endedWith).error).toContain("exceeds maximum allowed length");
+
+    await rm(tmp, { recursive: true, force: true });
+  });
+
+  test("aiCopyHandler returns 429 and Retry-After when rate limit is exceeded", async () => {
+    const tmp = await mkdtemp(join(tmpdir(), "goldie-test-"));
+    const mockLimiter = new MemoryRateLimiter({ windowMs: 60000, maxRequests: 2 });
+    const handler = aiCopyHandler(
+      {
+        paths: {
+          outDir: tmp,
+          configDir: tmp,
+          configPath: join(tmp, "appassets.config.ts"),
+          designFile: join(tmp, "goldie.design.json"),
+          webDir: join(tmp, "web"),
+          exportZip: join(tmp, "export.zip"),
+        },
+        cli: ["echo"],
+      },
+      mockLimiter,
+    );
+
+    const headersSent: Record<string, string> = {};
+    const makeReq = () => {
+      let sc = 0;
+      let body = "";
+      const listeners: Record<string, (...args: any[]) => void> = {};
+      const req = {
+        method: "POST",
+        headers: { "x-forwarded-for": "203.0.113.195" },
+        socket: { remoteAddress: "127.0.0.1" },
+        on: (event: string, cb: (...args: any[]) => void) => {
+          listeners[event] = cb;
+        },
+      } as any;
+      const res = {
+        set statusCode(code: number) {
+          sc = code;
+        },
+        setHeader: (k: string, v: string) => {
+          headersSent[k] = v;
+        },
+        end(b: string) {
+          body = b;
+        },
+      } as any;
+      handler(req, res);
+      listeners.data?.(JSON.stringify({ sceneId: "test" }));
+      listeners.end?.();
+      return { getStatusCode: () => sc, getBody: () => body };
+    };
+
+    // Request 1: allowed (limit 2, remaining 1)
+    makeReq();
+    expect(headersSent["X-RateLimit-Remaining"]).toBe("1");
+
+    // Request 2: allowed (limit 2, remaining 0)
+    makeReq();
+    expect(headersSent["X-RateLimit-Remaining"]).toBe("0");
+
+    // Request 3: blocked (429)
+    const req3 = makeReq();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(req3.getStatusCode()).toBe(429);
+    expect(headersSent["Retry-After"]).toBeDefined();
+    expect(Number(headersSent["Retry-After"])).toBeGreaterThan(0);
+    expect(JSON.parse(req3.getBody()).error).toContain("Rate limit reached");
+
+    mockLimiter.destroy();
+    await rm(tmp, { recursive: true, force: true });
+  });
+});
+
+describe("MemoryRateLimiter", () => {
+  test("allows requests up to max and decrements remaining", () => {
+    const limiter = new MemoryRateLimiter({ windowMs: 1000, maxRequests: 3 });
+    const ip = "192.168.1.1";
+
+    const r1 = limiter.check(ip);
+    expect(r1.allowed).toBe(true);
+    expect(r1.remaining).toBe(2);
+    expect(r1.limit).toBe(3);
+
+    const r2 = limiter.check(ip);
+    expect(r2.allowed).toBe(true);
+    expect(r2.remaining).toBe(1);
+
+    const r3 = limiter.check(ip);
+    expect(r3.allowed).toBe(true);
+    expect(r3.remaining).toBe(0);
+
+    const r4 = limiter.check(ip);
+    expect(r4.allowed).toBe(false);
+    expect(r4.remaining).toBe(0);
+    expect(r4.retryAfterSeconds).toBeGreaterThan(0);
+
+    limiter.destroy();
+  });
+
+  test("resets record on reset()", () => {
+    const limiter = new MemoryRateLimiter({ windowMs: 1000, maxRequests: 1 });
+    const ip = "10.0.0.1";
+
+    expect(limiter.check(ip).allowed).toBe(true);
+    expect(limiter.check(ip).allowed).toBe(false);
+
+    limiter.reset(ip);
+    expect(limiter.check(ip).allowed).toBe(true);
+
+    limiter.destroy();
+  });
+});
+
+describe("getClientIp", () => {
+  test("extracts IP from single x-forwarded-for header", () => {
+    const req = { headers: { "x-forwarded-for": "1.2.3.4" } } as any;
+    expect(getClientIp(req)).toBe("1.2.3.4");
+  });
+
+  test("extracts first IP from comma-separated x-forwarded-for header", () => {
+    const req = { headers: { "x-forwarded-for": "1.2.3.4, 10.0.0.1, 192.168.1.1" } } as any;
+    expect(getClientIp(req)).toBe("1.2.3.4");
+  });
+
+  test("extracts IP from cf-connecting-ip header", () => {
+    const req = { headers: { "cf-connecting-ip": "9.8.7.6" } } as any;
+    expect(getClientIp(req)).toBe("9.8.7.6");
+  });
+
+  test("extracts IP from x-real-ip header", () => {
+    const req = { headers: { "x-real-ip": "5.6.7.8" } } as any;
+    expect(getClientIp(req)).toBe("5.6.7.8");
+  });
+
+  test("falls back to socket remoteAddress", () => {
+    const req = { headers: {}, socket: { remoteAddress: "127.0.0.1" } } as any;
+    expect(getClientIp(req)).toBe("127.0.0.1");
   });
 });
