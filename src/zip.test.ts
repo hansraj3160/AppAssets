@@ -42,5 +42,42 @@ describe("zip", () => {
     expect(storeZipPath("previews/ipad-13/en-US/preview.mp4")).toBe(
       "AppStore/Previews/iPad-13/en-US/preview.mp4",
     );
+    expect(storeZipPath("screenshots/pixel-10-pro/en-US/01-home.png")).toBe(
+      "GooglePlay/Phone/en-US/01-home.png",
+    );
+  });
+
+  test("createStoreGuideContent provides App Store and Google Play specifications", async () => {
+    const { createStoreGuideContent } = await import("./zip.ts");
+    const guide = createStoreGuideContent();
+    expect(guide).toContain("AppStore/iPhone-6.9/");
+    expect(guide).toContain("1320 x 2868");
+    expect(guide).toContain("AppStore/iPad-13/");
+    expect(guide).toContain("2064 x 2752");
+    expect(guide).toContain("GooglePlay/Phone/");
+    expect(guide).toContain("1080 x 1920");
+  });
+
+  test("zipDirs includes extraEntries alongside scanned files", async () => {
+    const root = await mkdtemp(join(tmpdir(), "goldie-zip-extra-"));
+    await mkdir(join(root, "screenshots"), { recursive: true });
+    await writeFile(join(root, "screenshots", "test.png"), "test-png");
+    const out = join(root, "export.zip");
+
+    const extra = [
+      {
+        name: "STORE_GUIDE.txt",
+        data: Buffer.from("store instructions"),
+      },
+    ];
+
+    const count = await zipDirs(root, ["screenshots"], out, undefined, extra);
+    expect(count).toBe(2);
+
+    const listing = await exec("unzip", ["-l", out], { quiet: true });
+    if (listing.code === 0) {
+      expect(listing.stdout).toContain("STORE_GUIDE.txt");
+      expect(listing.stdout).toContain("screenshots/test.png");
+    }
   });
 });

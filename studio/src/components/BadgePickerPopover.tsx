@@ -122,10 +122,10 @@ export function BadgePickerPopover({
       <PopoverContent
         side={side}
         align={align}
-        className="w-[340px] max-h-[540px] overflow-y-auto p-3.5 dark bg-popover text-foreground border-border/80 shadow-2xl rounded-xl z-50 flex flex-col gap-3.5"
+        className="w-[350px] max-h-[85vh] overflow-y-auto p-3.5 dark bg-popover text-foreground border-border/80 shadow-2xl rounded-xl z-50 flex flex-col gap-3"
       >
         {/* Header with Title & Live Preview */}
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
               <Sparkles className="size-4 text-amber-400" />
@@ -159,17 +159,17 @@ export function BadgePickerPopover({
         </div>
 
         {/* 1-Click Category Filter Pills */}
-        <div className="flex items-center gap-1 overflow-x-auto pb-0.5 no-scrollbar">
+        <div className="flex flex-wrap items-center gap-1 shrink-0">
           {BADGE_CATEGORIES.map((cat) => (
             <button
               key={cat.id}
               type="button"
               onClick={() => setSelectedCategory(cat.id)}
               className={cn(
-                "px-2 py-1 rounded-md text-[10px] font-medium shrink-0 cursor-pointer transition-colors",
+                "px-2.5 py-1 rounded-md text-[10.5px] font-medium shrink-0 cursor-pointer transition-colors",
                 selectedCategory === cat.id
-                  ? "bg-primary text-primary-foreground font-semibold"
-                  : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground",
+                  ? "bg-primary text-primary-foreground font-semibold shadow-xs"
+                  : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground",
               )}
             >
               {cat.label}
@@ -178,7 +178,7 @@ export function BadgePickerPopover({
         </div>
 
         {/* 1-Click Presets Grid */}
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1.5 shrink-0">
           <span className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground">
             1-Click Store Presets
           </span>
@@ -219,7 +219,7 @@ export function BadgePickerPopover({
         </div>
 
         {/* Custom Text Field */}
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1 shrink-0">
           <span className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground">
             Badge Text / Copy
           </span>
@@ -232,7 +232,7 @@ export function BadgePickerPopover({
         </div>
 
         {/* Position Selector */}
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1 shrink-0">
           <span className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground">
             Position on Screenshot
           </span>
@@ -264,7 +264,7 @@ export function BadgePickerPopover({
         </div>
 
         {/* Palette Swatches & Custom Colors */}
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1.5 shrink-0">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground">
               Pill Color Palette
@@ -333,7 +333,7 @@ export function BadgePickerPopover({
         <Button
           type="button"
           size="sm"
-          className="h-8 text-xs w-full cursor-pointer font-semibold shadow-xs"
+          className="h-8 text-xs w-full cursor-pointer font-semibold shadow-xs shrink-0"
           onClick={handleApplyCustom}
         >
           {badge ? "Update Badge" : "Apply Badge"}

@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import {
   aiCopyHandler,
+  exportHandler,
   extractLocalesFromConfig,
   findScreenshotFile,
   getClientIp,
@@ -16,6 +17,7 @@ import {
   replaceCaptureHandler,
   resolveDeviceFromDimensions,
   singleExportHandler,
+  studioPaths,
   updateLocalesInConfig,
 } from "./studio-server.ts";
 
@@ -209,7 +211,7 @@ describe("importHandler", () => {
       set statusCode(code: number) {
         statusCode = code;
       },
-      setHeader: () => { },
+      setHeader: () => {},
       end(body: string) {
         endedWith = body;
       },
@@ -289,7 +291,7 @@ describe("locales helpers and handler", () => {
       set statusCode(code: number) {
         statusCode = code;
       },
-      end() { },
+      end() {},
     } as any;
 
     handler(req, res);
@@ -471,7 +473,7 @@ describe("aiCopyHandler", () => {
       set statusCode(code: number) {
         statusCode = code;
       },
-      setHeader: () => { },
+      setHeader: () => {},
       end(body: string) {
         endedWith = body;
       },
@@ -516,7 +518,7 @@ describe("aiCopyHandler", () => {
       set statusCode(code: number) {
         statusCode = code;
       },
-      setHeader: () => { },
+      setHeader: () => {},
       end(body: string) {
         endedWith = body;
       },
@@ -564,7 +566,7 @@ describe("aiCopyHandler", () => {
       set statusCode(code: number) {
         statusCode = code;
       },
-      setHeader: () => { },
+      setHeader: () => {},
       end(body: string) {
         endedWith = body;
       },
@@ -719,5 +721,161 @@ describe("getClientIp", () => {
   test("falls back to socket remoteAddress", () => {
     const req = { headers: {}, socket: { remoteAddress: "127.0.0.1" } } as any;
     expect(getClientIp(req)).toBe("127.0.0.1");
+  });
+});
+
+describe("exportHandler", () => {
+  test("rejects non-POST methods with 405 on base /api/export", () => {
+    const tmp = join(tmpdir(), "goldie-exp-test");
+    const handler = exportHandler({
+      paths: studioPaths(join(tmp, "goldie.config.ts")),
+      cli: ["echo"],
+    });
+
+    let statusCode = 0;
+    let endedWith = "";
+    const req = { method: "GET" } as any;
+    const res = {
+      set statusCode(c: number) {
+        statusCode = c;
+      },
+      end(b: string) {
+        endedWith = b;
+      },
+    } as any;
+
+    handler("")(req, res);
+    expect(statusCode).toBe(405);
+    expect(endedWith).toBe("POST only");
+  });
+
+  test("returns 404 on /download when exportZip does not exist", () => {
+    const tmp = join(tmpdir(), `goldie-exp-${Date.now()}`);
+    const handler = exportHandler({
+      paths: studioPaths(join(tmp, "goldie.config.ts")),
+      cli: ["echo"],
+    });
+
+    let statusCode = 0;
+    let endedWith = "";
+    const req = { method: "GET" } as any;
+    const res = {
+      set statusCode(c: number) {
+        statusCode = c;
+      },
+      end(b: string) {
+        endedWith = b;
+      },
+    } as any;
+
+    handler("/download")(req, res);
+    expect(statusCode).toBe(404);
+    expect(endedWith).toContain("No export yet");
+  });
+
+  test("serves exportZip on /download with proper headers and custom filename", async () => {
+    const tmp = await mkdtemp(join(tmpdir(), "goldie-exp-dl-"));
+    const paths = studioPaths(join(tmp, "goldie.config.ts"));
+    await mkdir(paths.outDir, { recursive: true });
+    await writeFile(paths.exportZip, Buffer.from("dummy zip data"));
+
+    const handler = exportHandler({
+      paths,
+      cli: ["echo"],
+    });
+
+    const headers: Record<string, any> = {};
+    let writtenCode = 0;
+    const req = {
+      method: "GET",
+      url: "/api/export/download?filename=MyApp-assets.zip",
+    } as any;
+    const res = new PassThrough() as any;
+    res.writeHead = (code: number, h: Record<string, any>) => {
+      writtenCode = code;
+      Object.assign(headers, h);
+    };
+
+    handler("/download")(req, res);
+    expect(writtenCode).toBe(200);
+    expect(headers["Content-Type"]).toBe("application/zip");
+    expect(headers["Content-Disposition"]).toBe('attachment; filename="MyApp-assets.zip"');
+
+    await rm(tmp, { recursive: true, force: true });
+  });
+
+  test("runs export pipeline and gracefully skips missing video preview", async () => {
+    const tmp = await mkdtemp(join(tmpdir(), "goldie-exp-stream-"));
+    const paths = studioPaths(join(tmp, "goldie.config.ts"));
+    await mkdir(join(paths.outDir, "screenshots", "iphone-6.9", "en-US"), { recursive: true });
+    await writeFile(
+      join(paths.outDir, "screenshots", "iphone-6.9", "en-US", "01-home.png"),
+      Buffer.from("mock-png"),
+    );
+
+    // Mock CLI script: exits 0 for frame/manifest, exits 1 for preview
+    const cliScript = join(tmp, "mock-cli.js");
+    await writeFile(
+      cliScript,
+      `
+      const cmd = process.argv[2];
+      if (cmd === "preview") {
+        console.error("No preview clips found");
+        process.exit(1);
+      }
+      console.log("ok: " + cmd);
+      process.exit(0);
+      `,
+    );
+
+    const handler = exportHandler({
+      paths,
+      cli: ["node", cliScript],
+    });
+
+    let output = "";
+    const listeners: Record<string, (...args: any[]) => void> = {};
+    const req = {
+      method: "POST",
+      on: (event: string, cb: (...args: any[]) => void) => {
+        listeners[event] = cb;
+      },
+    } as any;
+    const res = {
+      writeHead: () => {},
+      write: (chunk: string) => {
+        output += chunk;
+      },
+      end: () => {},
+    } as any;
+
+    handler("")(req, res);
+    listeners.data?.(JSON.stringify({}));
+    listeners.end?.();
+
+    await new Promise((resolve) => {
+      const check = setInterval(() => {
+        if (output.includes("[done]") || output.includes("[failed]")) {
+          clearInterval(check);
+          resolve(null);
+        }
+      }, 50);
+    });
+
+    expect(output).toContain("$ appassets frame");
+    expect(output).toContain("$ appassets preview");
+    expect(output).toContain("no preview clips found, skipping video preview");
+    expect(output).toContain("$ appassets manifest");
+    expect(output).toContain("$ zip store package");
+    expect(output).toContain("[done]");
+
+    const { exec } = await import("./exec.ts");
+    const listing = await exec("unzip", ["-l", paths.exportZip], { quiet: true });
+    if (listing.code === 0) {
+      expect(listing.stdout).toContain("AppStore/iPhone-6.9/en-US/01-home.png");
+      expect(listing.stdout).toContain("STORE_GUIDE.txt");
+    }
+
+    await rm(tmp, { recursive: true, force: true });
   });
 });

@@ -2,11 +2,12 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
-  DownloadIcon,
+  FileText,
   FolderArchive,
   Layers,
   Loader2Icon,
   MoonIcon,
+  Package,
   Smartphone,
   SunIcon,
   Trash2,
@@ -32,6 +33,7 @@ export function Header({
   fontSizeScale,
   viewMode = "editor",
   onViewModeChange,
+  onSaveDesign,
 }: {
   manifest: StoreManifest;
   dark: boolean;
@@ -46,6 +48,7 @@ export function Header({
   fontSizeScale?: number;
   viewMode?: "editor" | "store";
   onViewModeChange?: (mode: "editor" | "store") => void;
+  onSaveDesign?: () => Promise<void>;
 }) {
   const [clearing, setClearing] = useState(false);
 
@@ -91,14 +94,19 @@ export function Header({
       setExportStage("Packaging complete! Store-ready ZIP downloaded.");
       return;
     }
-    if (text.includes("$ zip")) {
-      setExportProgress(85);
-      setExportStage("Creating App Store & Google Play ZIP package...");
+    if (text.includes("$ zip store package") || text.includes("$ zip")) {
+      setExportProgress(88);
+      setExportStage("Packaging App Store & Google Play ZIP package...");
+      return;
+    }
+    if (text.includes("$ appassets manifest") || text.includes("$ goldie manifest")) {
+      setExportProgress(75);
+      setExportStage("Updating store manifest metadata...");
       return;
     }
     if (text.includes("$ appassets preview") || text.includes("$ goldie preview")) {
-      setExportProgress(60);
-      setExportStage("Processing preview videos...");
+      setExportProgress(55);
+      setExportStage("Checking preview video clips...");
       return;
     }
     if (text.includes("$ appassets frame") || text.includes("$ goldie frame")) {
@@ -117,12 +125,18 @@ export function Header({
     setExportBusy(true);
     setExportCompleted(false);
     setExportProgress(5);
-    setExportStage("Starting export pipeline...");
+    setExportStage("Saving latest studio design...");
     setExportLog("");
     setPopoverOpen(true);
     let text = "";
 
     try {
+      if (onSaveDesign) {
+        await onSaveDesign().catch(() => {});
+      }
+      setExportProgress(12);
+      setExportStage("Starting store export engine...");
+
       const font = fontKey(manifest.design, fontFamily);
       const res = await fetch("/api/export", {
         method: "POST",
@@ -156,9 +170,11 @@ export function Header({
 
       if (text.includes("[done]")) {
         setExportCompleted(true);
+        const appName = manifest.app?.name?.replace(/[^\w.-]/g, "_") || "AppAssets";
+        const downloadUrl = `/api/export/download?filename=${encodeURIComponent(`${appName}-store-package.zip`)}`;
         const a = document.createElement("a");
-        a.href = "/api/export/download";
-        a.download = "AppAssets-export.zip";
+        a.href = downloadUrl;
+        a.download = `${appName}-store-package.zip`;
         a.click();
       }
     } catch (err) {
@@ -255,12 +271,12 @@ export function Header({
           <span>{clearing ? "Removing all..." : "Remove all"}</span>
         </Button>
 
-        {/* 3. Export Screenshots */}
+        {/* 3. Export Store Package (.ZIP) */}
         <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
           <PopoverTrigger asChild>
             <Button
               type="button"
-              className="h-9 px-4 gap-2 text-xs sm:text-sm font-medium rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white shadow-sm shadow-blue-500/20 cursor-pointer transition-colors disabled:opacity-85"
+              className="h-9 px-4 gap-2 text-xs sm:text-sm font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white shadow-sm shadow-blue-500/20 cursor-pointer transition-all disabled:opacity-85"
               onClick={() => {
                 if (!exportBusy) {
                   void exportZip();
@@ -277,58 +293,124 @@ export function Header({
               ) : exportCompleted ? (
                 <>
                   <FolderArchive className="size-4 text-white" />
-                  <span>Re-download ZIP</span>
+                  <span>Download ZIP Again</span>
                 </>
               ) : (
                 <>
-                  <DownloadIcon className="size-4 text-white" />
-                  <span>Export Screenshots</span>
+                  <Package className="size-4 text-white" />
+                  <span>Export All (.ZIP)</span>
                 </>
               )}
             </Button>
           </PopoverTrigger>
 
-          <PopoverContent align="end" sideOffset={8} className="w-80 p-4 shadow-xl">
+          <PopoverContent
+            align="end"
+            sideOffset={8}
+            className="w-84 sm:w-92 p-4 shadow-2xl rounded-2xl border border-border/80 bg-popover/95 backdrop-blur-md"
+          >
             <div className="flex flex-col gap-3">
               <div className="flex items-center justify-between text-xs font-semibold">
-                <span className="flex items-center gap-1.5">
+                <span className="flex items-center gap-1.5 text-foreground">
                   {exportCompleted ? (
                     <CheckCircle2 className="size-4 text-emerald-500" />
                   ) : exportBusy ? (
-                    <Loader2Icon className="size-3.5 animate-spin text-primary" />
+                    <Loader2Icon className="size-3.5 animate-spin text-blue-500" />
                   ) : (
-                    <DownloadIcon className="size-4 text-primary" />
+                    <Package className="size-4 text-blue-500" />
                   )}
                   {exportCompleted
-                    ? "Export Complete"
+                    ? "Store Package Ready!"
                     : exportBusy
-                      ? "Exporting Package..."
-                      : "Export Store Assets"}
+                      ? "Packaging Store Assets..."
+                      : "One-Click Store Export"}
                 </span>
-                <span className="font-mono text-[11px] text-muted-foreground">
+                <span className="font-mono text-[11px] text-muted-foreground font-medium">
                   {exportProgress}%
                 </span>
+              </div>
+
+              {/* Target Stores Breakdown Box */}
+              <div className="flex flex-col gap-1.5 rounded-xl border border-border/50 bg-muted/40 p-2.5 text-[11px]">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-foreground flex items-center gap-1">
+                    🍏 App Store
+                  </span>
+                  <span className="text-muted-foreground text-[10px]">
+                    iPhone 6.9" &bull; iPad 13"
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-foreground flex items-center gap-1">
+                    🤖 Google Play
+                  </span>
+                  <span className="text-muted-foreground text-[10px]">Phone (1080×1920)</span>
+                </div>
+                <div className="flex items-center justify-between border-t border-border/40 pt-1 text-[10px] text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <FileText className="size-3" /> Store Guidelines Included
+                  </span>
+                  <span className="font-mono text-[9px] bg-background/80 px-1 py-0.5 rounded border border-border/50">
+                    STORE_GUIDE.txt
+                  </span>
+                </div>
               </div>
 
               {/* Progress Bar */}
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
                 <div
-                  className="h-full bg-primary transition-all duration-300 ease-out"
+                  className="h-full bg-blue-600 transition-all duration-300 ease-out"
                   style={{ width: `${exportProgress}%` }}
                 />
               </div>
 
               {exportStage && (
-                <p className="text-[11px] text-muted-foreground truncate">{exportStage}</p>
+                <p className="text-[11px] text-muted-foreground truncate font-medium">
+                  {exportStage}
+                </p>
               )}
 
               {/* Error Banner */}
               {exportLog !== null && !exportBusy && !exportCompleted && (
                 <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-2.5 text-xs text-destructive">
-                  <p className="font-medium">Export failed</p>
+                  <p className="font-semibold">Export encountered an issue</p>
                   <pre className="mt-1 max-h-24 overflow-auto font-mono text-[10px] whitespace-pre-wrap">
                     {exportLog}
                   </pre>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              {!exportBusy && (
+                <div className="flex flex-col gap-2 pt-1">
+                  {exportCompleted ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => {
+                        const appName = manifest.app?.name?.replace(/[^\w.-]/g, "_") || "AppAssets";
+                        const downloadUrl = `/api/export/download?filename=${encodeURIComponent(`${appName}-store-package.zip`)}`;
+                        const a = document.createElement("a");
+                        a.href = downloadUrl;
+                        a.download = `${appName}-store-package.zip`;
+                        a.click();
+                      }}
+                      className="h-8.5 text-xs font-semibold gap-2 w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs cursor-pointer"
+                    >
+                      <FolderArchive className="size-3.5" />
+                      <span>Download {manifest.app?.name || "App"} ZIP</span>
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => void exportZip()}
+                      className="h-8.5 text-xs font-semibold gap-2 w-full bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs cursor-pointer"
+                    >
+                      <Package className="size-3.5" />
+                      <span>Generate Store Package</span>
+                    </Button>
+                  )}
                 </div>
               )}
 
@@ -350,30 +432,12 @@ export function Header({
                   {showLog && (
                     <pre
                       ref={logRef}
-                      className="max-h-32 overflow-auto whitespace-pre-wrap rounded-md bg-black/50 p-2 font-mono text-[10px] leading-relaxed text-neutral-200"
+                      className="max-h-32 overflow-auto whitespace-pre-wrap rounded-md bg-black/60 p-2 font-mono text-[10px] leading-relaxed text-neutral-200"
                     >
                       {exportLog}
                     </pre>
                   )}
                 </div>
-              )}
-
-              {exportCompleted && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const a = document.createElement("a");
-                    a.href = "/api/export/download";
-                    a.download = "AppAssets-export.zip";
-                    a.click();
-                  }}
-                  className="h-8 text-xs gap-1.5 w-full"
-                >
-                  <FolderArchive className="size-3.5" />
-                  <span>Download ZIP Again</span>
-                </Button>
               )}
             </div>
           </PopoverContent>

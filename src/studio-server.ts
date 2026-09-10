@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { createCanvas, loadImage } from "@napi-rs/canvas";
 import { exec } from "./exec.ts";
 import { DEVICES, type DeviceKey } from "./specs.ts";
-import { storeZipPath, zipDirs } from "./zip.ts";
+import { createStoreGuideContent, storeZipPath, zipDirs } from "./zip.ts";
 
 /**
  * The studio's HTTP surface, shared by `goldie studio` (a static server over
@@ -143,16 +143,19 @@ export function exportHandler({ paths, cli }: StudioApi): (sub: string) => Handl
   let busy = false;
 
   return (sub) => (req, res) => {
-    if (req.method === "GET" && sub === "/download") {
+    if (req.method === "GET" && sub.startsWith("/download")) {
       if (!existsSync(paths.exportZip)) {
         res.statusCode = 404;
         res.end("No export yet. POST /api/export first.");
         return;
       }
+      const url = new URL(req.url ?? "/", "http://localhost");
+      const filename = url.searchParams.get("filename") || "AppAssets-store-package.zip";
+      const safeFilename = filename.replace(/[^\w.-]/g, "_");
       res.writeHead(200, {
         "Content-Type": "application/zip",
         "Content-Length": statSync(paths.exportZip).size,
-        "Content-Disposition": 'attachment; filename="appstore-assets.zip"',
+        "Content-Disposition": `attachment; filename="${safeFilename}"`,
         "Cache-Control": "no-store",
       });
       createReadStream(paths.exportZip).pipe(res);
@@ -181,7 +184,7 @@ export function exportHandler({ paths, cli }: StudioApi): (sub: string) => Handl
         return;
       }
 
-      const flags: string[] = [];
+      const flags: string[] = ["--config", paths.configPath];
       if (opts.background) flags.push("--background", opts.background);
       if (opts.frame) flags.push("--frame", opts.frame);
       if (opts.font) flags.push("--font", opts.font);
@@ -197,22 +200,47 @@ export function exportHandler({ paths, cli }: StudioApi): (sub: string) => Handl
 
       const [bin, ...prefix] = cli;
       try {
-        for (const command of ["frame", "preview", "manifest"]) {
-          res.write(`$ appassets ${command}\n`);
-          await stream(bin!, [...prefix, command, ...flags], paths.configDir, res, {
+        // 1. Frame all screenshots for configured devices & locales
+        res.write("$ appassets frame\n");
+        await stream(bin!, [...prefix, "frame", ...flags], paths.configDir, res, {
+          APPASSETS_CONFIG: paths.configPath,
+          GOLDIE_CONFIG: paths.configPath,
+        });
+
+        // 2. Render preview video if configured (gracefully skip if clips not present)
+        try {
+          res.write("$ appassets preview\n");
+          await stream(bin!, [...prefix, "preview", ...flags], paths.configDir, res, {
             APPASSETS_CONFIG: paths.configPath,
             GOLDIE_CONFIG: paths.configPath,
           });
+        } catch {
+          res.write("  no preview clips found, skipping video preview\n");
         }
-        res.write("$ zip screenshots + previews\n");
+
+        // 3. Update manifest
+        res.write("$ appassets manifest\n");
+        await stream(bin!, [...prefix, "manifest", ...flags], paths.configDir, res, {
+          APPASSETS_CONFIG: paths.configPath,
+          GOLDIE_CONFIG: paths.configPath,
+        });
+
+        // 4. Build store ZIP package with guide
+        res.write("$ zip store package\n");
         await rm(paths.exportZip, { force: true });
+        const storeGuideEntry = {
+          name: "STORE_GUIDE.txt",
+          data: Buffer.from(createStoreGuideContent(), "utf8"),
+          mtime: new Date(),
+        };
         const count = await zipDirs(
           paths.outDir,
           ["screenshots", "previews"],
           paths.exportZip,
           storeZipPath,
+          [storeGuideEntry],
         );
-        res.write(`  ${count} files\n`);
+        res.write(`  ${count} files packaged into store layout\n`);
         res.write("[done]\n");
       } catch (err) {
         res.write(`[failed] ${err instanceof Error ? err.message : err}\n`);

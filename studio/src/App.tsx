@@ -332,6 +332,30 @@ function Loaded({
     sceneBadges,
   ]);
 
+  const flushDesign = async () => {
+    try {
+      await saveDesign({
+        background,
+        frame: frame || undefined,
+        fontFamily,
+        headlineColor: headlineColor || undefined,
+        subheadColor: subheadColor || undefined,
+        fontSizeScale: fontSizeScale !== 1 ? fontSizeScale : undefined,
+        copy: Object.keys(copy).length > 0 ? copy : undefined,
+        order: order.length > 0 ? order : undefined,
+        template: template === CUSTOM_TEMPLATE ? undefined : template,
+        layout,
+        screenOnly,
+        sceneLayouts: Object.keys(sceneLayouts).length > 0 ? sceneLayouts : undefined,
+        sceneBackgrounds: Object.keys(sceneBackgrounds).length > 0 ? sceneBackgrounds : undefined,
+        sceneBadges: Object.keys(sceneBadges).length > 0 ? sceneBadges : undefined,
+      });
+      setSaveError(null);
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
   }, [dark]);
@@ -537,6 +561,7 @@ function Loaded({
         fontSizeScale={fontSizeScale}
         viewMode={canvasView}
         onViewModeChange={setCanvasView}
+        onSaveDesign={flushDesign}
       />
 
       <div className="flex min-h-0 flex-1 overflow-hidden">

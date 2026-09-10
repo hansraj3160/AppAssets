@@ -141,6 +141,41 @@ export function storeZipPath(relPath: string): string {
 }
 
 /**
+ * Creates the README/STORE_GUIDE.txt content explaining folder layout and store specifications.
+ */
+export function createStoreGuideContent(): string {
+  return `========================================================================
+AppAssets - App Store & Google Play Screenshot Package
+========================================================================
+
+📁 FOLDER STRUCTURE & SPECIFICATIONS:
+
+1. Apple App Store Connect:
+   - AppStore/iPhone-6.9/
+     * Target: iPhone 16 Pro Max, 15 Pro Max (6.9" & 6.7" Super Retina XDR)
+     * Resolution: 1320 x 2868 px (Portrait)
+     * Upload: App Store Connect > iOS App > Screenshots > 6.9" Display
+
+   - AppStore/iPad-13/
+     * Target: iPad Pro 13-inch (M4), iPad Pro 12.9-inch
+     * Resolution: 2064 x 2752 px (Portrait)
+     * Upload: App Store Connect > iOS App > Screenshots > 13" Display
+
+2. Google Play Console:
+   - GooglePlay/Phone/
+     * Target: Android Phones (Pixel, Samsung Galaxy, etc.)
+     * Resolution: 1080 x 1920 px (16:9 / 9:16 aspect ratio)
+     * Upload: Google Play Console > Store presence > Main store listing > Phone screenshots
+
+3. Preview Videos (if generated):
+   - AppStore/Previews/: App Store App Previews (.mp4 / H.264)
+   - GooglePlay/PromoVideo/: Promo videos for YouTube linking
+
+Generated with AppAssets Studio.
+`;
+}
+
+/**
  * Zips the named directories under `root` into `out`, with entry names
  * relative to `root` (the same layout `zip -r` produces there). Directories
  * that do not exist are skipped.
@@ -150,8 +185,12 @@ export async function zipDirs(
   dirs: string[],
   out: string,
   transformName?: (name: string) => string,
+  extraEntries?: ZipEntry[],
 ): Promise<number> {
   const entries: ZipEntry[] = [];
+  if (extraEntries) {
+    entries.push(...extraEntries);
+  }
   for (const dir of dirs) {
     for (const file of await walk(join(root, dir))) {
       let relName = relative(root, file).split("\\").join("/");
