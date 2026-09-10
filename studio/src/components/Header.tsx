@@ -9,6 +9,7 @@ import {
   MoonIcon,
   Package,
   Smartphone,
+  Sparkles,
   SunIcon,
   Trash2,
 } from "lucide-react";
@@ -46,8 +47,8 @@ export function Header({
   layout: string;
   screenOnly: boolean;
   fontSizeScale?: number;
-  viewMode?: "editor" | "store";
-  onViewModeChange?: (mode: "editor" | "store") => void;
+  viewMode?: "editor" | "store" | "promo";
+  onViewModeChange?: (mode: "editor" | "store" | "promo") => void;
   onSaveDesign?: () => Promise<void>;
 }) {
   const [clearing, setClearing] = useState(false);
@@ -241,6 +242,23 @@ export function Header({
           <span className="sm:hidden">Store</span>
           <span className="ml-0.5 rounded-full bg-blue-500/15 px-1.5 py-0.2 text-[9px] font-bold text-blue-600 dark:text-blue-400">
             Live
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onViewModeChange?.("promo")}
+          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+            viewMode === "promo"
+              ? "bg-background text-foreground shadow-xs"
+              : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+          }`}
+        >
+          <Sparkles className="size-3.5 text-amber-500" />
+          <span className="hidden sm:inline">Promo Banners</span>
+          <span className="sm:hidden">Banners</span>
+          <span className="ml-0.5 rounded-full bg-amber-500/15 px-1.5 py-0.2 text-[9px] font-bold text-amber-600 dark:text-amber-400">
+            1024×500
           </span>
         </button>
       </div>

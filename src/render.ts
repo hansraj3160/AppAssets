@@ -419,7 +419,7 @@ function isTransparent(css: string): boolean {
  * with an optional angle / `to <side>` and color stops with optional
  * percentages. Anything else is handed to the canvas as-is.
  */
-function paint(
+export function paint(
   ctx: SKRSContext2D,
   css: string,
   width: number,

@@ -56,6 +56,9 @@ describe("zip", () => {
     expect(guide).toContain("2064 x 2752");
     expect(guide).toContain("GooglePlay/Phone/");
     expect(guide).toContain("1080 x 1920");
+    expect(guide).toContain("GooglePlay/feature-graphic.png");
+    expect(guide).toContain("1024 x 500");
+    expect(guide).toContain("Marketing/product-hunt-1270x760.png");
   });
 
   test("zipDirs includes extraEntries alongside scanned files", async () => {

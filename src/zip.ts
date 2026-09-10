@@ -162,12 +162,22 @@ AppAssets - App Store & Google Play Screenshot Package
      * Upload: App Store Connect > iOS App > Screenshots > 13" Display
 
 2. Google Play Console:
+   - GooglePlay/feature-graphic.png
+     * Target: Mandatory Play Store Feature Graphic Banner
+     * Resolution: 1024 x 500 px (24-bit PNG / JPEG)
+     * Upload: Google Play Console > Store presence > Main store listing > Graphics > Feature graphic
+
    - GooglePlay/Phone/
      * Target: Android Phones (Pixel, Samsung Galaxy, etc.)
      * Resolution: 1080 x 1920 px (16:9 / 9:16 aspect ratio)
      * Upload: Google Play Console > Store presence > Main store listing > Phone screenshots
 
-3. Preview Videos (if generated):
+3. Marketing & Launch Promo Banners:
+   - Marketing/product-hunt-1270x760.png: Product Hunt launch gallery banner
+   - Marketing/x-twitter-1200x675.png: X / Twitter promo card (16:9 large image card)
+   - Marketing/instagram-square-1080x1080.png: Instagram / LinkedIn square promo post
+
+4. Preview Videos (if generated):
    - AppStore/Previews/: App Store App Previews (.mp4 / H.264)
    - GooglePlay/PromoVideo/: Promo videos for YouTube linking
 

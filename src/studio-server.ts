@@ -5,9 +5,11 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { dirname, extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createCanvas, loadImage } from "@napi-rs/canvas";
+import { BANNER_SPECS, type BannerType, renderBannerCanvas } from "./banner.ts";
+import { applyDesign, loadConfig } from "./config.ts";
 import { exec } from "./exec.ts";
 import { DEVICES, type DeviceKey } from "./specs.ts";
-import { createStoreGuideContent, storeZipPath, zipDirs } from "./zip.ts";
+import { createStoreGuideContent, storeZipPath, type ZipEntry, zipDirs } from "./zip.ts";
 
 /**
  * The studio's HTTP surface, shared by `goldie studio` (a static server over
@@ -225,20 +227,52 @@ export function exportHandler({ paths, cli }: StudioApi): (sub: string) => Handl
           GOLDIE_CONFIG: paths.configPath,
         });
 
-        // 4. Build store ZIP package with guide
-        res.write("$ zip store package\n");
+        // 4. Build store ZIP package with guide, Google Play Feature Graphic, and Marketing Banners
+        res.write(
+          "$ zip store package (including Google Play Feature Graphic & Marketing Banners)\n",
+        );
         await rm(paths.exportZip, { force: true });
-        const storeGuideEntry = {
-          name: "STORE_GUIDE.txt",
-          data: Buffer.from(createStoreGuideContent(), "utf8"),
-          mtime: new Date(),
-        };
+        const extraEntries: ZipEntry[] = [
+          {
+            name: "STORE_GUIDE.txt",
+            data: Buffer.from(createStoreGuideContent(), "utf8"),
+            mtime: new Date(),
+          },
+        ];
+
+        try {
+          const cfg = await loadConfig(paths.configPath);
+          if (existsSync(paths.designFile)) {
+            try {
+              const designJson = JSON.parse(await readFile(paths.designFile, "utf8"));
+              applyDesign(cfg, designJson);
+            } catch {}
+          }
+          for (const [bType, bSpec] of Object.entries(BANNER_SPECS)) {
+            try {
+              const buf = await renderBannerCanvas({
+                cfg,
+                type: bType as BannerType,
+              });
+              extraEntries.push({
+                name: bSpec.storePath,
+                data: buf,
+                mtime: new Date(),
+              });
+            } catch (err) {
+              res.write(`  warning: failed to generate ${bSpec.label}: ${err}\n`);
+            }
+          }
+        } catch (err) {
+          res.write(`  warning: could not load config for banners: ${err}\n`);
+        }
+
         const count = await zipDirs(
           paths.outDir,
           ["screenshots", "previews"],
           paths.exportZip,
           storeZipPath,
-          [storeGuideEntry],
+          extraEntries,
         );
         res.write(`  ${count} files packaged into store layout\n`);
         res.write("[done]\n");
@@ -1071,6 +1105,65 @@ export function singleExportHandler({ paths, cli }: StudioApi): Handler {
   };
 }
 
+/** Handles GET /api/export-banner?type=...&sceneId=...&locale=... for downloading individual marketing/store banners */
+export function bannerExportHandler({ paths }: StudioApi): Handler {
+  return (req, res) => {
+    const url = new URL(req.url ?? "/", "http://localhost");
+    const type = (url.searchParams.get("type") || "google-play") as BannerType;
+    const sceneId = url.searchParams.get("sceneId") || undefined;
+    const locale = url.searchParams.get("locale") || undefined;
+    const customHeadline = url.searchParams.get("headline") || undefined;
+    const customTagline = url.searchParams.get("tagline") || undefined;
+    const customBackground = url.searchParams.get("background") || undefined;
+    const layout = (url.searchParams.get("layout") || "split") as "split" | "center";
+    const mockupStyle = (url.searchParams.get("mockupStyle") || "card") as "card" | "screen";
+
+    const spec = BANNER_SPECS[type];
+    if (!spec) {
+      res.statusCode = 400;
+      res.end(`Unknown banner type: ${type}`);
+      return;
+    }
+
+    (async () => {
+      try {
+        const cfg = await loadConfig(paths.configPath);
+        if (existsSync(paths.designFile)) {
+          try {
+            const designJson = JSON.parse(await readFile(paths.designFile, "utf8"));
+            applyDesign(cfg, designJson);
+          } catch {}
+        }
+
+        const buffer = await renderBannerCanvas({
+          cfg,
+          type,
+          sceneId,
+          locale,
+          customHeadline,
+          customTagline,
+          customBackground,
+          layout,
+          mockupStyle,
+        });
+
+        const filename = `${type}-${spec.width}x${spec.height}.png`;
+        res.writeHead(200, {
+          "Content-Type": "image/png",
+          "Content-Length": buffer.length,
+          "Content-Disposition": `attachment; filename="${filename}"`,
+          "Cache-Control": "no-store",
+        });
+        res.end(buffer);
+      } catch (err) {
+        res.statusCode = 500;
+        res.setHeader("Content-Type", "application/json");
+        res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+      }
+    })();
+  };
+}
+
 /** Finds and loads GEMINI_API_KEY from process.env or .env file in config dir, workspace root, or cwd */
 export function getGeminiApiKey(paths?: StudioPaths): string | undefined {
   if (process.env.GEMINI_API_KEY?.trim()) {
@@ -1753,6 +1846,7 @@ export function serveStudio(api: StudioApi, port = 4321): Promise<string> {
   const design = designHandler(api);
   const exp = exportHandler(api);
   const expSingle = singleExportHandler(api);
+  const expBanner = bannerExportHandler(api);
   const imp = importHandler(api);
   const repCapture = replaceCaptureHandler(api);
   const del = deleteHandler(api);
@@ -1767,6 +1861,7 @@ export function serveStudio(api: StudioApi, port = 4321): Promise<string> {
     if (path === "/api/locales") return locales(req, res);
     if (path === "/api/ai/generate-copy") return aiCopy(req, res);
     if (path.startsWith("/api/export-single")) return expSingle(req, res);
+    if (path.startsWith("/api/export-banner")) return expBanner(req, res);
     if (path.startsWith("/api/export")) return exp(path.slice("/api/export".length))(req, res);
     if (path === "/api/import") return imp(req, res);
     if (path === "/api/replace-capture") return repCapture(req, res);

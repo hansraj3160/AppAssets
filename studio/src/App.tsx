@@ -11,6 +11,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { EmptyState } from "./components/EmptyState";
 import { Header } from "./components/Header";
 import { LocaleManagerModal } from "./components/LocaleManagerModal";
+import { PromoBannersStudio } from "./components/PromoBannersStudio";
 import { Sidebar } from "./components/Sidebar";
 import { StoreMockupPreview } from "./components/StoreMockupPreview";
 import { Strip } from "./components/Strip";
@@ -148,7 +149,7 @@ function Loaded({
   const [dark, setDark] = useState(
     new URLSearchParams(window.location.search).get("dark") === "1" || view.dark === true,
   );
-  const [canvasView, setCanvasView] = useState<"editor" | "store">("editor");
+  const [canvasView, setCanvasView] = useState<"editor" | "store" | "promo">("editor");
   const knownLayout = (key: string | undefined) =>
     key && design.layouts.some((l) => l.key === key) ? key : undefined;
   const { state, set } = useHistory<DesignState>(() => ({
@@ -653,6 +654,33 @@ function Loaded({
             {hasScreenshots && spec && captures ? (
               canvasView === "store" ? (
                 <StoreMockupPreview
+                  manifest={manifest}
+                  platform={platform}
+                  design={design}
+                  captures={captures}
+                  spec={spec}
+                  locale={locale}
+                  background={background}
+                  frameUrl={frameUrl}
+                  fontFamily={previewFontFamily}
+                  headlineColor={headlineColor}
+                  subheadColor={subheadColor}
+                  fontSizeScale={fontSizeScale}
+                  copy={copy}
+                  order={order}
+                  template={
+                    template === CUSTOM_TEMPLATE && Array.isArray(design.template)
+                      ? design.template
+                      : template
+                  }
+                  layout={layout}
+                  screenOnly={screenOnly}
+                  sceneLayouts={sceneLayouts}
+                  sceneBackgrounds={sceneBackgrounds}
+                  sceneBadges={sceneBadges}
+                />
+              ) : canvasView === "promo" ? (
+                <PromoBannersStudio
                   manifest={manifest}
                   platform={platform}
                   design={design}
