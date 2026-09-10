@@ -593,6 +593,8 @@ function Loaded({
           onFontSizeScale={setFontSizeScale}
           sceneBadges={sceneBadges}
           onSceneBadge={setSceneBadge}
+          sceneBackgrounds={sceneBackgrounds}
+          onSceneBackground={setSceneBackground}
           onOpenLocaleManager={() => setIsLocaleModalOpen(true)}
         />
 

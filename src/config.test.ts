@@ -77,6 +77,19 @@ describe("applyDesign Phase 2 features", () => {
     );
   });
 
+  test("preserves un-overridden scenes to inherit global theme background", () => {
+    const cfg = makeConfig();
+    applyDesign(cfg, {
+      background: "#1E293B",
+      sceneBackgrounds: {
+        home: "#FF0000",
+      },
+    });
+    expect((cfg.scenes[0] as any).background).toBe("#FF0000");
+    expect((cfg.scenes[1] as any).background).toBeUndefined();
+    expect(cfg.theme.background).toBe("#1E293B");
+  });
+
   test("applies sceneBadges as decorations", () => {
     const cfg = makeConfig();
     applyDesign(cfg, {

@@ -10,6 +10,7 @@ import { CUSTOM_TEMPLATE } from "../App";
 import type { Design, LayoutEntry } from "../manifest";
 import { type BadgeData, BadgePickerPopover } from "./BadgePickerPopover";
 import { FontPicker } from "./FontPicker";
+import { SceneBackgroundPopover } from "./SceneBackgroundPopover";
 import { Field, Select } from "./Sidebar";
 import { SidebarSection } from "./SidebarSection";
 import { TemplatePicker } from "./TemplatePicker";
@@ -155,6 +156,8 @@ export function DesignPanel({
   onFontSizeScale,
   sceneBadges,
   onSceneBadge,
+  sceneBackgrounds,
+  onSceneBackground,
 }: {
   design: Design;
   /** The shown device brings its own bezel art (android), so the frame picker does not apply. */
@@ -169,6 +172,7 @@ export function DesignPanel({
   subheadColor?: string;
   fontSizeScale?: number;
   sceneBadges?: Record<string, BadgeData>;
+  sceneBackgrounds?: Record<string, string>;
   onBackground: (v: string) => void;
   onFrame: (v: string) => void;
   onFontFamily: (v: string) => void;
@@ -179,6 +183,7 @@ export function DesignPanel({
   onSubheadColor: (v: string) => void;
   onFontSizeScale: (v: number) => void;
   onSceneBadge?: (sceneId: string, badge: BadgeData | undefined) => void;
+  onSceneBackground?: (sceneId: string, bg: string | undefined) => void;
 }) {
   // Each choice is a full CSS font stack, so the Strip can use it as-is. A
   // config stack that matches none of them shows as "custom (from config)".
@@ -401,15 +406,16 @@ export function DesignPanel({
         icon={Tag}
         title="Store Badges & Stickers"
         summary={
-          sceneBadges && Object.keys(sceneBadges).length > 0
-            ? `${Object.keys(sceneBadges).length} active`
+          (sceneBadges && Object.keys(sceneBadges).length > 0) ||
+          (sceneBackgrounds && Object.keys(sceneBackgrounds).length > 0)
+            ? `${Object.keys(sceneBadges ?? {}).length} badges · ${Object.keys(sceneBackgrounds ?? {}).length} custom BG`
             : "Trust & Awards"
         }
         defaultOpen={false}
       >
         <div className="flex flex-col gap-3">
           <p className="text-[11px] text-muted-foreground leading-relaxed">
-            Apply store-tested trust badges, awards, and feature stickers to any scene.
+            Apply store-tested trust badges, awards, and custom per-scene backgrounds to any scene.
           </p>
 
           <div className="flex flex-col gap-2">
@@ -433,6 +439,26 @@ export function DesignPanel({
                   </div>
 
                   <div className="shrink-0 flex items-center gap-1.5">
+                    <SceneBackgroundPopover
+                      value={sceneBackgrounds?.[scene.id]}
+                      globalBackground={background}
+                      onChange={(bg) => onSceneBackground?.(scene.id, bg)}
+                      side="left"
+                      align="center"
+                      sceneName={headlineSnippet}
+                      trigger={
+                        <button
+                          type="button"
+                          className="size-6 rounded-md border border-border/80 shadow-xs cursor-pointer hover:scale-105 transition-transform flex items-center justify-center p-0.5 relative overflow-hidden"
+                          style={{
+                            background: sceneBackgrounds?.[scene.id] || background,
+                          }}
+                          title={`Scene background: ${sceneBackgrounds?.[scene.id] ? "Custom override" : "Global theme"}`}
+                        >
+                          <Palette className="size-3 text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]" />
+                        </button>
+                      }
+                    />
                     {badge ? (
                       <BadgePickerPopover
                         badge={badge}

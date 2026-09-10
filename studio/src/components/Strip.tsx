@@ -4,6 +4,7 @@ import {
   Download,
   Loader2,
   Sparkles,
+  Tag,
   Trash2,
   Upload,
   X,
@@ -40,10 +41,9 @@ import {
 import { AiCopyModal } from "./AiCopyModal";
 import { BadgePickerPopover } from "./BadgePickerPopover";
 import { CHECKERBOARD, layoutOptions, TRANSPARENT } from "./DesignPanel";
+import { SceneBackgroundPopover } from "./SceneBackgroundPopover";
 import { Select } from "./Sidebar";
 import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 
 /** Tiles shown at once; the App Store product page shows this many before scrolling. */
 const PAGE_SIZE = 5;
@@ -752,38 +752,103 @@ export function Strip({
   const tileAt = (i: number) => {
     const entry = entries[i];
     const isDownloading = downloadingKey === entry.key;
+    const targetId = entry.targetSceneId ?? entry.sceneId;
+    const customBg = targetId ? sceneBackgrounds[targetId] : undefined;
+
+    const currentBadge =
+      entry.slice !== undefined && entry.slice > 0
+        ? sceneBadges[entry.key]
+        : (sceneBadges[entry.key] ??
+          (entry.targetSceneId
+            ? sceneBadges[entry.targetSceneId]
+            : entry.sceneId
+              ? sceneBadges[entry.sceneId]
+              : undefined));
+
     return (
-      <Tile
-        key={entry.key}
-        draggable={entry.sceneId !== undefined}
-        width={entry.width}
-        height={entry.height}
-        bad={entry.bad}
-        badReason={entry.badReason}
-        onOpen={() => {
-          if (!dragged.current) setOpen(i);
-        }}
-        onDelete={entry.sceneId ? () => handleDelete(entry.sceneId!) : undefined}
-        onReplace={entry.sceneId ? (file) => handleReplaceCapture(entry.sceneId!, file) : undefined}
-        isReplacing={entry.sceneId ? replacingSceneId === entry.sceneId : false}
-        onDownload={
-          entry.key !== "preview"
-            ? () => handleDownloadScreenshot(entry.key, entry.targetSceneId, entry.sceneId)
-            : undefined
-        }
-        isDownloading={isDownloading}
-        onAiCopy={
-          (entry.targetSceneId ?? entry.sceneId)
-            ? () => setActiveAiSceneId((entry.targetSceneId ?? entry.sceneId)!)
-            : undefined
-        }
-        sceneId={entry.sceneId}
-        // Named only while the lightbox is closed: once open, the scene inside
-        // it carries the name, and a duplicate would abort the transition.
-        transitionName={named === i && open === null ? "lightbox-scene" : undefined}
-      >
-        {entry.scene(false)}
-      </Tile>
+      <div key={entry.key} className="flex flex-col gap-1.5 w-full">
+        {/* Card Header Toolbar: Slide # + BG + Badge */}
+        {entry.key !== "preview" && targetId ? (
+          <div className="flex items-center justify-between px-0.5 text-xs select-none">
+            <span className="text-[10px] font-bold font-mono tracking-wider text-muted-foreground/70 px-1.5 py-0.5 rounded-md bg-muted/60 border border-border/50">
+              #{i + 1}
+            </span>
+            <div className="flex items-center gap-1">
+              <SceneBackgroundPopover
+                value={customBg}
+                globalBackground={background}
+                onChange={(bg) => {
+                  if (onSceneBackground && targetId) {
+                    onSceneBackground(targetId, bg);
+                  }
+                }}
+                sceneName={`Slide ${i + 1}`}
+                side="bottom"
+                align="end"
+              />
+              <BadgePickerPopover
+                badge={currentBadge}
+                onChange={(b) => {
+                  if (onSceneBadge) {
+                    const badgeKey =
+                      entry.slice !== undefined && entry.slice > 0
+                        ? entry.key
+                        : entry.targetSceneId || entry.sceneId || entry.key;
+                    onSceneBadge(badgeKey, b);
+                  }
+                }}
+                side="bottom"
+                align="end"
+                trigger={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className={`h-7 px-2 gap-1 rounded-lg text-[10px] font-medium border shadow-2xs cursor-pointer transition-all ${
+                      currentBadge
+                        ? "border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400"
+                        : "border-border/80 bg-background/90 text-muted-foreground hover:text-foreground"
+                    }`}
+                    title="Add or edit badge"
+                  >
+                    <Tag className="size-2.5 text-amber-500 shrink-0" />
+                    <span>{currentBadge ? "Badge" : "+Badge"}</span>
+                  </Button>
+                }
+              />
+            </div>
+          </div>
+        ) : null}
+
+        <Tile
+          draggable={entry.sceneId !== undefined}
+          width={entry.width}
+          height={entry.height}
+          bad={entry.bad}
+          badReason={entry.badReason}
+          onOpen={() => {
+            if (!dragged.current) setOpen(i);
+          }}
+          onDelete={entry.sceneId ? () => handleDelete(entry.sceneId!) : undefined}
+          onReplace={
+            entry.sceneId ? (file) => handleReplaceCapture(entry.sceneId!, file) : undefined
+          }
+          isReplacing={entry.sceneId ? replacingSceneId === entry.sceneId : false}
+          onDownload={
+            entry.key !== "preview"
+              ? () => handleDownloadScreenshot(entry.key, entry.targetSceneId, entry.sceneId)
+              : undefined
+          }
+          isDownloading={isDownloading}
+          onAiCopy={targetId ? () => setActiveAiSceneId(targetId) : undefined}
+          sceneId={entry.sceneId}
+          // Named only while the lightbox is closed: once open, the scene inside
+          // it carries the name, and a duplicate would abort the transition.
+          transitionName={named === i && open === null ? "lightbox-scene" : undefined}
+        >
+          {entry.scene(false)}
+        </Tile>
+      </div>
     );
   };
 
@@ -1033,101 +1098,6 @@ export function Strip({
         />
       ) : null}
     </div>
-  );
-}
-
-function SceneBackgroundPopover({
-  value,
-  globalBackground,
-  onChange,
-}: {
-  value?: string;
-  globalBackground: string;
-  onChange: (bg: string | undefined) => void;
-}) {
-  const isOverridden = Boolean(value);
-  const currentBg = value || globalBackground;
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="cursor-pointer gap-1.5 rounded-lg border-white/20 bg-white/10 text-xs text-white backdrop-blur-md hover:bg-white/20 hover:text-white"
-        >
-          <span
-            className="size-3.5 rounded-full border border-white/40 shrink-0"
-            style={{ background: currentBg }}
-          />
-          {isOverridden ? "Custom BG" : "Scene BG"}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        side="top"
-        align="center"
-        className="w-64 p-3 dark bg-popover text-foreground"
-      >
-        <div className="flex flex-col gap-2.5">
-          <div className="flex items-center justify-between text-xs font-medium">
-            <span>Scene Background</span>
-            {isOverridden ? (
-              <button
-                type="button"
-                onClick={() => onChange(undefined)}
-                className="text-[10px] text-primary hover:underline cursor-pointer"
-              >
-                Reset to Global
-              </button>
-            ) : (
-              <span className="text-[10px] text-muted-foreground">Using Global</span>
-            )}
-          </div>
-          <div className="grid grid-cols-5 gap-1.5">
-            {[
-              "#FFFFFF",
-              "#0E1B2A",
-              "#1E3A8A",
-              "#059669",
-              "#DC2626",
-              "linear-gradient(160deg, #E8F1FF 0%, #F7FAFF 55%, #FFFFFF 100%)",
-              "linear-gradient(160deg, #0EA5E9 0%, #2563EB 100%)",
-              "linear-gradient(160deg, #F97316 0%, #DC2626 100%)",
-              "linear-gradient(160deg, #059669 0%, #065F46 100%)",
-              "linear-gradient(160deg, #8B5CF6 0%, #4C1D95 100%)",
-            ].map((bgPreset, idx) => (
-              <button
-                // biome-ignore lint/suspicious/noArrayIndexKey: preset list
-                key={idx}
-                type="button"
-                className="size-8 rounded-md border border-border/60 hover:scale-105 transition-transform cursor-pointer"
-                style={{ background: bgPreset }}
-                onClick={() => onChange(bgPreset)}
-                title="Select background"
-              />
-            ))}
-          </div>
-          <div className="flex items-center gap-2 pt-1 border-t border-border/50 text-xs">
-            <span className="text-muted-foreground text-[11px]">Custom:</span>
-            <label className="relative size-6 cursor-pointer rounded border border-border overflow-hidden shrink-0">
-              <input
-                type="color"
-                value={currentBg.startsWith("#") ? currentBg : "#FFFFFF"}
-                onChange={(e) => onChange(e.target.value.toUpperCase())}
-                className="absolute inset-0 size-full cursor-pointer opacity-0"
-              />
-              <span className="absolute inset-0" style={{ background: currentBg }} />
-            </label>
-            <Input
-              value={value ?? ""}
-              placeholder="e.g. #1E3A8A"
-              onChange={(e) => onChange(e.target.value || undefined)}
-              className="h-7 text-xs font-mono"
-            />
-          </div>
-        </div>
-      </PopoverContent>
-    </Popover>
   );
 }
 

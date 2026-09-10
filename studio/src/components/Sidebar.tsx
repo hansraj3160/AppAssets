@@ -64,6 +64,8 @@ export function Sidebar({
   onFontSizeScale,
   sceneBadges,
   onSceneBadge,
+  sceneBackgrounds,
+  onSceneBackground,
 }: {
   manifest: StoreManifest;
   platform: Platform;
@@ -93,6 +95,8 @@ export function Sidebar({
   onFontSizeScale: (v: number) => void;
   sceneBadges?: Record<string, BadgeData>;
   onSceneBadge?: (sceneId: string, badge: BadgeData | undefined) => void;
+  sceneBackgrounds?: Record<string, string>;
+  onSceneBackground?: (sceneId: string, bg: string | undefined) => void;
 }) {
   const platformDevices = manifest.devices.filter((d) => d.platform === platform);
 
@@ -227,6 +231,8 @@ export function Sidebar({
           onFontSizeScale={onFontSizeScale}
           sceneBadges={sceneBadges}
           onSceneBadge={onSceneBadge}
+          sceneBackgrounds={sceneBackgrounds}
+          onSceneBackground={onSceneBackground}
         />
       </div>
     </aside>
