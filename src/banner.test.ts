@@ -110,4 +110,63 @@ describe("Banner Engine & Specs", () => {
     expect(dims?.width).toBe(1080);
     expect(dims?.height).toBe(1080);
   });
+
+  test("renders trio multi-phone showcase layout with kicker and benefits bullets", async () => {
+    const cfg = makeMockConfig();
+    const buffer = await renderBannerCanvas({
+      cfg,
+      type: "google-play",
+      deviceCount: "trio",
+      kickerHeadline: "PRODUCTIVITY APP",
+      customHeadline: "Achieve More Every Day",
+      customTagline: "Smart task and workflow automation",
+      benefits: [
+        "Automated sync across devices",
+        "Bank-grade privacy & encryption",
+        "Offline-first performance",
+      ],
+      mockupStyle: "screen",
+      showWaves: true,
+    });
+
+    expect(Buffer.isBuffer(buffer)).toBe(true);
+    expect(buffer.length).toBeGreaterThan(1000);
+    const dims = getDimensionsFromBuffer(buffer);
+    expect(dims?.width).toBe(1024);
+    expect(dims?.height).toBe(500);
+  });
+
+  test("renders duo phone layout on X / Twitter banner", async () => {
+    const cfg = makeMockConfig();
+    const buffer = await renderBannerCanvas({
+      cfg,
+      type: "x-twitter",
+      deviceCount: "duo",
+      kickerHeadline: "FINANCE & BUDGET",
+      customHeadline: "Total Control of Wealth",
+      customTagline: "Real-time analytics and alerts",
+      benefits: ["Instant spending insights", "Zero hidden transaction fees"],
+      mockupStyle: "card",
+    });
+
+    expect(Buffer.isBuffer(buffer)).toBe(true);
+    const dims = getDimensionsFromBuffer(buffer);
+    expect(dims?.width).toBe(1200);
+    expect(dims?.height).toBe(675);
+  });
+
+  test("renders single phone layout when requested explicitly", async () => {
+    const cfg = makeMockConfig();
+    const buffer = await renderBannerCanvas({
+      cfg,
+      type: "google-play",
+      deviceCount: "single",
+      mockupStyle: "screen",
+    });
+
+    expect(Buffer.isBuffer(buffer)).toBe(true);
+    const dims = getDimensionsFromBuffer(buffer);
+    expect(dims?.width).toBe(1024);
+    expect(dims?.height).toBe(500);
+  });
 });

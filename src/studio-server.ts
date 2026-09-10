@@ -1111,9 +1111,29 @@ export function bannerExportHandler({ paths }: StudioApi): Handler {
     const url = new URL(req.url ?? "/", "http://localhost");
     const type = (url.searchParams.get("type") || "google-play") as BannerType;
     const sceneId = url.searchParams.get("sceneId") || undefined;
+    const secondarySceneId = url.searchParams.get("sceneId2") || undefined;
+    const tertiarySceneId = url.searchParams.get("sceneId3") || undefined;
     const locale = url.searchParams.get("locale") || undefined;
+    const deviceCount = (url.searchParams.get("deviceCount") || undefined) as
+      | "single"
+      | "duo"
+      | "trio"
+      | undefined;
+    const kickerHeadline = url.searchParams.get("kicker") || undefined;
     const customHeadline = url.searchParams.get("headline") || undefined;
     const customTagline = url.searchParams.get("tagline") || undefined;
+    const benefitsParam = url.searchParams.get("benefits");
+    let benefits: string[] | undefined;
+    if (benefitsParam) {
+      try {
+        benefits = JSON.parse(benefitsParam);
+      } catch {
+        benefits = benefitsParam
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+      }
+    }
     const customBackground = url.searchParams.get("background") || undefined;
     const layout = (url.searchParams.get("layout") || "split") as "split" | "center";
     const mockupStyle = (url.searchParams.get("mockupStyle") || "card") as "card" | "screen";
@@ -1139,9 +1159,14 @@ export function bannerExportHandler({ paths }: StudioApi): Handler {
           cfg,
           type,
           sceneId,
+          secondarySceneId,
+          tertiarySceneId,
+          deviceCount,
           locale,
+          kickerHeadline,
           customHeadline,
           customTagline,
+          benefits,
           customBackground,
           layout,
           mockupStyle,

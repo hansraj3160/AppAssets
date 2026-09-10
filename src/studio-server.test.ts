@@ -211,7 +211,7 @@ describe("importHandler", () => {
       set statusCode(code: number) {
         statusCode = code;
       },
-      setHeader: () => { },
+      setHeader: () => {},
       end(body: string) {
         endedWith = body;
       },
@@ -291,7 +291,7 @@ describe("locales helpers and handler", () => {
       set statusCode(code: number) {
         statusCode = code;
       },
-      end() { },
+      end() {},
     } as any;
 
     handler(req, res);
@@ -473,7 +473,7 @@ describe("aiCopyHandler", () => {
       set statusCode(code: number) {
         statusCode = code;
       },
-      setHeader: () => { },
+      setHeader: () => {},
       end(body: string) {
         endedWith = body;
       },
@@ -518,7 +518,7 @@ describe("aiCopyHandler", () => {
       set statusCode(code: number) {
         statusCode = code;
       },
-      setHeader: () => { },
+      setHeader: () => {},
       end(body: string) {
         endedWith = body;
       },
@@ -566,7 +566,7 @@ describe("aiCopyHandler", () => {
       set statusCode(code: number) {
         statusCode = code;
       },
-      setHeader: () => { },
+      setHeader: () => {},
       end(body: string) {
         endedWith = body;
       },
@@ -842,11 +842,11 @@ describe("exportHandler", () => {
       },
     } as any;
     const res = {
-      writeHead: () => { },
+      writeHead: () => {},
       write: (chunk: string) => {
         output += chunk;
       },
-      end: () => { },
+      end: () => {},
     } as any;
 
     handler("")(req, res);

@@ -55,25 +55,30 @@ export interface RenderBannerOptions {
   cfg: LoadedConfig;
   type: BannerType;
   sceneId?: string;
+  secondarySceneId?: string;
+  tertiarySceneId?: string;
   locale?: string;
   deviceKey?: DeviceKey;
+  deviceCount?: "single" | "duo" | "trio";
+  kickerHeadline?: string;
   customHeadline?: string;
   customTagline?: string;
+  benefits?: string[];
   customBackground?: string;
   layout?: "split" | "center";
   mockupStyle?: "card" | "screen";
+  showWaves?: boolean;
 }
 
 /**
- * Finds the best matching screenshot file on disk for a given scene.
+ * Scans directories for all candidate screenshots.
  */
-function findScreenshotPath(
+function getAllScreenshotPaths(
   outDir: string,
   deviceKey: string,
   locale: string,
-  sceneId?: string,
   mockupStyle: "card" | "screen" = "card",
-): string | null {
+): string[] {
   const screenshotsDirs = [
     join(outDir, "screenshots", deviceKey, locale),
     join(outDir, "screenshots", "iphone-6.9", locale),
@@ -88,28 +93,178 @@ function findScreenshotPath(
   const candidatesDirs =
     mockupStyle === "screen" ? [...rawDirs, ...screenshotsDirs] : [...screenshotsDirs, ...rawDirs];
 
+  const paths: string[] = [];
+  const seen = new Set<string>();
+
   for (const dir of candidatesDirs) {
     if (!existsSync(dir)) continue;
     try {
       const files = readdirSync(dir).filter(
         (f) => f.endsWith(".png") || f.endsWith(".jpg") || f.endsWith(".jpeg"),
       );
-      if (files.length === 0) continue;
-
-      if (sceneId) {
-        const exact = files.find(
-          (f) =>
-            f.endsWith(`-${sceneId}.png`) ||
-            f.startsWith(`${sceneId}.`) ||
-            f.includes(`-${sceneId}-`) ||
-            f.includes(`${sceneId}`),
-        );
-        if (exact) return join(dir, exact);
+      for (const f of files) {
+        if (!seen.has(f)) {
+          seen.add(f);
+          paths.push(join(dir, f));
+        }
       }
-      return join(dir, files[0]!);
     } catch {}
   }
-  return null;
+  return paths;
+}
+
+/**
+ * Finds the best matching screenshot file on disk for a given scene.
+ */
+function findScreenshotPath(
+  outDir: string,
+  deviceKey: string,
+  locale: string,
+  sceneId?: string,
+  mockupStyle: "card" | "screen" = "card",
+): string | null {
+  const all = getAllScreenshotPaths(outDir, deviceKey, locale, mockupStyle);
+  if (all.length === 0) return null;
+  if (!sceneId) return all[0] ?? null;
+
+  const exact = all.find(
+    (p) =>
+      p.endsWith(`-${sceneId}.png`) ||
+      p.includes(`/${sceneId}.`) ||
+      p.includes(`-${sceneId}-`) ||
+      p.includes(`${sceneId}`),
+  );
+  return exact || all[0] || null;
+}
+
+/**
+ * Helper to draw organic background wave arcs matching top-tier store feature banners.
+ */
+function drawWaveAccents(ctx: any, width: number, height: number, isDarkBg: boolean) {
+  ctx.save();
+  const waveStroke = isDarkBg ? "rgba(255, 255, 255, 0.08)" : "rgba(255, 255, 255, 0.35)";
+  const waveFill = isDarkBg ? "rgba(255, 255, 255, 0.025)" : "rgba(255, 255, 255, 0.12)";
+
+  // Upper smooth wave flowing across top right
+  ctx.beginPath();
+  ctx.moveTo(width * 0.32, 0);
+  ctx.bezierCurveTo(width * 0.52, height * 0.28, width * 0.48, height * 0.72, width * 0.88, height);
+  ctx.lineTo(width, height);
+  ctx.lineTo(width, 0);
+  ctx.closePath();
+  ctx.fillStyle = waveFill;
+  ctx.fill();
+  ctx.strokeStyle = waveStroke;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Secondary soft accent curve
+  ctx.beginPath();
+  ctx.moveTo(width * 0.46, 0);
+  ctx.bezierCurveTo(width * 0.68, height * 0.22, width * 0.58, height * 0.82, width, height * 0.68);
+  ctx.lineTo(width, 0);
+  ctx.closePath();
+  ctx.fillStyle = waveFill;
+  ctx.fill();
+  ctx.strokeStyle = waveStroke;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+/**
+ * Draws a realistic smartphone or framed card mockup with depth shadow and hardware bezels.
+ */
+function drawPhoneMockup(
+  ctx: any,
+  img: any,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  rotationDeg: number = 0,
+  shadowBlur: number = 30,
+  shadowOffsetY: number = 18,
+  mockupStyle: "card" | "screen" = "screen",
+  isDarkBg: boolean = true,
+  shadowOpacity: number = 0.45,
+) {
+  ctx.save();
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  ctx.translate(cx, cy);
+  if (rotationDeg !== 0) {
+    ctx.rotate((rotationDeg * Math.PI) / 180);
+  }
+  ctx.translate(-cx, -cy);
+
+  const cornerRadius = w * 0.085;
+
+  // 1. Drop Shadow
+  ctx.save();
+  ctx.shadowColor = `rgba(0, 0, 0, ${shadowOpacity})`;
+  ctx.shadowBlur = shadowBlur;
+  ctx.shadowOffsetY = shadowOffsetY;
+  ctx.fillStyle = "rgba(0, 0, 0, 1)";
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, cornerRadius);
+  ctx.fill();
+  ctx.restore();
+
+  // 2. Clipped Screen / Card Content
+  ctx.save();
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, cornerRadius);
+  ctx.clip();
+
+  if (img) {
+    ctx.drawImage(img, x, y, w, h);
+  } else {
+    // Placeholder screen
+    ctx.fillStyle = isDarkBg ? "#111827" : "#F3F4F6";
+    ctx.fillRect(x, y, w, h);
+  }
+
+  // Realistic hardware details if mockupStyle === "screen"
+  if (mockupStyle === "screen") {
+    // Dynamic Island pill
+    const notchW = w * 0.28;
+    const notchH = h * 0.032;
+    const notchX = x + (w - notchW) / 2;
+    const notchY = y + h * 0.022;
+    const notchR = notchH / 2;
+
+    ctx.fillStyle = "#000000";
+    ctx.beginPath();
+    ctx.roundRect(notchX, notchY, notchW, notchH, notchR);
+    ctx.fill();
+
+    // Camera lens reflex inside pill
+    ctx.fillStyle = "#1E293B";
+    ctx.beginPath();
+    ctx.arc(notchX + notchW * 0.78, notchY + notchH / 2, notchH * 0.28, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Specular diagonal glare
+    const glare = ctx.createLinearGradient(x, y, x + w, y + h);
+    glare.addColorStop(0, "rgba(255, 255, 255, 0.09)");
+    glare.addColorStop(0.3, "rgba(255, 255, 255, 0.02)");
+    glare.addColorStop(0.55, "rgba(255, 255, 255, 0)");
+    ctx.fillStyle = glare;
+    ctx.fillRect(x, y, w, h);
+  }
+
+  ctx.restore();
+
+  // 3. Bezel Outline Rim
+  ctx.strokeStyle = isDarkBg ? "rgba(255, 255, 255, 0.22)" : "rgba(0, 0, 0, 0.15)";
+  ctx.lineWidth = mockupStyle === "screen" ? 3 : 2;
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, cornerRadius);
+  ctx.stroke();
+
+  ctx.restore();
 }
 
 /**
@@ -120,13 +275,19 @@ export async function renderBannerCanvas(options: RenderBannerOptions): Promise<
     cfg,
     type,
     sceneId,
+    secondarySceneId,
+    tertiarySceneId,
     locale = cfg.locales[0] || "en-US",
     deviceKey = "iphone-6.9",
+    deviceCount,
+    kickerHeadline,
     customHeadline,
     customTagline,
+    benefits,
     customBackground,
     layout = "split",
     mockupStyle = "card",
+    showWaves = true,
   } = options;
 
   const spec = BANNER_SPECS[type];
@@ -136,15 +297,24 @@ export async function renderBannerCanvas(options: RenderBannerOptions): Promise<
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
 
+  // Determine effective device count
+  const effectiveDeviceCount: "single" | "duo" | "trio" =
+    deviceCount ||
+    (type === "google-play" || type === "product-hunt"
+      ? "trio"
+      : type === "x-twitter"
+        ? "duo"
+        : "single");
+
   // 1. Resolve Background
   const bgCss = customBackground || cfg.theme.background || "#0E1B2A";
   ctx.fillStyle = paint(ctx, bgCss, width, height);
   ctx.fillRect(0, 0, width, height);
 
-  // Subtle radial vignette / spotlight overlay for studio polish
   const bgLuminance = backgroundLuminance(bgCss) ?? 0.2;
   const isDarkBg = bgLuminance < 0.5;
 
+  // Subtle radial vignette / spotlight overlay
   const spotlight = ctx.createRadialGradient(
     width * 0.35,
     height * 0.35,
@@ -163,8 +333,25 @@ export async function renderBannerCanvas(options: RenderBannerOptions): Promise<
   ctx.fillStyle = spotlight;
   ctx.fillRect(0, 0, width, height);
 
-  // 2. Resolve Text & Content
-  const appName = customHeadline || cfg.store?.name || cfg.appPath?.split("/").pop() || "AppAssets";
+  // Background wave arcs
+  if (showWaves) {
+    drawWaveAccents(ctx, width, height, isDarkBg);
+  }
+
+  // 2. Resolve Text & Marketing Content Hierarchy
+  const appName = cfg.store?.name || cfg.appPath?.split("/").pop() || "AppAssets";
+  const brandWordmark = appName;
+
+  const category = cfg.store?.category || "App";
+  const defaultKicker = `${category} App`.toUpperCase();
+  const kicker = kickerHeadline || defaultKicker;
+
+  const headline =
+    customHeadline ||
+    (cfg.scenes?.find(isScreenshot)?.headline &&
+      (cfg.scenes.find(isScreenshot)?.headline[locale] ||
+        cfg.scenes.find(isScreenshot)?.headline["en-US"])) ||
+    appName;
 
   const appSubtitle =
     customTagline ||
@@ -172,33 +359,55 @@ export async function renderBannerCanvas(options: RenderBannerOptions): Promise<
       (cfg.store.subtitle[locale] ||
         cfg.store.subtitle["en-US"] ||
         Object.values(cfg.store.subtitle)[0])) ||
-    (cfg.scenes?.find(isScreenshot)?.headline &&
-      (cfg.scenes.find(isScreenshot)?.headline[locale] ||
-        cfg.scenes.find(isScreenshot)?.headline["en-US"])) ||
     "Crafted for Excellence";
 
-  const category = cfg.store?.category || "App";
-  const rating = cfg.store?.rating ?? 4.9;
-  const ratingText = `★ ${rating} Rating · ${category}`;
+  const defaultBenefits = [
+    "Achieve More in Less Time",
+    "Plan, Prioritize and Prosper",
+    "Boost Your Daily Output",
+  ];
+  const activeBenefits = benefits !== undefined ? benefits : defaultBenefits;
 
   const textPrimary = isDarkBg ? "#FFFFFF" : "#0E1B2A";
-  const textMuted = isDarkBg ? "rgba(255, 255, 255, 0.75)" : "rgba(14, 27, 42, 0.75)";
-  const pillBg = isDarkBg ? "rgba(255, 255, 255, 0.15)" : "rgba(0, 0, 0, 0.07)";
-  const pillBorder = isDarkBg ? "rgba(255, 255, 255, 0.25)" : "rgba(0, 0, 0, 0.12)";
-  const pillText = isDarkBg ? "#FBBF24" : "#D97706";
+  const textMuted = isDarkBg ? "rgba(255, 255, 255, 0.78)" : "rgba(14, 27, 42, 0.78)";
 
-  // 3. Find and load screenshot
-  const shotPath = findScreenshotPath(cfg.outDir, deviceKey, locale, sceneId, mockupStyle);
-  let shotImage: any = null;
-  if (shotPath) {
-    try {
-      shotImage = await loadImage(shotPath);
-    } catch {}
+  // 3. Find and load screenshots for up to 3 phone slots
+  const allShots = getAllScreenshotPaths(cfg.outDir, deviceKey, locale, mockupStyle);
+
+  const loadShot = async (targetId?: string, fallbackIdx = 0) => {
+    const p = findScreenshotPath(cfg.outDir, deviceKey, locale, targetId, mockupStyle);
+    if (p) {
+      try {
+        return await loadImage(p);
+      } catch {}
+    }
+    if (allShots.length > fallbackIdx) {
+      try {
+        return await loadImage(allShots[fallbackIdx]!);
+      } catch {}
+    }
+    if (allShots.length > 0) {
+      try {
+        return await loadImage(allShots[0]!);
+      } catch {}
+    }
+    return null;
+  };
+
+  const shotImage1 = await loadShot(sceneId, 0);
+  let shotImage2: any = null;
+  let shotImage3: any = null;
+
+  if (effectiveDeviceCount === "duo" || effectiveDeviceCount === "trio") {
+    shotImage2 = await loadShot(secondarySceneId, 1);
+  }
+  if (effectiveDeviceCount === "trio") {
+    shotImage3 = await loadShot(tertiarySceneId, 2);
   }
 
   if (layout === "center" || type === "instagram-square") {
     // ----------------------------------------------------
-    // CENTER LAYOUT (Top Text, Rising Device Bottom)
+    // CENTER LAYOUT (Top Branding, Bottom Rising Mockup)
     // ----------------------------------------------------
     const contentTop = height * 0.08;
 
@@ -225,17 +434,27 @@ export async function renderBannerCanvas(options: RenderBannerOptions): Promise<
     ctx.font = `bold ${iconSize * 0.55}px sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(appName.charAt(0).toUpperCase(), iconX + iconSize / 2, iconY + iconSize / 2);
+    ctx.fillText(brandWordmark.charAt(0).toUpperCase(), iconX + iconSize / 2, iconY + iconSize / 2);
 
-    // Title
-    const titleY = iconY + iconSize + height * 0.04;
+    // Kicker
+    const kickerY = iconY + iconSize + height * 0.025;
+    ctx.fillStyle = isDarkBg ? "#38BDF8" : "#0284C7";
+    ctx.font = `bold ${Math.round(width * 0.022)}px sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.letterSpacing = "1.2px";
+    ctx.fillText(kicker, width / 2, kickerY);
+    ctx.letterSpacing = "0px";
+
+    // Title / Headline
+    const titleY = kickerY + width * 0.035;
     ctx.fillStyle = textPrimary;
     ctx.font = `bold ${Math.round(width * 0.042)}px sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
-    ctx.fillText(appName, width / 2, titleY);
+    ctx.fillText(headline, width / 2, titleY);
 
-    // Tagline
+    // Tagline / Subtitle
     const tagY = titleY + width * 0.052;
     ctx.fillStyle = textMuted;
     ctx.font = `500 ${Math.round(width * 0.024)}px sans-serif`;
@@ -244,154 +463,284 @@ export async function renderBannerCanvas(options: RenderBannerOptions): Promise<
     ctx.fillText(appSubtitle, width / 2, tagY);
 
     // Device Mockup in lower half
-    if (shotImage) {
-      const devAspect = shotImage.width / shotImage.height;
-      const devH = height * 0.62;
-      const devW = devH * devAspect;
-      const devX = (width - devW) / 2;
-      const devY = height - devH + height * 0.04;
+    const devH = height * 0.62;
+    const devAspect = shotImage1 ? shotImage1.width / shotImage1.height : 9 / 19.5;
+    const devW = devH * devAspect;
+    const devX = (width - devW) / 2;
+    const devY = height - devH + height * 0.04;
 
-      ctx.save();
-      ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
-      ctx.shadowBlur = width * 0.04;
-      ctx.shadowOffsetY = height * 0.03;
-
-      // Draw device with rounded corners
-      const radius = devW * 0.08;
-      ctx.beginPath();
-      ctx.roundRect(devX, devY, devW, devH, radius);
-      ctx.clip();
-      ctx.drawImage(shotImage, devX, devY, devW, devH);
-      ctx.restore();
-
-      // Outer bezel line
-      ctx.save();
-      ctx.strokeStyle = isDarkBg ? "rgba(255, 255, 255, 0.15)" : "rgba(0, 0, 0, 0.15)";
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.roundRect(devX, devY, devW, devH, radius);
-      ctx.stroke();
-      ctx.restore();
-    }
+    drawPhoneMockup(
+      ctx,
+      shotImage1,
+      devX,
+      devY,
+      devW,
+      devH,
+      0,
+      width * 0.04,
+      height * 0.03,
+      mockupStyle,
+      isDarkBg,
+      0.45,
+    );
   } else {
     // ----------------------------------------------------
-    // SPLIT LAYOUT (Text on Left, Angled Device on Right)
+    // SPLIT LAYOUT (Google Play Store Feature Standard)
     // ----------------------------------------------------
-    const leftX = width * 0.08;
+    // Radial backlight behind the phone showcase cluster
+    const phoneCenterGlowX = width * 0.72;
+    const phoneCenterGlowY = height * 0.5;
+    const phoneBacklight = ctx.createRadialGradient(
+      phoneCenterGlowX,
+      phoneCenterGlowY,
+      width * 0.04,
+      phoneCenterGlowX,
+      phoneCenterGlowY,
+      width * 0.38,
+    );
+    if (isDarkBg) {
+      phoneBacklight.addColorStop(0, "rgba(59, 130, 246, 0.28)");
+      phoneBacklight.addColorStop(0.5, "rgba(147, 51, 234, 0.12)");
+      phoneBacklight.addColorStop(1, "rgba(0, 0, 0, 0)");
+    } else {
+      phoneBacklight.addColorStop(0, "rgba(59, 130, 246, 0.20)");
+      phoneBacklight.addColorStop(0.6, "rgba(255, 255, 255, 0.4)");
+      phoneBacklight.addColorStop(1, "rgba(255, 255, 255, 0)");
+    }
+    ctx.save();
+    ctx.fillStyle = phoneBacklight;
+    ctx.fillRect(0, 0, width, height);
+    ctx.restore();
 
-    // App Icon (Squircle)
-    const iconSize = Math.round(height * 0.18);
-    const iconY = height * 0.16;
+    // Left Column Marketing Hierarchy
+    const leftX = width * 0.06;
+    const maxTextWidth = effectiveDeviceCount === "trio" ? width * 0.4 : width * 0.44;
+
+    // 1. Brand Row: Squircle Logo + Wordmark Title
+    const iconSize = Math.round(height * 0.1);
+    const iconY = height * 0.09;
 
     ctx.save();
     ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
-    ctx.shadowBlur = iconSize * 0.3;
-    ctx.shadowOffsetY = iconSize * 0.1;
+    ctx.shadowBlur = iconSize * 0.35;
+    ctx.shadowOffsetY = iconSize * 0.12;
     const iconGrad = ctx.createLinearGradient(leftX, iconY, leftX + iconSize, iconY + iconSize);
     iconGrad.addColorStop(0, "#3B82F6");
     iconGrad.addColorStop(1, "#1D4ED8");
     ctx.fillStyle = iconGrad;
     ctx.beginPath();
-    ctx.roundRect(leftX, iconY, iconSize, iconSize, iconSize * 0.22);
+    ctx.roundRect(leftX, iconY, iconSize, iconSize, iconSize * 0.24);
     ctx.fill();
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.28)";
     ctx.lineWidth = 2;
     ctx.stroke();
     ctx.restore();
 
-    // App Initial
     ctx.fillStyle = "#FFFFFF";
-    ctx.font = `bold ${iconSize * 0.55}px sans-serif`;
+    ctx.font = `bold ${Math.round(iconSize * 0.55)}px sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(appName.charAt(0).toUpperCase(), leftX + iconSize / 2, iconY + iconSize / 2);
+    ctx.fillText(brandWordmark.charAt(0).toUpperCase(), leftX + iconSize / 2, iconY + iconSize / 2);
 
-    // Rating Badge Pill
-    const badgeY = iconY + iconSize + height * 0.05;
-    ctx.font = `bold ${Math.round(height * 0.04)}px sans-serif`;
-    const ratingWidth = ctx.measureText(ratingText).width;
-    const pillPadX = height * 0.035;
-    const pillH = height * 0.075;
-
-    ctx.save();
-    ctx.fillStyle = pillBg;
-    ctx.strokeStyle = pillBorder;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.roundRect(leftX, badgeY, ratingWidth + pillPadX * 2, pillH, pillH / 2);
-    ctx.fill();
-    ctx.stroke();
-    ctx.restore();
-
-    ctx.fillStyle = pillText;
+    const wordmarkX = leftX + iconSize + height * 0.025;
+    ctx.fillStyle = textPrimary;
+    ctx.font = `bold ${Math.round(height * 0.056)}px sans-serif`;
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
-    ctx.fillText(ratingText, leftX + pillPadX, badgeY + pillH / 2);
+    ctx.fillText(brandWordmark, wordmarkX, iconY + iconSize / 2);
 
-    // Main App Title
-    const titleY = badgeY + pillH + height * 0.05;
-    ctx.fillStyle = textPrimary;
-    const titleSize = Math.round(height * 0.11);
-    ctx.font = `bold ${titleSize}px sans-serif`;
+    // 2. Kicker Headline / Category Eyebrow
+    const kickerY = iconY + iconSize + height * 0.035;
+    const kickerSize = Math.round(height * 0.026);
+    ctx.font = `bold ${kickerSize}px sans-serif`;
+    ctx.letterSpacing = "1.2px";
+    ctx.fillStyle = isDarkBg ? "#38BDF8" : "#0284C7";
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
-    const titleLines = wrapLines(ctx, appName, `bold ${titleSize}px sans-serif`, 0, width * 0.44);
-    let curY = titleY;
+    ctx.fillText(kicker, leftX, kickerY);
+    ctx.letterSpacing = "0px";
+
+    // 3. Main Marketing Headline
+    let curY = kickerY + kickerSize + height * 0.02;
+    ctx.fillStyle = textPrimary;
+    const titleSize = Math.round(height * (effectiveDeviceCount === "trio" ? 0.07 : 0.076));
+    ctx.font = `800 ${titleSize}px sans-serif`;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    const titleLines = wrapLines(ctx, headline, `800 ${titleSize}px sans-serif`, 0, maxTextWidth);
     for (const line of titleLines.slice(0, 2)) {
       ctx.fillText(line, leftX, curY);
       curY += titleSize * 1.15;
     }
 
-    // Subtitle / Tagline
+    // 4. Subtitle / Tagline
+    curY += height * 0.01;
     ctx.fillStyle = textMuted;
-    const tagSize = Math.round(height * 0.055);
+    const tagSize = Math.round(height * (effectiveDeviceCount === "trio" ? 0.033 : 0.036));
     ctx.font = `500 ${tagSize}px sans-serif`;
-    const tagLines = wrapLines(ctx, appSubtitle, `500 ${tagSize}px sans-serif`, 0, width * 0.44);
-    curY += height * 0.015;
+    const tagLines = wrapLines(ctx, appSubtitle, `500 ${tagSize}px sans-serif`, 0, maxTextWidth);
     for (const line of tagLines.slice(0, 2)) {
       ctx.fillText(line, leftX, curY);
       curY += tagSize * 1.25;
     }
 
-    // Framed Device Mockup on Right
-    if (shotImage) {
-      const devAspect = shotImage.width / shotImage.height;
-      const devH = height * 1.02;
-      const devW = devH * devAspect;
-      const devX = width * 0.58;
-      const devY = height * 0.14;
+    // 5. Short Benefits Bullets (2–3 bullet points)
+    if (activeBenefits && activeBenefits.length > 0) {
+      curY += height * 0.022;
+      const bulletSize = Math.round(height * 0.028);
+      ctx.font = `600 ${bulletSize}px sans-serif`;
+      for (const b of activeBenefits.slice(0, 3)) {
+        const dotRadius = height * 0.006;
+        const dotY = curY + bulletSize * 0.55;
+        ctx.beginPath();
+        ctx.arc(leftX + dotRadius, dotY, dotRadius, 0, Math.PI * 2);
+        ctx.fillStyle = isDarkBg ? "#34D399" : "#059669";
+        ctx.fill();
 
-      ctx.save();
-      // Slight elegant rotation (-4 deg) for dynamic 3D look
-      const cx = devX + devW / 2;
-      const cy = devY + devH / 2;
-      ctx.translate(cx, cy);
-      ctx.rotate((-4 * Math.PI) / 180);
-      ctx.translate(-cx, -cy);
+        ctx.fillStyle = textPrimary;
+        ctx.textAlign = "left";
+        ctx.textBaseline = "top";
+        ctx.fillText(b, leftX + dotRadius * 2 + height * 0.018, curY);
+        curY += bulletSize * 1.6;
+      }
+    }
 
-      // 3D Shadow
-      ctx.shadowColor = "rgba(0, 0, 0, 0.45)";
-      ctx.shadowBlur = width * 0.045;
-      ctx.shadowOffsetY = height * 0.035;
+    // Right Column: Multi-Phone Mockup Showcase Cluster
+    const baseH = height * 0.81;
+    const devAspect = shotImage1 ? shotImage1.width / shotImage1.height : 9 / 19.5;
+    const baseW = baseH * devAspect;
 
-      const radius = devW * 0.085;
-      ctx.beginPath();
-      ctx.roundRect(devX, devY, devW, devH, radius);
-      ctx.clip();
-      ctx.drawImage(shotImage, devX, devY, devW, devH);
-      ctx.restore();
+    if (effectiveDeviceCount === "trio") {
+      // Center Phone (Phone 1 - Front & Center Elevated)
+      const centerScale = 1.0;
+      const centerW = baseW * centerScale;
+      const centerH = baseH * centerScale;
+      const centerPhoneX = width * 0.7 - centerW / 2;
+      const centerPhoneY = height * 0.095;
 
-      // Outer bezel outline with same rotation
-      ctx.save();
-      ctx.translate(cx, cy);
-      ctx.rotate((-4 * Math.PI) / 180);
-      ctx.translate(-cx, -cy);
-      ctx.strokeStyle = isDarkBg ? "rgba(255, 255, 255, 0.2)" : "rgba(0, 0, 0, 0.15)";
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.roundRect(devX, devY, devW, devH, radius);
-      ctx.stroke();
-      ctx.restore();
+      // Left Phone (Phone 2 - Behind)
+      const leftScale = 0.89;
+      const leftW = baseW * leftScale;
+      const leftH = baseH * leftScale;
+      const leftPhoneX = centerPhoneX - leftW * 0.65;
+      const leftPhoneY = height * 0.14;
+
+      // Right Phone (Phone 3 - Behind)
+      const rightScale = 0.89;
+      const rightW = baseW * rightScale;
+      const rightH = baseH * rightScale;
+      const rightPhoneX = centerPhoneX + centerW - rightW * 0.35;
+      const rightPhoneY = height * 0.14;
+
+      drawPhoneMockup(
+        ctx,
+        shotImage2 || shotImage1,
+        leftPhoneX,
+        leftPhoneY,
+        leftW,
+        leftH,
+        -2,
+        Math.round(width * 0.025),
+        Math.round(height * 0.025),
+        mockupStyle,
+        isDarkBg,
+        0.4,
+      );
+
+      drawPhoneMockup(
+        ctx,
+        shotImage3 || shotImage1,
+        rightPhoneX,
+        rightPhoneY,
+        rightW,
+        rightH,
+        2,
+        Math.round(width * 0.025),
+        Math.round(height * 0.025),
+        mockupStyle,
+        isDarkBg,
+        0.4,
+      );
+
+      drawPhoneMockup(
+        ctx,
+        shotImage1,
+        centerPhoneX,
+        centerPhoneY,
+        centerW,
+        centerH,
+        0,
+        Math.round(width * 0.045),
+        Math.round(height * 0.04),
+        mockupStyle,
+        isDarkBg,
+        0.6,
+      );
+    } else if (effectiveDeviceCount === "duo") {
+      // Front Phone (Phone 1 - Left front)
+      const frontScale = 1.0;
+      const frontW = baseW * frontScale;
+      const frontH = baseH * frontScale;
+      const frontPhoneX = width * 0.58;
+      const frontPhoneY = height * 0.1;
+
+      // Back Phone (Phone 2 - Right back)
+      const backScale = 0.92;
+      const backW = baseW * backScale;
+      const backH = baseH * backScale;
+      const backPhoneX = width * 0.76;
+      const backPhoneY = height * 0.13;
+
+      drawPhoneMockup(
+        ctx,
+        shotImage2 || shotImage1,
+        backPhoneX,
+        backPhoneY,
+        backW,
+        backH,
+        2,
+        Math.round(width * 0.028),
+        Math.round(height * 0.025),
+        mockupStyle,
+        isDarkBg,
+        0.42,
+      );
+
+      drawPhoneMockup(
+        ctx,
+        shotImage1,
+        frontPhoneX,
+        frontPhoneY,
+        frontW,
+        frontH,
+        0,
+        Math.round(width * 0.045),
+        Math.round(height * 0.038),
+        mockupStyle,
+        isDarkBg,
+        0.55,
+      );
+    } else {
+      // Single Hero Phone
+      const singleScale = 1.02;
+      const singleW = baseW * singleScale;
+      const singleH = baseH * singleScale;
+      const singlePhoneX = width * 0.7 - singleW / 2;
+      const singlePhoneY = height * 0.09;
+      drawPhoneMockup(
+        ctx,
+        shotImage1,
+        singlePhoneX,
+        singlePhoneY,
+        singleW,
+        singleH,
+        0,
+        Math.round(width * 0.045),
+        Math.round(height * 0.035),
+        mockupStyle,
+        isDarkBg,
+        0.5,
+      );
     }
   }
 
