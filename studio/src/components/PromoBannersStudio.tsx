@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   Smartphone,
   Sparkles,
+  Tag,
   Type,
   Upload,
 } from "lucide-react";
@@ -86,6 +87,78 @@ export const BANNER_FORMATS: BannerFormatMeta[] = [
   },
 ];
 
+export const KICKER_PRESETS: { category: string; tags: string[] }[] = [
+  {
+    category: "Store & Badges",
+    tags: [
+      "★ FEATURED APP",
+      "🔥 EDITOR'S CHOICE",
+      "⚡ SMART & FAST",
+      "🔒 SECURE & PRIVATE",
+      "✨ AI-POWERED",
+      "🏆 TOP RATED #1",
+      "🚀 NEW & TRENDING",
+      "✦ PREMIUM EDITION",
+    ],
+  },
+  {
+    category: "App Categories",
+    tags: [
+      "FINANCE & BUDGET",
+      "EXPENSE TRACKER",
+      "SMART BILL SPLITTER",
+      "UTILITIES & TOOLS",
+      "PRODUCTIVITY APP",
+      "HEALTH & FITNESS",
+      "LIFESTYLE & TRAVEL",
+      "BUSINESS & WORK",
+    ],
+  },
+  {
+    category: "Feature Highlights",
+    tags: [
+      "100% FREE DOWNLOAD",
+      "WORKS OFFLINE",
+      "NO ADS · PRIVATE",
+      "ALL-IN-ONE SOLUTION",
+      "SYNC ACROSS DEVICES",
+      "EASY & INTUITIVE",
+    ],
+  },
+];
+
+export const KICKER_COLOR_SWATCHES = [
+  // Sky / Cyan / Blue
+  "#38BDF8", "#0284C7", "#2563EB", "#06B6D4", "#0D9488",
+  // Emerald / Green / Lime
+  "#10B981", "#059669", "#84CC16", "#22C55E",
+  // Amber / Orange / Red
+  "#F59E0B", "#D97706", "#EA580C", "#F97316", "#EF4444", "#DC2626",
+  // Pink / Purple / Indigo
+  "#F43F5E", "#EC4899", "#D946EF", "#A855F7", "#7C3AED", "#6366F1",
+  // Light / Neutral
+  "#FFFFFF", "#CBD5E1", "#94A3B8", "#0F172A",
+];
+
+export function hexToRgba(hex: string, alpha: number): string {
+  if (!hex) return `rgba(56, 189, 248, ${alpha})`;
+  let c = hex.replace("#", "").trim();
+  if (c.length === 3) c = c.split("").map((x) => x + x).join("");
+  if (c.length === 6) {
+    const r = parseInt(c.slice(0, 2), 16);
+    const g = parseInt(c.slice(2, 4), 16);
+    const b = parseInt(c.slice(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  return hex;
+}
+
+export const LOGO_COLOR_SWATCHES = [
+  "#FFFFFF", "#0F172A", "#000000", "#2563EB", "#0284C7", "#059669",
+  "#10B981", "#D97706", "#F59E0B", "#DC2626", "#EF4444", "#7C3AED",
+  "#9333EA", "#DB2777", "#F8FAFC", "#E2E8F0", "#64748B", "#1E293B",
+];
+
 export interface PromoBannersStudioProps {
   manifest: StoreManifest;
   platform: "ios" | "ipad" | "android";
@@ -142,7 +215,6 @@ export function PromoBannersStudio({
   appInfo,
 }: PromoBannersStudioProps) {
   const [selectedFormat, setSelectedFormat] = useState<BannerFormat>("google-play");
-  const [layoutStyle, setLayoutStyle] = useState<"split" | "center">("split");
   const [showSafeArea, setShowSafeArea] = useState(false);
   const [safeAreaMargin, setSafeAreaMargin] = useState<"15%" | "20%" | "8%">("15%");
   const [deviceCount, setDeviceCount] = useState<"single" | "duo" | "trio">("trio");
@@ -229,6 +301,16 @@ export function PromoBannersStudio({
   const [appIconUrl, setAppIconUrl] = useState<string | null>(() => {
     return appInfo?.icon || (design as any)?.appIcon || null;
   });
+  const [logoBg, setLogoBg] = useState<string>("gradient");
+  const [logoFit, setLogoFit] = useState<"cover" | "contain">("cover");
+
+  const resolvedLogoBackground = useMemo(() => {
+    if (logoBg === "transparent") return "transparent";
+    if (logoBg === "gradient")
+      return "linear-gradient(135deg, #3B82F6 0%, #6366F1 50%, #9333EA 100%)";
+    return logoBg;
+  }, [logoBg]);
+
   const [uploadingIcon, setUploadingIcon] = useState(false);
   const [exportResolution, setExportResolution] = useState<"1x" | "2x">("1x");
 
@@ -292,6 +374,7 @@ export function PromoBannersStudio({
   const [textColorMode, setTextColorMode] = useState<"auto" | "light" | "dark" | "custom">("auto");
   const [customTextColor, setCustomTextColor] = useState<string>("#0F172A");
   const [kickerColor, setKickerColor] = useState<string>("");
+  const [kickerStyle, setKickerStyle] = useState<"text" | "badge">("text");
 
   // Determine if active background is light/white
   const isLightBg = useMemo(() => {
@@ -405,7 +488,7 @@ export function PromoBannersStudio({
       scale: isRetina ? 2 : 1,
       retina: isRetina,
       locale,
-      layout: selectedFormat === "instagram-square" ? "center" : layoutStyle,
+      layout: selectedFormat === "instagram-square" ? "center" : "split",
       mockupStyle,
       deviceCount,
       sceneId: selectedSceneId,
@@ -417,6 +500,8 @@ export function PromoBannersStudio({
       benefits: benefits.map((b) => b.text).filter(Boolean),
       background: customBg,
       customIcon: appIconUrl || undefined,
+      logoBg,
+      logoFit,
     };
   };
 
@@ -571,28 +656,56 @@ export function PromoBannersStudio({
       ctx.restore();
     };
 
-    if (layoutStyle === "center" || selectedFormat === "instagram-square") {
+    if (selectedFormat === "instagram-square") {
       const iconSize = Math.round(Math.min(width, height) * 0.12);
       const iconX = (width - iconSize) / 2;
       const iconY = height * 0.08;
       const iconR = iconSize * 0.22;
 
       ctx.save();
-      ctx.shadowColor = "rgba(0, 0, 0, 0.25)";
-      ctx.shadowBlur = iconSize * 0.3;
-      ctx.shadowOffsetY = iconSize * 0.1;
+      if (logoBg !== "transparent") {
+        ctx.shadowColor = "rgba(0, 0, 0, 0.25)";
+        ctx.shadowBlur = iconSize * 0.3;
+        ctx.shadowOffsetY = iconSize * 0.1;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(iconX, iconY, iconSize, iconSize, iconR);
+        if (logoBg === "gradient") {
+          const grad = ctx.createLinearGradient(iconX, iconY, iconX + iconSize, iconY + iconSize);
+          grad.addColorStop(0, "#3B82F6");
+          grad.addColorStop(0.5, "#6366F1");
+          grad.addColorStop(1, "#9333EA");
+          ctx.fillStyle = grad;
+        } else {
+          ctx.fillStyle = logoBg;
+        }
+        ctx.fill();
+        ctx.strokeStyle = isDarkText && (logoBg === "#FFFFFF" || logoBg === "#F8FAFC") ? "rgba(0, 0, 0, 0.08)" : "rgba(255, 255, 255, 0.25)";
+        ctx.lineWidth = Math.max(1, Math.round(iconSize * 0.02));
+        ctx.stroke();
+        ctx.restore();
+      }
+
       if (iconImg) {
         ctx.save();
         ctx.beginPath();
         ctx.roundRect(iconX, iconY, iconSize, iconSize, iconR);
         ctx.clip();
-        ctx.drawImage(iconImg, iconX, iconY, iconSize, iconSize);
+        if (logoFit === "contain") {
+          const pad = Math.round(iconSize * 0.14);
+          ctx.drawImage(iconImg, iconX + pad, iconY + pad, iconSize - pad * 2, iconSize - pad * 2);
+        } else {
+          ctx.drawImage(iconImg, iconX, iconY, iconSize, iconSize);
+        }
         ctx.restore();
       } else {
-        ctx.fillStyle = "#3B82F6";
-        ctx.beginPath();
-        ctx.roundRect(iconX, iconY, iconSize, iconSize, iconR);
-        ctx.fill();
+        if (logoBg === "transparent") {
+          ctx.fillStyle = "#3B82F6";
+          ctx.beginPath();
+          ctx.roundRect(iconX, iconY, iconSize, iconSize, iconR);
+          ctx.fill();
+        }
         ctx.fillStyle = "#FFFFFF";
         ctx.font = `bold ${Math.round(iconSize * 0.55)}px sans-serif`;
         ctx.textAlign = "center";
@@ -601,10 +714,36 @@ export function PromoBannersStudio({
       }
       ctx.restore();
 
+      const kickerStr = (kickerText || "FEATURED APP").toUpperCase();
+      const kickerFontSize = Math.round(height * 0.025);
+      ctx.font = `bold ${kickerFontSize}px sans-serif`;
+      const kickerY = iconY + iconSize + height * 0.04;
+
+      if (kickerStyle === "badge") {
+        const textMetrics = ctx.measureText(kickerStr);
+        const padX = kickerFontSize * 0.7;
+        const padY = kickerFontSize * 0.35;
+        const pillW = textMetrics.width + padX * 2;
+        const pillH = kickerFontSize + padY * 2;
+        const pillX = width / 2 - pillW / 2;
+        const pillY = kickerY - kickerFontSize * 0.85;
+        const pillR = pillH / 2;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(pillX, pillY, pillW, pillH, pillR);
+        ctx.fillStyle = hexToRgba(effectiveKickerColor, 0.16);
+        ctx.fill();
+        ctx.strokeStyle = hexToRgba(effectiveKickerColor, 0.38);
+        ctx.lineWidth = Math.max(1, Math.round(height * 0.002));
+        ctx.stroke();
+        ctx.restore();
+      }
+
       ctx.fillStyle = effectiveKickerColor;
-      ctx.font = `bold ${Math.round(height * 0.025)}px sans-serif`;
       ctx.textAlign = "center";
-      ctx.fillText(kickerText.toUpperCase(), width / 2, iconY + iconSize + height * 0.04);
+      ctx.textBaseline = "alphabetic";
+      ctx.fillText(kickerStr, width / 2, kickerY);
 
       ctx.fillStyle = effectiveTextColor;
       ctx.font = `bold ${Math.round(height * 0.05)}px sans-serif`;
@@ -643,21 +782,49 @@ export function PromoBannersStudio({
       const iconR = iconSize * 0.24;
 
       ctx.save();
-      ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
-      ctx.shadowBlur = iconSize * 0.35;
-      ctx.shadowOffsetY = iconSize * 0.12;
+      if (logoBg !== "transparent") {
+        ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
+        ctx.shadowBlur = iconSize * 0.35;
+        ctx.shadowOffsetY = iconSize * 0.12;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(iconX, iconY, iconSize, iconSize, iconR);
+        if (logoBg === "gradient") {
+          const grad = ctx.createLinearGradient(iconX, iconY, iconX + iconSize, iconY + iconSize);
+          grad.addColorStop(0, "#3B82F6");
+          grad.addColorStop(0.5, "#6366F1");
+          grad.addColorStop(1, "#9333EA");
+          ctx.fillStyle = grad;
+        } else {
+          ctx.fillStyle = logoBg;
+        }
+        ctx.fill();
+        ctx.strokeStyle = isDarkText && (logoBg === "#FFFFFF" || logoBg === "#F8FAFC") ? "rgba(0, 0, 0, 0.08)" : "rgba(255, 255, 255, 0.3)";
+        ctx.lineWidth = Math.max(1, Math.round(iconSize * 0.02));
+        ctx.stroke();
+        ctx.restore();
+      }
+
       if (iconImg) {
         ctx.save();
         ctx.beginPath();
         ctx.roundRect(iconX, iconY, iconSize, iconSize, iconR);
         ctx.clip();
-        ctx.drawImage(iconImg, iconX, iconY, iconSize, iconSize);
+        if (logoFit === "contain") {
+          const pad = Math.round(iconSize * 0.14);
+          ctx.drawImage(iconImg, iconX + pad, iconY + pad, iconSize - pad * 2, iconSize - pad * 2);
+        } else {
+          ctx.drawImage(iconImg, iconX, iconY, iconSize, iconSize);
+        }
         ctx.restore();
       } else {
-        ctx.fillStyle = "#3B82F6";
-        ctx.beginPath();
-        ctx.roundRect(iconX, iconY, iconSize, iconSize, iconR);
-        ctx.fill();
+        if (logoBg === "transparent") {
+          ctx.fillStyle = "#3B82F6";
+          ctx.beginPath();
+          ctx.roundRect(iconX, iconY, iconSize, iconSize, iconR);
+          ctx.fill();
+        }
         ctx.fillStyle = "#FFFFFF";
         ctx.font = `bold ${Math.round(iconSize * 0.55)}px sans-serif`;
         ctx.textAlign = "center";
@@ -673,9 +840,40 @@ export function PromoBannersStudio({
       ctx.fillText(customTitle, iconX + iconSize + height * 0.025, iconY + iconSize / 2);
 
       const kickerY = iconY + iconSize + height * 0.045;
-      ctx.fillStyle = effectiveKickerColor;
-      ctx.font = `bold ${Math.round(height * 0.025)}px sans-serif`;
-      ctx.fillText(kickerText.toUpperCase(), iconX, kickerY);
+      const kickerStr = (kickerText || "FEATURED APP").toUpperCase();
+      const kickerFontSize = Math.round(height * 0.025);
+      ctx.font = `bold ${kickerFontSize}px sans-serif`;
+
+      if (kickerStyle === "badge") {
+        const textMetrics = ctx.measureText(kickerStr);
+        const padX = kickerFontSize * 0.7;
+        const padY = kickerFontSize * 0.35;
+        const pillW = textMetrics.width + padX * 2;
+        const pillH = kickerFontSize + padY * 2;
+        const pillX = iconX;
+        const pillY = kickerY - kickerFontSize * 0.85;
+        const pillR = pillH / 2;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(pillX, pillY, pillW, pillH, pillR);
+        ctx.fillStyle = hexToRgba(effectiveKickerColor, 0.16);
+        ctx.fill();
+        ctx.strokeStyle = hexToRgba(effectiveKickerColor, 0.38);
+        ctx.lineWidth = Math.max(1, Math.round(height * 0.002));
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.fillStyle = effectiveKickerColor;
+        ctx.textAlign = "left";
+        ctx.textBaseline = "alphabetic";
+        ctx.fillText(kickerStr, iconX + padX, kickerY);
+      } else {
+        ctx.fillStyle = effectiveKickerColor;
+        ctx.textAlign = "left";
+        ctx.textBaseline = "alphabetic";
+        ctx.fillText(kickerStr, iconX, kickerY);
+      }
 
       const headY = kickerY + height * 0.06;
       ctx.fillStyle = effectiveTextColor;
@@ -1171,6 +1369,368 @@ export function PromoBannersStudio({
                   </Popover>
                 </div>
 
+                {/* Quick Kicker Tag / Badge Popover */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 gap-1.5 rounded-lg text-[10px] font-medium border-border/70 cursor-pointer hover:border-primary/50"
+                      title="Edit Kicker Tag (Presets, Style, Color)"
+                    >
+                      <Tag className="size-3 shrink-0" style={{ color: effectiveKickerColor }} />
+                      <span className="max-w-[85px] truncate font-semibold">
+                        {kickerText || "Tag"}
+                      </span>
+                      {kickerStyle === "badge" ? (
+                        <span
+                          className="text-[8px] font-extrabold px-1 rounded-sm uppercase tracking-wide border leading-tight"
+                          style={{
+                            color: effectiveKickerColor,
+                            borderColor: hexToRgba(effectiveKickerColor, 0.4),
+                            backgroundColor: hexToRgba(effectiveKickerColor, 0.15),
+                          }}
+                        >
+                          Pill
+                        </span>
+                      ) : (
+                        <span
+                          className="size-2 rounded-full shrink-0"
+                          style={{ backgroundColor: effectiveKickerColor }}
+                        />
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80 p-3.5 space-y-3" side="bottom" align="end">
+                    {/* Header */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <Tag className="size-3.5 text-primary" />
+                        <span className="text-xs font-bold text-foreground">Kicker Tag / Badge</span>
+                      </div>
+                      {kickerColor || kickerStyle !== "text" ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setKickerColor("");
+                            setKickerStyle("text");
+                          }}
+                          className="text-[10px] text-primary hover:underline cursor-pointer flex items-center gap-0.5"
+                        >
+                          <RotateCcw className="size-2.5" />
+                          <span>Reset</span>
+                        </button>
+                      ) : null}
+                    </div>
+
+                    {/* Tag Text Input */}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                          Tag Text
+                        </label>
+                        <span className="text-[9px] font-mono text-muted-foreground">{kickerText.length} chars</span>
+                      </div>
+                      <Input
+                        value={kickerText}
+                        onChange={(e) => setKickerText(e.target.value)}
+                        placeholder="e.g. FINANCE APP, ★ FEATURED"
+                        className="h-7.5 text-xs font-semibold uppercase tracking-wider"
+                      />
+                    </div>
+
+                    {/* Style Toggle (Plain Eyebrow vs Pill Badge) */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                        Display Style
+                      </label>
+                      <div className="grid grid-cols-2 gap-1 bg-muted/60 p-0.5 rounded-lg border border-border/50 text-[11px] font-semibold">
+                        <button
+                          type="button"
+                          onClick={() => setKickerStyle("text")}
+                          className={`py-1 rounded-md transition-all cursor-pointer ${
+                            kickerStyle === "text"
+                              ? "bg-background text-foreground shadow-xs"
+                              : "text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          Plain Eyebrow
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setKickerStyle("badge")}
+                          className={`py-1 rounded-md transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                            kickerStyle === "badge"
+                              ? "bg-background text-foreground shadow-xs"
+                              : "text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          <span className="size-1.5 rounded-full bg-primary" />
+                          <span>Pill Badge</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Presets & Suggestions */}
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                        Presets & Suggestions
+                      </label>
+                      <div className="max-h-32 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                        {KICKER_PRESETS.map((grp) => (
+                          <div key={grp.category} className="space-y-1">
+                            <span className="text-[9px] font-bold text-muted-foreground/80 tracking-wide uppercase">
+                              {grp.category}
+                            </span>
+                            <div className="flex flex-wrap gap-1">
+                              {grp.tags.map((tag) => (
+                                <button
+                                  key={tag}
+                                  type="button"
+                                  onClick={() => setKickerText(tag)}
+                                  className={`text-[10px] px-2 py-0.5 rounded-md font-semibold transition-all cursor-pointer border ${
+                                    kickerText.toUpperCase() === tag
+                                      ? "bg-primary text-primary-foreground border-primary shadow-2xs"
+                                      : "bg-muted/70 text-foreground/90 border-border/60 hover:bg-muted hover:border-primary/50"
+                                  }`}
+                                >
+                                  {tag}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Accent Color Palette & Custom Hex */}
+                    <div className="space-y-1.5 pt-1 border-t border-border/50">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                          Accent Color
+                        </label>
+                        <span className="text-[10px] font-mono text-muted-foreground uppercase">
+                          {effectiveKickerColor}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-8 gap-1">
+                        {KICKER_COLOR_SWATCHES.map((c) => (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => setKickerColor(c)}
+                            className={`size-6 rounded-md border border-border/60 cursor-pointer transition-transform hover:scale-115 ${
+                              kickerColor === c ? "ring-2 ring-primary ring-offset-1 scale-105" : ""
+                            }`}
+                            style={{ backgroundColor: c }}
+                          />
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-1.5 pt-1">
+                        <input
+                          type="color"
+                          value={kickerColor.startsWith("#") ? kickerColor : (isDarkText ? "#0284C7" : "#38BDF8")}
+                          onChange={(e) => setKickerColor(e.target.value)}
+                          className="size-7 rounded cursor-pointer border border-border/80 bg-transparent p-0.5 shrink-0"
+                        />
+                        <Input
+                          type="text"
+                          value={kickerColor}
+                          onChange={(e) => setKickerColor(e.target.value)}
+                          placeholder="Custom Hex (e.g. #38BDF8)"
+                          className="h-7 text-xs font-mono uppercase flex-1"
+                        />
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+
+                {/* Quick Logo Background & Fit Popover */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 gap-1.5 rounded-lg text-[10px] font-medium border-border/70 cursor-pointer hover:border-primary/50"
+                      title="Edit Logo Background & Fit (Transparent, White, Custom, Gradient)"
+                    >
+                      <div
+                        className="size-3 rounded-xs flex items-center justify-center shrink-0 overflow-hidden border border-border/60"
+                        style={{
+                          background:
+                            logoBg === "transparent"
+                              ? "repeating-conic-gradient(#94a3b8 0% 25%, transparent 0% 50%) 50% / 4px 4px"
+                              : resolvedLogoBackground,
+                        }}
+                      >
+                        {appIconUrl ? (
+                          <img src={appIconUrl} alt="" className="size-full object-contain" />
+                        ) : (
+                          <span className="text-[6px] font-black text-white">{appInitial}</span>
+                        )}
+                      </div>
+                      <span className="font-semibold">Logo BG</span>
+                      <span className="text-[9px] text-muted-foreground capitalize font-mono">
+                        {logoBg === "gradient" ? "Grad" : logoBg === "transparent" ? "Clear" : logoBg === "#FFFFFF" ? "White" : logoBg.startsWith("#") ? logoBg.slice(0, 4) : "Custom"}
+                      </span>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-72 p-3 space-y-2.5" side="bottom" align="end">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <ImageIcon className="size-3.5 text-blue-500" />
+                        <span className="text-xs font-bold text-foreground">Logo Background & Fit</span>
+                      </div>
+                      {logoBg !== "gradient" || logoFit !== "cover" ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLogoBg("gradient");
+                            setLogoFit("cover");
+                          }}
+                          className="text-[10px] text-primary hover:underline cursor-pointer flex items-center gap-0.5"
+                        >
+                          <RotateCcw className="size-2.5" />
+                          <span>Reset</span>
+                        </button>
+                      ) : null}
+                    </div>
+
+                    {/* Quick Presets (Transparent, White, Dark, Gradient) */}
+                    <div className="grid grid-cols-4 gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setLogoBg("transparent")}
+                        className={`py-1 px-1 rounded-md text-[10px] font-bold border transition-all cursor-pointer flex flex-col items-center gap-1 ${
+                          logoBg === "transparent"
+                            ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                            : "bg-muted/60 text-foreground border-border/60 hover:bg-muted"
+                        }`}
+                        title="Transparent: No background squircle, lets PNG float clean"
+                      >
+                        <div className="size-4 rounded-xs border border-border/60 bg-[repeating-conic-gradient(#94a3b8_0%_25%,transparent_0%_50%)_50%/4px_4px]" />
+                        <span>Clear</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setLogoBg("#FFFFFF")}
+                        className={`py-1 px-1 rounded-md text-[10px] font-bold border transition-all cursor-pointer flex flex-col items-center gap-1 ${
+                          logoBg === "#FFFFFF"
+                            ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                            : "bg-muted/60 text-foreground border-border/60 hover:bg-muted"
+                        }`}
+                        title="White: Clean white card squircle for dark/colorful logos"
+                      >
+                        <div className="size-4 rounded-xs bg-white border border-neutral-300 shadow-2xs" />
+                        <span>White</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setLogoBg("#0F172A")}
+                        className={`py-1 px-1 rounded-md text-[10px] font-bold border transition-all cursor-pointer flex flex-col items-center gap-1 ${
+                          logoBg === "#0F172A"
+                            ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                            : "bg-muted/60 text-foreground border-border/60 hover:bg-muted"
+                        }`}
+                        title="Dark: Dark slate squircle for light/white logos"
+                      >
+                        <div className="size-4 rounded-xs bg-[#0F172A] border border-neutral-700 shadow-2xs" />
+                        <span>Dark</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setLogoBg("gradient")}
+                        className={`py-1 px-1 rounded-md text-[10px] font-bold border transition-all cursor-pointer flex flex-col items-center gap-1 ${
+                          logoBg === "gradient"
+                            ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                            : "bg-muted/60 text-foreground border-border/60 hover:bg-muted"
+                        }`}
+                        title="Gradient: Default vibrant app icon gradient"
+                      >
+                        <div className="size-4 rounded-xs bg-gradient-to-br from-blue-500 via-indigo-600 to-purple-600 border border-white/20 shadow-2xs" />
+                        <span>Gradient</span>
+                      </button>
+                    </div>
+
+                    {/* Brand Color Swatches */}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                          Custom Color
+                        </span>
+                        <span className="text-[10px] font-mono text-muted-foreground uppercase">
+                          {logoBg.startsWith("#") ? logoBg : ""}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-6 gap-1">
+                        {LOGO_COLOR_SWATCHES.slice(0, 12).map((c) => (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => setLogoBg(c)}
+                            className={`size-6 rounded-md border border-border/60 cursor-pointer transition-transform hover:scale-115 ${
+                              logoBg === c ? "ring-2 ring-primary ring-offset-1 scale-105" : ""
+                            }`}
+                            style={{ backgroundColor: c }}
+                          />
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-1.5 pt-1">
+                        <input
+                          type="color"
+                          value={logoBg.startsWith("#") ? logoBg : "#FFFFFF"}
+                          onChange={(e) => setLogoBg(e.target.value)}
+                          className="size-7 rounded cursor-pointer border border-border/80 bg-transparent p-0.5 shrink-0"
+                        />
+                        <Input
+                          type="text"
+                          value={logoBg.startsWith("#") ? logoBg : ""}
+                          onChange={(e) => setLogoBg(e.target.value)}
+                          placeholder="#FFFFFF or Hex"
+                          className="h-7 text-xs font-mono uppercase flex-1"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Inset / Padding Toggle */}
+                    <div className="space-y-1 pt-1 border-t border-border/50">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                          Icon Fit & Padding
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1 bg-muted/60 p-0.5 rounded-lg border border-border/50 text-[11px] font-semibold">
+                        <button
+                          type="button"
+                          onClick={() => setLogoFit("cover")}
+                          className={`py-1 rounded-md transition-all cursor-pointer ${
+                            logoFit === "cover"
+                              ? "bg-background text-foreground shadow-xs"
+                              : "text-muted-foreground hover:text-foreground"
+                          }`}
+                          title="Full Bleed: Icon fills entire squircle without padding"
+                        >
+                          Full Bleed (Cover)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setLogoFit("contain")}
+                          className={`py-1 rounded-md transition-all cursor-pointer ${
+                            logoFit === "contain"
+                              ? "bg-background text-foreground shadow-xs"
+                              : "text-muted-foreground hover:text-foreground"
+                          }`}
+                          title="Inset Icon: Adds padding so transparent PNG symbols sit centered nicely"
+                        >
+                          Inset (Padding)
+                        </button>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+
                 {/* Quick Background Picker */}
                 <SceneBackgroundPopover
                   value={customBg}
@@ -1280,31 +1840,55 @@ export function PromoBannersStudio({
               ) : null}
 
               {/* Banner Layout Content */}
-              {selectedFormat === "instagram-square" || layoutStyle === "center" ? (
+              {selectedFormat === "instagram-square" ? (
                 // ============================================
                 // CENTER LAYOUT
                 // ============================================
                 <div className="absolute inset-0 z-10 flex flex-col items-center justify-between p-6 sm:p-8 text-center">
                   {/* Top: Icon, Kicker, Headline, Subtitle */}
                   <div className="flex flex-col items-center gap-1.5 sm:gap-2 shrink-0">
-                    <div className="size-13 sm:size-16 rounded-[22%] bg-gradient-to-br from-blue-500 via-indigo-600 to-purple-600 shadow-xl border border-white/25 flex items-center justify-center text-white font-bold text-xl sm:text-2xl overflow-hidden">
+                    <div
+                      className={`size-13 sm:size-16 rounded-[22%] flex items-center justify-center text-white font-bold text-xl sm:text-2xl overflow-hidden transition-all ${
+                        logoBg === "transparent"
+                          ? ""
+                          : isDarkText && (logoBg === "#FFFFFF" || logoBg === "#F8FAFC")
+                            ? "shadow-lg border border-black/10"
+                            : "shadow-xl border border-white/25"
+                      }`}
+                      style={{ background: resolvedLogoBackground }}
+                    >
                       {appIconUrl ? (
                         <img
                           src={appIconUrl}
                           alt="App Logo"
-                          className="w-full h-full object-cover"
+                          className={`w-full h-full ${
+                            logoFit === "contain" ? "object-contain p-[12%]" : "object-cover"
+                          }`}
                         />
                       ) : (
                         <span>{appInitial}</span>
                       )}
                     </div>
 
-                    <span
-                      className="text-[10px] sm:text-xs font-bold uppercase tracking-widest"
-                      style={{ color: effectiveKickerColor }}
-                    >
-                      {kickerText || "FEATURED APP"}
-                    </span>
+                    {kickerStyle === "badge" ? (
+                      <span
+                        className="text-[9px] sm:text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full border shadow-2xs backdrop-blur-xs"
+                        style={{
+                          color: effectiveKickerColor,
+                          borderColor: hexToRgba(effectiveKickerColor, 0.35),
+                          backgroundColor: hexToRgba(effectiveKickerColor, 0.15),
+                        }}
+                      >
+                        {kickerText || "FEATURED APP"}
+                      </span>
+                    ) : (
+                      <span
+                        className="text-[10px] sm:text-xs font-bold uppercase tracking-widest"
+                        style={{ color: effectiveKickerColor }}
+                      >
+                        {kickerText || "FEATURED APP"}
+                      </span>
+                    )}
 
                     <h2
                       className="text-lg sm:text-2xl font-extrabold tracking-tight"
@@ -1355,18 +1939,27 @@ export function PromoBannersStudio({
                     {/* 1. Brand Row: Squircle Logo + Wordmark */}
                     <div className="flex items-center" style={{ gap: "2cqw" }}>
                       <div
-                        className="rounded-[22%] bg-gradient-to-br from-blue-500 via-indigo-600 to-purple-600 shadow-lg border border-white/30 flex items-center justify-center text-white font-black shrink-0 overflow-hidden"
+                        className={`rounded-[22%] flex items-center justify-center text-white font-black shrink-0 overflow-hidden transition-all ${
+                          logoBg === "transparent"
+                            ? ""
+                            : isDarkText && (logoBg === "#FFFFFF" || logoBg === "#F8FAFC")
+                              ? "shadow-md border border-black/10"
+                              : "shadow-lg border border-white/30"
+                        }`}
                         style={{
                           width: "9.5cqh",
                           height: "9.5cqh",
                           fontSize: "5cqh",
+                          background: resolvedLogoBackground,
                         }}
                       >
                         {appIconUrl ? (
                           <img
                             src={appIconUrl}
                             alt="App Logo"
-                            className="w-full h-full object-cover"
+                            className={`w-full h-full ${
+                              logoFit === "contain" ? "object-contain p-[12%]" : "object-cover"
+                            }`}
                           />
                         ) : (
                           <span>{appInitial}</span>
@@ -1388,16 +1981,35 @@ export function PromoBannersStudio({
 
                     {/* 2. Kicker / Category Eyebrow */}
                     <div style={{ marginTop: "0.2cqh" }}>
-                      <span
-                        className="font-extrabold uppercase"
-                        style={{
-                          fontSize: "2.4cqh",
-                          letterSpacing: "0.14em",
-                          color: effectiveKickerColor,
-                        }}
-                      >
-                        {kickerText || "FEATURED APP"}
-                      </span>
+                      {kickerStyle === "badge" ? (
+                        <span
+                          className="inline-flex items-center font-extrabold uppercase rounded-full border shadow-2xs backdrop-blur-xs"
+                          style={{
+                            fontSize: "2.1cqh",
+                            letterSpacing: "0.08em",
+                            color: effectiveKickerColor,
+                            borderColor: hexToRgba(effectiveKickerColor, 0.35),
+                            backgroundColor: hexToRgba(effectiveKickerColor, 0.15),
+                            paddingLeft: "1.2cqw",
+                            paddingRight: "1.2cqw",
+                            paddingTop: "0.3cqh",
+                            paddingBottom: "0.3cqh",
+                          }}
+                        >
+                          {kickerText || "FEATURED APP"}
+                        </span>
+                      ) : (
+                        <span
+                          className="font-extrabold uppercase"
+                          style={{
+                            fontSize: "2.4cqh",
+                            letterSpacing: "0.14em",
+                            color: effectiveKickerColor,
+                          }}
+                        >
+                          {kickerText || "FEATURED APP"}
+                        </span>
+                      )}
                     </div>
 
                     {/* 3. Main Marketing Headline */}
@@ -1792,12 +2404,19 @@ export function PromoBannersStudio({
 
               <div className="flex items-center gap-3">
                 {/* Logo Preview Squircle */}
-                <div className="size-12 rounded-[22%] bg-gradient-to-br from-blue-500 via-indigo-600 to-purple-600 shadow-md border border-white/25 flex items-center justify-center text-white font-black text-lg overflow-hidden shrink-0">
+                <div
+                  className={`size-12 rounded-[22%] flex items-center justify-center text-white font-black text-lg overflow-hidden shrink-0 transition-all ${
+                    logoBg === "transparent" ? "border border-border/80 bg-neutral-900/40" : "shadow-md border border-white/25"
+                  }`}
+                  style={{ background: resolvedLogoBackground }}
+                >
                   {appIconUrl ? (
                     <img
                       src={appIconUrl}
                       alt="App Icon Preview"
-                      className="w-full h-full object-cover"
+                      className={`w-full h-full ${
+                        logoFit === "contain" ? "object-contain p-1.5" : "object-cover"
+                      }`}
                     />
                   ) : (
                     <span>{appInitial}</span>
@@ -1825,6 +2444,136 @@ export function PromoBannersStudio({
                   </span>
                 </div>
               </div>
+
+              {/* Logo Background & Fit Controls */}
+              <div className="flex flex-col gap-2 pt-2 border-t border-border/60">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    Logo Background
+                  </span>
+                  {logoBg !== "gradient" ? (
+                    <button
+                      type="button"
+                      onClick={() => setLogoBg("gradient")}
+                      className="text-[10px] text-primary hover:underline cursor-pointer flex items-center gap-0.5"
+                    >
+                      <RotateCcw className="size-2.5" />
+                      <span>Reset</span>
+                    </button>
+                  ) : null}
+                </div>
+
+                {/* Preset Buttons */}
+                <div className="grid grid-cols-4 gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setLogoBg("transparent")}
+                    className={`py-1 px-1 rounded-md text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                      logoBg === "transparent"
+                        ? "bg-primary text-primary-foreground border-primary shadow-2xs"
+                        : "bg-muted/60 text-foreground border-border/60 hover:bg-muted"
+                    }`}
+                  >
+                    <span>Clear</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLogoBg("#FFFFFF")}
+                    className={`py-1 px-1 rounded-md text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                      logoBg === "#FFFFFF"
+                        ? "bg-primary text-primary-foreground border-primary shadow-2xs"
+                        : "bg-muted/60 text-foreground border-border/60 hover:bg-muted"
+                    }`}
+                  >
+                    <span className="size-2 rounded-full bg-white border border-neutral-300" />
+                    <span>White</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLogoBg("#0F172A")}
+                    className={`py-1 px-1 rounded-md text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                      logoBg === "#0F172A"
+                        ? "bg-primary text-primary-foreground border-primary shadow-2xs"
+                        : "bg-muted/60 text-foreground border-border/60 hover:bg-muted"
+                    }`}
+                  >
+                    <span className="size-2 rounded-full bg-neutral-900 border border-neutral-700" />
+                    <span>Dark</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLogoBg("gradient")}
+                    className={`py-1 px-1 rounded-md text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                      logoBg === "gradient"
+                        ? "bg-primary text-primary-foreground border-primary shadow-2xs"
+                        : "bg-muted/60 text-foreground border-border/60 hover:bg-muted"
+                    }`}
+                  >
+                    <span>Gradient</span>
+                  </button>
+                </div>
+
+                {/* Swatches & Color Picker */}
+                <div className="grid grid-cols-6 gap-1">
+                  {LOGO_COLOR_SWATCHES.slice(0, 12).map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setLogoBg(c)}
+                      className={`h-5 rounded-md border border-border/60 cursor-pointer transition-transform hover:scale-110 ${
+                        logoBg === c ? "ring-2 ring-primary ring-offset-1 scale-105" : ""
+                      }`}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="color"
+                    value={logoBg.startsWith("#") ? logoBg : "#FFFFFF"}
+                    onChange={(e) => setLogoBg(e.target.value)}
+                    className="size-6 rounded cursor-pointer border border-border/80 bg-transparent p-0.5 shrink-0"
+                  />
+                  <Input
+                    type="text"
+                    value={logoBg.startsWith("#") ? logoBg : ""}
+                    onChange={(e) => setLogoBg(e.target.value)}
+                    placeholder="Custom Hex (e.g. #FFFFFF)"
+                    className="h-6.5 text-[11px] font-mono uppercase flex-1"
+                  />
+                </div>
+
+                {/* Fit / Padding Toggle */}
+                <div className="flex items-center justify-between pt-1 border-t border-border/40">
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    Icon Fit
+                  </span>
+                  <div className="flex items-center gap-1 bg-muted/60 p-0.5 rounded-lg border border-border/50 text-[10px] font-semibold">
+                    <button
+                      type="button"
+                      onClick={() => setLogoFit("cover")}
+                      className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                        logoFit === "cover"
+                          ? "bg-background text-foreground shadow-2xs"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Full Bleed
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLogoFit("contain")}
+                      className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                        logoFit === "contain"
+                          ? "bg-background text-foreground shadow-2xs"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Inset (Padding)
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* App Title / Wordmark */}
@@ -1845,20 +2594,50 @@ export function PromoBannersStudio({
             </div>
 
             {/* Kicker Headline / Category Eyebrow */}
-            <div className="flex flex-col gap-1">
-              <label
-                htmlFor="banner-kicker"
-                className="text-[11px] font-semibold text-muted-foreground"
-              >
-                Kicker / Category Eyebrow
-              </label>
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <label
+                  htmlFor="banner-kicker"
+                  className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1"
+                >
+                  <Tag className="size-3 text-primary" />
+                  <span>Kicker / Category Eyebrow</span>
+                </label>
+                <span className="text-[10px] font-mono text-muted-foreground">
+                  {kickerStyle === "badge" ? "Pill Badge" : "Eyebrow"}
+                </span>
+              </div>
               <Input
                 id="banner-kicker"
                 value={kickerText}
                 onChange={(e) => setKickerText(e.target.value)}
                 placeholder="PRODUCTIVITY APP"
-                className="h-8 text-xs font-medium"
+                className="h-8 text-xs font-medium uppercase tracking-wide"
               />
+              {/* Quick suggestion chips under input */}
+              <div className="flex flex-wrap gap-1 pt-0.5">
+                {[
+                  "★ FEATURED APP",
+                  "FINANCE & BUDGET",
+                  "EXPENSE TRACKER",
+                  "⚡ SMART & FAST",
+                  "🔥 EDITOR'S CHOICE",
+                  "WORKS OFFLINE",
+                ].map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => setKickerText(tag)}
+                    className={`text-[9px] px-1.5 py-0.5 rounded font-medium transition-colors cursor-pointer border ${
+                      kickerText.toUpperCase() === tag
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-muted/60 text-muted-foreground border-border/50 hover:text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Main Marketing Headline */}
@@ -1918,38 +2697,8 @@ export function PromoBannersStudio({
             </div>
           </div>
 
-          {/* 4. Layout & Mockup Style */}
+          {/* 4. Mockup Style */}
           <div className="flex flex-col gap-2 pt-2 border-t border-border/60">
-            {selectedFormat !== "instagram-square" ? (
-              <div className="flex flex-col gap-1">
-                <span className="text-xs font-semibold text-foreground">Layout Presentation</span>
-                <div className="grid grid-cols-2 gap-1.5 bg-muted/60 p-1 rounded-xl border border-border/60">
-                  <button
-                    type="button"
-                    onClick={() => setLayoutStyle("split")}
-                    className={`py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                      layoutStyle === "split"
-                        ? "bg-background text-foreground shadow-xs"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    Split (Left/Right)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setLayoutStyle("center")}
-                    className={`py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                      layoutStyle === "center"
-                        ? "bg-background text-foreground shadow-xs"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    Center (Top/Bottom)
-                  </button>
-                </div>
-              </div>
-            ) : null}
-
             <div className="flex flex-col gap-1">
               <span className="text-xs font-semibold text-foreground">Mockup Style</span>
               <div className="grid grid-cols-2 gap-1.5 bg-muted/60 p-1 rounded-xl border border-border/60">
@@ -2074,21 +2823,85 @@ export function PromoBannersStudio({
               </div>
             ) : null}
 
-            {/* Category / Kicker Accent Color */}
-            <div className="flex items-center justify-between pt-1">
-              <span className="text-[11px] font-medium text-muted-foreground">Kicker Tag Accent</span>
-              <div className="flex items-center gap-1">
-                {["#38BDF8", "#0284C7", "#10B981", "#8B5CF6", "#F59E0B", "#EF4444"].map((c) => (
+            {/* Category / Kicker Accent & Style Controls */}
+            <div className="flex flex-col gap-2 pt-1 border-t border-border/40">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-foreground flex items-center gap-1.5">
+                  <Tag className="size-3 text-primary" />
+                  <span>Kicker Tag Style & Accent</span>
+                </span>
+                {kickerColor || kickerStyle !== "text" ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setKickerColor("");
+                      setKickerStyle("text");
+                    }}
+                    className="text-[10px] text-primary hover:underline cursor-pointer flex items-center gap-0.5"
+                  >
+                    <RotateCcw className="size-2.5" />
+                    <span>Reset</span>
+                  </button>
+                ) : null}
+              </div>
+
+              {/* Style selector */}
+              <div className="grid grid-cols-2 gap-1 bg-muted/60 p-0.5 rounded-lg border border-border/50 text-[11px] font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setKickerStyle("text")}
+                  className={`py-1 rounded-md transition-all cursor-pointer ${
+                    kickerStyle === "text"
+                      ? "bg-background text-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Plain Eyebrow
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setKickerStyle("badge")}
+                  className={`py-1 rounded-md transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                    kickerStyle === "badge"
+                      ? "bg-background text-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <span className="size-1.5 rounded-full bg-primary" />
+                  <span>Pill Badge</span>
+                </button>
+              </div>
+
+              {/* Swatch grid */}
+              <div className="grid grid-cols-8 gap-1 pt-0.5">
+                {KICKER_COLOR_SWATCHES.map((c) => (
                   <button
                     key={c}
                     type="button"
                     onClick={() => setKickerColor(c)}
-                    className={`size-4 rounded-full border border-border/60 cursor-pointer transition-transform hover:scale-125 ${
-                      effectiveKickerColor === c ? "ring-2 ring-primary ring-offset-1 scale-110" : ""
+                    className={`size-5 rounded-md border border-border/60 cursor-pointer transition-transform hover:scale-115 ${
+                      kickerColor === c ? "ring-2 ring-primary ring-offset-1 scale-105" : ""
                     }`}
                     style={{ backgroundColor: c }}
                   />
                 ))}
+              </div>
+
+              {/* Color picker & Hex */}
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="color"
+                  value={kickerColor.startsWith("#") ? kickerColor : (isDarkText ? "#0284C7" : "#38BDF8")}
+                  onChange={(e) => setKickerColor(e.target.value)}
+                  className="size-6 rounded cursor-pointer border border-border/80 bg-transparent p-0.5 shrink-0"
+                />
+                <Input
+                  type="text"
+                  value={kickerColor}
+                  onChange={(e) => setKickerColor(e.target.value)}
+                  placeholder="Custom Hex (e.g. #38BDF8)"
+                  className="h-6.5 text-[11px] font-mono uppercase flex-1"
+                />
               </div>
             </div>
           </div>
