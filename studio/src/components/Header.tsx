@@ -563,36 +563,7 @@ export function Header({
 
         {/* User Auth Section */}
         {user ? (
-          <div className="flex items-center gap-2 pl-1.5 border-l border-border/60">
-            {/* AI Credits Badge */}
-            <div
-              className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium ${isPro
-                ? "bg-purple-50 dark:bg-purple-950/40 border-purple-200 dark:border-purple-900/50 text-purple-700 dark:text-purple-300"
-                : "bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 text-blue-700 dark:text-blue-300"
-                }`}
-              title={
-                isPro
-                  ? "Pro Plan: 100% Ad-Free & Unlimited AI Copy Generations"
-                  : `${aiCreditsRemaining} Free AI Generations remaining`
-              }
-            >
-              <Sparkles className="size-3 text-amber-500 fill-amber-500" />
-              <span>{isPro ? "PRO • Ad-Free" : `${aiCreditsRemaining} AI credits`}</span>
-            </div>
-
-            {/* Go Pro CTA button for free users */}
-            {!isPro && (
-              <Button
-                type="button"
-                size="sm"
-                onClick={openUpgradeModal}
-                className="hidden lg:flex h-8 px-2.5 gap-1.5 text-xs font-semibold rounded-lg bg-[#007aff] hover:bg-[#006ee6] active:bg-[#0062cc] text-white shadow-2xs cursor-pointer"
-              >
-                <Sparkles className="size-3 fill-current" />
-                <span>Go Pro</span>
-              </Button>
-            )}
-
+          <div className="flex items-center pl-1.5 border-l border-border/60">
             {/* User Dropdown / Avatar */}
             <Popover>
               <PopoverTrigger asChild>
@@ -614,9 +585,9 @@ export function Header({
               <PopoverContent
                 align="end"
                 sideOffset={8}
-                className="w-56 p-3 rounded-xl shadow-xl border border-border/80 bg-popover/95 backdrop-blur-md"
+                className="w-60 p-3.5 rounded-2xl shadow-xl border border-border/80 bg-popover/95 backdrop-blur-md"
               >
-                <div className="flex flex-col gap-2.5">
+                <div className="flex flex-col gap-3">
                   <div className="flex flex-col min-w-0">
                     <span className="text-xs font-semibold text-foreground truncate">
                       {user.displayName || "User"}
@@ -624,25 +595,45 @@ export function Header({
                     <span className="text-[10px] text-muted-foreground truncate">{user.email}</span>
                   </div>
 
-                  <div className="rounded-lg bg-muted/60 p-2 border border-border/40 text-xs flex items-center justify-between">
-                    <span className="text-muted-foreground flex items-center gap-1">
-                      <Sparkles className="size-3 text-blue-500" />
-                      Plan Status
-                    </span>
-                    <span className="font-semibold text-foreground">
-                      {isPro ? "Pro (Ad-Free)" : "Free (Ads)"}
-                    </span>
+                  {/* Plan & Credits Summary Box */}
+                  <div className="flex flex-col gap-2 rounded-xl bg-muted/50 p-2.5 border border-border/50 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground flex items-center gap-1">
+                        <Sparkles className="size-3 text-blue-500" />
+                        Plan Status
+                      </span>
+                      <span className="font-semibold text-foreground">
+                        {isPro ? "Pro (Ad-Free)" : "Free (Ads)"}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1.5 border-t border-border/40 text-[11px]">
+                      <span className="text-muted-foreground flex items-center gap-1">
+                        AI Credits
+                      </span>
+                      <span className="font-bold font-mono">
+                        {isPro ? (
+                          <span className="text-purple-600 dark:text-purple-400 font-bold">Unlimited</span>
+                        ) : (
+                          <span className="text-[#007aff]">
+                            {aiCreditsRemaining} remaining
+                          </span>
+                        )}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="border-t border-border/60 pt-2 flex flex-col gap-1.5">
                     <Button
                       type="button"
-                      variant="outline"
                       size="sm"
                       onClick={openUpgradeModal}
-                      className="w-full justify-start text-xs font-semibold text-primary hover:bg-primary/10 cursor-pointer h-8 px-2 gap-1.5"
+                      className={`w-full justify-center text-xs font-bold rounded-xl cursor-pointer h-8.5 px-2.5 gap-1.5 ${isPro
+                          ? "variant-outline border-border hover:bg-muted text-foreground"
+                          : "bg-[#007aff] hover:bg-[#006ee6] active:bg-[#0062cc] text-white shadow-xs"
+                        }`}
                     >
-                      <Sparkles className="size-3.5 text-amber-500 fill-amber-500" />
+                      <Sparkles className="size-3.5 fill-current text-amber-300" />
                       <span>{isPro ? "Manage Pro Plan" : "Upgrade to Pro"}</span>
                     </Button>
 
