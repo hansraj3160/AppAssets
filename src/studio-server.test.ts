@@ -5,11 +5,13 @@ import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import {
   aiCopyHandler,
+  bannerExportHandler,
   exportHandler,
   extractLocalesFromConfig,
   findScreenshotFile,
   getClientIp,
   getDimensionsFromBuffer,
+  iconHandler,
   importHandler,
   localesHandler,
   MemoryRateLimiter,
@@ -874,6 +876,347 @@ describe("exportHandler", () => {
     if (listing.code === 0) {
       expect(listing.stdout).toContain("AppStore/iPhone-6.9/en-US/01-home.png");
       expect(listing.stdout).toContain("STORE_GUIDE.txt");
+    }
+
+    await rm(tmp, { recursive: true, force: true });
+  });
+});
+
+describe("iconHandler", () => {
+  test("handles GET, POST, and DELETE for app icon", async () => {
+    const tmp = await mkdtemp(join(tmpdir(), "goldie-icon-test-"));
+    const webDir = join(tmp, "out", "web");
+    const outDir = join(tmp, "out");
+    const designFile = join(tmp, "goldie.design.json");
+
+    const paths = {
+      ...studioPaths(tmp),
+      webDir,
+      outDir,
+      designFile,
+    };
+
+    const handler = iconHandler({ paths, cli: ["echo"] });
+
+    // 1. GET initially returns null
+    {
+      let responseBody = "";
+      const req = { method: "GET" } as any;
+      const res = {
+        writeHead: () => {},
+        end: (body: string) => {
+          responseBody = body;
+        },
+      } as any;
+
+      handler(req, res);
+      await new Promise((r) => setTimeout(r, 20));
+      const parsed = JSON.parse(responseBody);
+      expect(parsed.iconUrl).toBeNull();
+    }
+
+    // 2. POST valid base64 dataUrl saves icon and updates designFile
+    {
+      let responseBody = "";
+      const fakePngDataUrl =
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+      const listeners: Record<string, (...args: any[]) => void> = {};
+      const req = {
+        method: "POST",
+        on: (event: string, cb: (...args: any[]) => void) => {
+          listeners[event] = cb;
+        },
+      } as any;
+      const res = {
+        writeHead: () => {},
+        end: (body: string) => {
+          responseBody = body;
+        },
+      } as any;
+
+      handler(req, res);
+      listeners.data?.(JSON.stringify({ dataUrl: fakePngDataUrl }));
+      listeners.end?.();
+
+      await new Promise((r) => setTimeout(r, 40));
+      const parsed = JSON.parse(responseBody);
+      expect(parsed.success).toBe(true);
+      expect(parsed.iconUrl).toBe("/icon.png");
+
+      const fs = await import("node:fs");
+      expect(fs.existsSync(join(webDir, "icon.png"))).toBe(true);
+      expect(fs.existsSync(join(outDir, "icon.png"))).toBe(true);
+      expect(fs.existsSync(designFile)).toBe(true);
+      const designJson = JSON.parse(fs.readFileSync(designFile, "utf8"));
+      expect(designJson.appIcon).toBe("/icon.png");
+    }
+
+    // 3. GET now returns /icon.png
+    {
+      let responseBody = "";
+      const req = { method: "GET" } as any;
+      const res = {
+        writeHead: () => {},
+        end: (body: string) => {
+          responseBody = body;
+        },
+      } as any;
+
+      handler(req, res);
+      await new Promise((r) => setTimeout(r, 20));
+      const parsed = JSON.parse(responseBody);
+      expect(parsed.iconUrl).toBe("/icon.png");
+    }
+
+    // 4. DELETE removes icon files and clears appIcon from designFile
+    {
+      let responseBody = "";
+      const req = { method: "DELETE" } as any;
+      const res = {
+        writeHead: () => {},
+        end: (body: string) => {
+          responseBody = body;
+        },
+      } as any;
+
+      handler(req, res);
+      await new Promise((r) => setTimeout(r, 30));
+      const parsed = JSON.parse(responseBody);
+      expect(parsed.success).toBe(true);
+      expect(parsed.iconUrl).toBeNull();
+
+      const fs = await import("node:fs");
+      expect(fs.existsSync(join(webDir, "icon.png"))).toBe(false);
+      expect(fs.existsSync(join(outDir, "icon.png"))).toBe(false);
+      const designJson = JSON.parse(fs.readFileSync(designFile, "utf8"));
+      expect(designJson.appIcon).toBeUndefined();
+    }
+
+    await rm(tmp, { recursive: true, force: true });
+  });
+
+  test("syncs appInfo.icon when appInfo exists in designFile on upload and delete", async () => {
+    const tmp = await mkdtemp(join(tmpdir(), "goldie-icon-appinfo-test-"));
+    const webDir = join(tmp, "out", "web");
+    const outDir = join(tmp, "out");
+    const designFile = join(tmp, "goldie.design.json");
+
+    await writeFile(
+      designFile,
+      JSON.stringify({
+        appInfo: {
+          name: "Acme App",
+          category: "Utility",
+        },
+      }),
+    );
+
+    const paths = {
+      ...studioPaths(tmp),
+      webDir,
+      outDir,
+      designFile,
+    };
+
+    const handler = iconHandler({ paths, cli: ["echo"] });
+
+    // 1. Upload icon
+    {
+      const fakePngDataUrl =
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+      const listeners: Record<string, (...args: any[]) => void> = {};
+      const req = {
+        method: "POST",
+        on: (event: string, cb: (...args: any[]) => void) => {
+          listeners[event] = cb;
+        },
+      } as any;
+      const res = { writeHead: () => {}, end: () => {} } as any;
+
+      handler(req, res);
+      listeners.data?.(JSON.stringify({ dataUrl: fakePngDataUrl }));
+      listeners.end?.();
+
+      await new Promise((r) => setTimeout(r, 40));
+      const fs = await import("node:fs");
+      const designJson = JSON.parse(fs.readFileSync(designFile, "utf8"));
+      expect(designJson.appIcon).toBe("/icon.png");
+      expect(designJson.appInfo.icon).toBe("/icon.png");
+      expect(designJson.appInfo.name).toBe("Acme App");
+    }
+
+    // 2. Delete icon
+    {
+      const req = { method: "DELETE" } as any;
+      const res = { writeHead: () => {}, end: () => {} } as any;
+
+      handler(req, res);
+      await new Promise((r) => setTimeout(r, 30));
+      const fs = await import("node:fs");
+      const designJson = JSON.parse(fs.readFileSync(designFile, "utf8"));
+      expect(designJson.appIcon).toBeUndefined();
+      expect(designJson.appInfo.icon).toBeUndefined();
+      expect(designJson.appInfo.name).toBe("Acme App");
+    }
+
+    await rm(tmp, { recursive: true, force: true });
+  });
+});
+
+describe("bannerExportHandler", () => {
+  test("serves banner image via GET and POST", async () => {
+    const tmp = await mkdtemp(join(tmpdir(), "goldie-banner-test-"));
+    const configPath = join(tmp, "goldie.config.ts");
+    await writeFile(
+      configPath,
+      `
+      import type { GoldieConfig } from "${join(process.cwd(), "src", "config.ts")}";
+      const config: GoldieConfig = {
+        appRoot: "${tmp}",
+        devices: ["iphone-6.9"],
+        locales: ["en-US"],
+        appearance: "light",
+        frame: { variant: "17-pro-blue" },
+        theme: {
+          background: "#0E1B2A",
+          headlineColor: "#FFFFFF",
+          subheadColor: "#D9E1EA",
+          fontFamily: "system-ui",
+          layout: "classic",
+        },
+        scenes: [],
+      };
+      export default config;
+      `,
+    );
+
+    const paths = {
+      ...studioPaths(configPath),
+      configPath,
+      designFile: join(tmp, "goldie.design.json"),
+    };
+
+    const handler = bannerExportHandler({ paths, cli: ["echo"] });
+
+    // 1. GET banner
+    {
+      let statusCode = 0;
+      let headers: Record<string, string> = {};
+      let buffer: Buffer | null = null;
+
+      const req = {
+        method: "GET",
+        url: "/api/export-banner?type=google-play&locale=en-US",
+      } as any;
+
+      const res = {
+        writeHead: (code: number, h: Record<string, string>) => {
+          statusCode = code;
+          headers = h;
+        },
+        end: (data: Buffer) => {
+          buffer = data;
+        },
+      } as any;
+
+      handler(req, res);
+      await new Promise((r) => setTimeout(r, 100));
+
+      expect(statusCode).toBe(200);
+      expect(headers["Content-Type"]).toBe("image/png");
+      expect(Buffer.isBuffer(buffer)).toBe(true);
+      expect(buffer!.length).toBeGreaterThan(1000);
+    }
+
+    // 2. POST banner with JSON payload
+    {
+      let statusCode = 0;
+      let headers: Record<string, string> = {};
+      let buffer: Buffer | null = null;
+      const listeners: Record<string, (...args: any[]) => void> = {};
+
+      const req = {
+        method: "POST",
+        url: "/api/export-banner",
+        on: (event: string, cb: (...args: any[]) => void) => {
+          listeners[event] = cb;
+        },
+      } as any;
+
+      const res = {
+        writeHead: (code: number, h: Record<string, string>) => {
+          statusCode = code;
+          headers = h;
+        },
+        end: (data: Buffer) => {
+          buffer = data;
+        },
+      } as any;
+
+      handler(req, res);
+      listeners.data?.(
+        JSON.stringify({
+          type: "google-play",
+          deviceCount: "trio",
+          headline: "Fast Finance",
+          tagline: "Split with anyone",
+          benefits: ["Speed", "Privacy", "Zero fees"],
+        }),
+      );
+      listeners.end?.();
+
+      await new Promise((r) => setTimeout(r, 100));
+
+      expect(statusCode).toBe(200);
+      expect(headers["Content-Type"]).toBe("image/png");
+      expect(headers["Content-Disposition"]).toContain("google-play-1024x500.png");
+      expect(Buffer.isBuffer(buffer)).toBe(true);
+      expect(buffer!.length).toBeGreaterThan(1000);
+    }
+
+    // 3. POST banner with scale: 2 (Retina Ultra HD)
+    {
+      let statusCode = 0;
+      let headers: Record<string, string> = {};
+      let buffer: Buffer | null = null;
+      const listeners: Record<string, (...args: any[]) => void> = {};
+
+      const req = {
+        method: "POST",
+        url: "/api/export-banner",
+        on: (event: string, cb: (...args: any[]) => void) => {
+          listeners[event] = cb;
+        },
+      } as any;
+
+      const res = {
+        writeHead: (code: number, h: Record<string, string>) => {
+          statusCode = code;
+          headers = h;
+        },
+        end: (data: Buffer) => {
+          buffer = data;
+        },
+      } as any;
+
+      handler(req, res);
+      listeners.data?.(
+        JSON.stringify({
+          type: "google-play",
+          scale: 2,
+          retina: true,
+          headline: "Retina Sharpness",
+        }),
+      );
+      listeners.end?.();
+
+      await new Promise((r) => setTimeout(r, 100));
+
+      expect(statusCode).toBe(200);
+      expect(headers["Content-Type"]).toBe("image/png");
+      expect(headers["Content-Disposition"]).toContain("google-play-2048x1000@2x.png");
+      expect(Buffer.isBuffer(buffer)).toBe(true);
+      expect(buffer!.length).toBeGreaterThan(1000);
     }
 
     await rm(tmp, { recursive: true, force: true });

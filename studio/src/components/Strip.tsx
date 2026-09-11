@@ -26,6 +26,7 @@ import {
 } from "../../../src/layouts";
 import { CUSTOM_TEMPLATE } from "../App";
 import {
+  type AppInfo,
   type Decoration,
   type Design,
   type DesignScene,
@@ -400,6 +401,7 @@ export function Strip({
   screenOnly,
   sceneLayouts,
   onSceneLayout,
+  appInfo,
 }: {
   manifest?: StoreManifest;
   design: Design;
@@ -446,6 +448,7 @@ export function Strip({
   screenOnly: boolean;
   sceneLayouts: Record<string, string>;
   onSceneLayout: (sceneId: string, key: string | undefined) => void;
+  appInfo?: AppInfo;
 }) {
   const scenes =
     order.length > 0
@@ -1092,6 +1095,7 @@ export function Strip({
           device={tileSpec.key}
           locale={locale}
           manifest={manifest}
+          appInfo={appInfo}
           onApplyCopy={(sId, field, text) => {
             onCopy(sId, field, text);
           }}

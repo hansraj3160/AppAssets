@@ -8,16 +8,25 @@ import {
   Mic,
   Moon,
   Search,
+  Settings2,
   Share2,
   Signal,
   Smartphone,
   Star,
   Sun,
   Tablet,
+  Upload,
   Wifi,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import type { Design, DeviceCaptures, DeviceEntry, SceneCopy, StoreManifest } from "../manifest";
+import type {
+  AppInfo,
+  Design,
+  DeviceCaptures,
+  DeviceEntry,
+  SceneCopy,
+  StoreManifest,
+} from "../manifest";
 import { buildScreenshotEntries, downloadSingleScreenshot, type ScreenshotEntry } from "./Strip";
 
 export interface StoreMockupPreviewProps {
@@ -49,6 +58,8 @@ export interface StoreMockupPreviewProps {
       color?: string;
     }
   >;
+  appInfo?: AppInfo;
+  onOpenAppDetails?: () => void;
 }
 
 export function StoreMockupPreview({
@@ -72,6 +83,8 @@ export function StoreMockupPreview({
   sceneLayouts,
   sceneBackgrounds,
   sceneBadges,
+  appInfo,
+  onOpenAppDetails,
 }: StoreMockupPreviewProps) {
   // Store Platform: Apple App Store vs Google Play
   const [store, setStore] = useState<"apple" | "google">(() =>
@@ -135,28 +148,74 @@ export function StoreMockupPreview({
     sceneBadges,
   ]);
 
-  const appName = manifest.app.name || "Expense Manager";
+  const appName = appInfo?.name || manifest.app.name || "My App";
   const appSubtitle =
+    appInfo?.subtitle ||
     manifest.app.subtitle?.[locale] ||
     manifest.app.subtitle?.["en-US"] ||
     Object.values(manifest.app.subtitle || {})[0] ||
-    "Finance & Budget Tracker";
-  const appDeveloper = manifest.app.developer || "Developer Studio";
-  const appCategory = manifest.app.category || "Finance";
+    "Fast, Secure & Easy to Use";
+  const appDeveloper = appInfo?.developer || manifest.app.developer || "Developer Studio";
+  const appCategory = appInfo?.category || manifest.app.category || "Utilities";
   const appRating = manifest.app.rating || 4.9;
   const appRatingCount = manifest.app.ratingCount || "2.4K Ratings";
   const appAgeRating = manifest.app.ageRating || "4+";
   const appDescription =
+    appInfo?.description ||
     manifest.app.description?.[locale] ||
     manifest.app.description?.["en-US"] ||
     Object.values(manifest.app.description || {})[0] ||
-    "Track daily spending, split group bills with friends, and gain complete visibility into your finances with intuitive budgeting tools.";
+    "Experience next-level speed, privacy, and seamless controls designed specifically for modern mobile users.";
 
   const isDarkStore = storeTheme === "dark";
   const isTablet = platform === "ipad";
 
   // Gradient style for the app icon fallback
   const appInitial = appName.charAt(0).toUpperCase() || "A";
+  const [appIcon, setAppIcon] = useState<string | null>(
+    () => appInfo?.icon || (design as any)?.appIcon || null,
+  );
+
+  useEffect(() => {
+    if (appInfo?.icon) setAppIcon(appInfo.icon);
+  }, [appInfo?.icon]);
+
+  useEffect(() => {
+    fetch("/api/icon")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.iconUrl) setAppIcon(d.iconUrl);
+      })
+      .catch(() => {});
+  }, []);
+
+  const [uploadingIcon, setUploadingIcon] = useState(false);
+
+  const handleIconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingIcon(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const dataUrl = reader.result as string;
+        const res = await fetch("/api/icon", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ dataUrl }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setAppIcon(data.iconUrl || dataUrl);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch {
+      // ignore
+    } finally {
+      setUploadingIcon(false);
+    }
+  };
 
   const [downloadingKey, setDownloadingKey] = useState<string | null>(null);
 
@@ -268,6 +327,42 @@ export function StoreMockupPreview({
             )}
           </button>
 
+          {/* Logo upload shortcut */}
+          <label
+            title={appIcon ? "Change App Logo / Icon" : "Upload App Logo / Icon"}
+            className="flex items-center gap-1.5 rounded-xl border border-border/80 bg-background px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 cursor-pointer transition-colors shadow-2xs"
+          >
+            {uploadingIcon ? (
+              <Loader2 className="size-3.5 animate-spin text-primary" />
+            ) : appIcon ? (
+              <div className="size-3.5 rounded-[4px] overflow-hidden">
+                <img src={appIcon} alt="" className="size-full object-cover" />
+              </div>
+            ) : (
+              <Upload className="size-3.5 text-primary" />
+            )}
+            <span className="hidden sm:inline">{appIcon ? "Logo" : "Upload Logo"}</span>
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/svg+xml"
+              onChange={handleIconUpload}
+              className="sr-only"
+            />
+          </label>
+
+          {/* App Info Settings Shortcut */}
+          {onOpenAppDetails ? (
+            <button
+              type="button"
+              onClick={onOpenAppDetails}
+              title="Edit App Details (Name, Category, Description, etc.)"
+              className="flex items-center gap-1.5 rounded-xl border border-border/80 bg-background px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 cursor-pointer transition-colors shadow-2xs"
+            >
+              <Settings2 className="size-3.5 text-primary" />
+              <span className="hidden sm:inline">Edit App Details</span>
+            </button>
+          ) : null}
+
           {/* Device tag */}
           <div className="hidden md:flex items-center gap-1.5 rounded-xl bg-muted/50 border border-border/40 px-2.5 py-1.5 text-[11px] text-muted-foreground font-mono">
             {isTablet ? <Tablet className="size-3" /> : <Smartphone className="size-3" />}
@@ -313,6 +408,7 @@ export function StoreMockupPreview({
                   appSubtitle={appSubtitle}
                   appRatingCount={appRatingCount}
                   appInitial={appInitial}
+                  appIcon={appIcon}
                   screenshotItems={screenshotItems}
                   onDownload={handleDownload}
                   downloadingKey={downloadingKey}
@@ -330,6 +426,7 @@ export function StoreMockupPreview({
                   appAgeRating={appAgeRating}
                   appDescription={appDescription}
                   appInitial={appInitial}
+                  appIcon={appIcon}
                   screenshotItems={screenshotItems}
                   descExpanded={descExpanded}
                   onToggleDesc={() => setDescExpanded(!descExpanded)}
@@ -345,6 +442,7 @@ export function StoreMockupPreview({
                 appDeveloper={appDeveloper}
                 appRating={appRating}
                 appInitial={appInitial}
+                appIcon={appIcon}
                 screenshotItems={screenshotItems}
                 onDownload={handleDownload}
                 downloadingKey={downloadingKey}
@@ -360,6 +458,7 @@ export function StoreMockupPreview({
                 appRatingCount={appRatingCount}
                 appDescription={appDescription}
                 appInitial={appInitial}
+                appIcon={appIcon}
                 screenshotItems={screenshotItems}
                 descExpanded={descExpanded}
                 onToggleDesc={() => setDescExpanded(!descExpanded)}
@@ -410,6 +509,7 @@ function AppleSearchResultView({
   appSubtitle,
   appRatingCount,
   appInitial,
+  appIcon,
   screenshotItems,
   onDownload,
   downloadingKey,
@@ -420,6 +520,7 @@ function AppleSearchResultView({
   appSubtitle: string;
   appRatingCount: string;
   appInitial: string;
+  appIcon?: string | null;
   screenshotItems: ScreenshotEntry[];
   onDownload: (entry: ScreenshotEntry) => void;
   downloadingKey: string | null;
@@ -459,7 +560,11 @@ function AppleSearchResultView({
         <div className="flex items-center gap-3.5">
           {/* App Icon */}
           <div className="relative size-14 shrink-0 overflow-hidden rounded-[22%] bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 shadow-md flex items-center justify-center text-white font-bold text-xl border border-white/20">
-            <span>{appInitial}</span>
+            {appIcon ? (
+              <img src={appIcon} alt={appName} className="size-full object-cover" />
+            ) : (
+              <span>{appInitial}</span>
+            )}
           </div>
 
           {/* App Name, Subtitle, Rating */}
@@ -552,6 +657,7 @@ function AppleProductPageView({
   appAgeRating,
   appDescription,
   appInitial,
+  appIcon,
   screenshotItems,
   descExpanded,
   onToggleDesc,
@@ -569,6 +675,7 @@ function AppleProductPageView({
   appAgeRating: string;
   appDescription: string;
   appInitial: string;
+  appIcon?: string | null;
   screenshotItems: ScreenshotEntry[];
   descExpanded: boolean;
   onToggleDesc: () => void;
@@ -599,7 +706,11 @@ function AppleProductPageView({
       {/* Hero Section: Large App Icon, Titles, GET Button */}
       <div className="flex items-start gap-4">
         <div className="relative size-20 sm:size-24 shrink-0 overflow-hidden rounded-[22%] bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 shadow-lg flex items-center justify-center text-white font-bold text-3xl border border-white/20">
-          <span>{appInitial}</span>
+          {appIcon ? (
+            <img src={appIcon} alt={appName} className="size-full object-cover" />
+          ) : (
+            <span>{appInitial}</span>
+          )}
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col justify-between self-stretch">
@@ -826,6 +937,7 @@ function GooglePlaySearchResultView({
   appDeveloper,
   appRating,
   appInitial,
+  appIcon,
   screenshotItems,
   onDownload,
   downloadingKey,
@@ -836,6 +948,7 @@ function GooglePlaySearchResultView({
   appDeveloper: string;
   appRating: number;
   appInitial: string;
+  appIcon?: string | null;
   screenshotItems: ScreenshotEntry[];
   onDownload: (entry: ScreenshotEntry) => void;
   downloadingKey: string | null;
@@ -863,7 +976,11 @@ function GooglePlaySearchResultView({
         <div className="flex items-center gap-3.5">
           {/* App Icon */}
           <div className="relative size-14 shrink-0 overflow-hidden rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 shadow-md flex items-center justify-center text-white font-bold text-xl">
-            <span>{appInitial}</span>
+            {appIcon ? (
+              <img src={appIcon} alt={appName} className="size-full object-cover" />
+            ) : (
+              <span>{appInitial}</span>
+            )}
           </div>
 
           {/* Titles & Stats */}
@@ -944,6 +1061,7 @@ function GooglePlayProductPageView({
   appRatingCount,
   appDescription,
   appInitial,
+  appIcon,
   screenshotItems,
   descExpanded,
   onToggleDesc,
@@ -959,6 +1077,7 @@ function GooglePlayProductPageView({
   appRatingCount: string;
   appDescription: string;
   appInitial: string;
+  appIcon?: string | null;
   screenshotItems: ScreenshotEntry[];
   descExpanded: boolean;
   onToggleDesc: () => void;
@@ -970,7 +1089,11 @@ function GooglePlayProductPageView({
       {/* App Header */}
       <div className="flex items-start gap-4">
         <div className="relative size-16 sm:size-18 shrink-0 overflow-hidden rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 shadow-md flex items-center justify-center text-white font-bold text-2xl">
-          <span>{appInitial}</span>
+          {appIcon ? (
+            <img src={appIcon} alt={appName} className="size-full object-cover" />
+          ) : (
+            <span>{appInitial}</span>
+          )}
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col">
@@ -1101,13 +1224,13 @@ function GooglePlayProductPageView({
       {/* Category Badges */}
       <div className="flex flex-wrap gap-2 pt-1">
         <span className="rounded-full border border-neutral-700/60 px-3 py-1 text-[11px] font-medium text-neutral-400">
-          #1 top free in {appCategory}
+          #1 Top Free in {appCategory}
         </span>
         <span className="rounded-full border border-neutral-700/60 px-3 py-1 text-[11px] font-medium text-neutral-400">
-          Finance
+          {appCategory}
         </span>
         <span className="rounded-full border border-neutral-700/60 px-3 py-1 text-[11px] font-medium text-neutral-400">
-          Budgeting
+          Verified Safe
         </span>
       </div>
     </div>

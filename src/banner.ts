@@ -1,5 +1,5 @@
 import { existsSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 import { createCanvas, loadImage } from "@napi-rs/canvas";
 import { backgroundLuminance, isScreenshot, type LoadedConfig } from "./config.ts";
 import { paint, wrapLines } from "./render.ts";
@@ -63,11 +63,14 @@ export interface RenderBannerOptions {
   kickerHeadline?: string;
   customHeadline?: string;
   customTagline?: string;
+  customIcon?: string;
   benefits?: string[];
   customBackground?: string;
   layout?: "split" | "center";
   mockupStyle?: "card" | "screen";
   showWaves?: boolean;
+  scale?: 1 | 2;
+  retina?: boolean;
 }
 
 /**
@@ -219,7 +222,19 @@ function drawPhoneMockup(
   ctx.clip();
 
   if (img) {
-    ctx.drawImage(img, x, y, w, h);
+    let renderImg = img;
+    // Step-down mipmap pre-scaling straight (unrotated) if downscaling significantly
+    if (img.width && img.width > w * 2.2) {
+      const preW = Math.round(w * 2);
+      const preH = Math.round(h * 2);
+      const preCanvas = createCanvas(preW, preH);
+      const preCtx = preCanvas.getContext("2d");
+      preCtx.imageSmoothingEnabled = true;
+      preCtx.imageSmoothingQuality = "high";
+      preCtx.drawImage(img, 0, 0, preW, preH);
+      renderImg = preCanvas;
+    }
+    ctx.drawImage(renderImg, x, y, w, h);
   } else {
     // Placeholder screen
     ctx.fillStyle = isDarkBg ? "#111827" : "#F3F4F6";
@@ -283,6 +298,7 @@ export async function renderBannerCanvas(options: RenderBannerOptions): Promise<
     kickerHeadline,
     customHeadline,
     customTagline,
+    customIcon,
     benefits,
     customBackground,
     layout = "split",
@@ -294,8 +310,14 @@ export async function renderBannerCanvas(options: RenderBannerOptions): Promise<
   const width = spec.width;
   const height = spec.height;
 
-  const canvas = createCanvas(width, height);
+  const isRetina = options.retina === true || options.scale === 2;
+  const renderScale = 2; // Always render internally at 2x SSAA for crisp graphics
+
+  const canvas = createCanvas(width * renderScale, height * renderScale);
   const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.scale(renderScale, renderScale);
 
   // Determine effective device count
   const effectiveDeviceCount: "single" | "duo" | "trio" =
@@ -371,6 +393,54 @@ export async function renderBannerCanvas(options: RenderBannerOptions): Promise<
   const textPrimary = isDarkBg ? "#FFFFFF" : "#0E1B2A";
   const textMuted = isDarkBg ? "rgba(255, 255, 255, 0.78)" : "rgba(14, 27, 42, 0.78)";
 
+  // 2.5 Resolve and load App Icon (custom image or letter initial)
+  const iconCandidate =
+    customIcon ||
+    cfg.store?.icon ||
+    (existsSync(join(cfg.outDir, "icon.png")) ? join(cfg.outDir, "icon.png") : undefined) ||
+    (existsSync(join(cfg.outDir, "web", "icon.png"))
+      ? join(cfg.outDir, "web", "icon.png")
+      : undefined) ||
+    (existsSync(join(cfg.root, "icon.png")) ? join(cfg.root, "icon.png") : undefined) ||
+    (existsSync(join(cfg.root, "assets", "icon.png"))
+      ? join(cfg.root, "assets", "icon.png")
+      : undefined);
+
+  let iconImage: any = null;
+  if (iconCandidate) {
+    try {
+      if (iconCandidate.startsWith("data:")) {
+        const base64Data = iconCandidate.includes(";base64,")
+          ? iconCandidate.split(";base64,")[1]!
+          : iconCandidate.replace(/^data:[^;]+;base64,/, "");
+        iconImage = await loadImage(Buffer.from(base64Data, "base64"));
+      } else {
+        let iconPath = iconCandidate;
+        if (iconCandidate.startsWith("/")) {
+          const rel = iconCandidate.replace(/^\/+/, "");
+          const candidates = [
+            join(cfg.outDir, "web", rel),
+            join(cfg.outDir, rel),
+            join(cfg.root, rel),
+            join(cfg.root, "assets", rel),
+            iconCandidate,
+          ];
+          for (const c of candidates) {
+            if (existsSync(c)) {
+              iconPath = c;
+              break;
+            }
+          }
+        } else if (!isAbsolute(iconCandidate)) {
+          iconPath = resolve(cfg.root, iconCandidate);
+        }
+        if (existsSync(iconPath)) {
+          iconImage = await loadImage(iconPath);
+        }
+      }
+    } catch {}
+  }
+
   // 3. Find and load screenshots for up to 3 phone slots
   const allShots = getAllScreenshotPaths(cfg.outDir, deviceKey, locale, mockupStyle);
 
@@ -415,26 +485,44 @@ export async function renderBannerCanvas(options: RenderBannerOptions): Promise<
     const iconSize = Math.round(Math.min(width, height) * 0.12);
     const iconX = (width - iconSize) / 2;
     const iconY = contentTop;
+    const iconCornerR = iconSize * 0.22;
 
     ctx.save();
     ctx.shadowColor = "rgba(0, 0, 0, 0.25)";
     ctx.shadowBlur = iconSize * 0.3;
     ctx.shadowOffsetY = iconSize * 0.1;
-    ctx.fillStyle = isDarkBg ? "#2563EB" : "#3B82F6";
-    ctx.beginPath();
-    ctx.roundRect(iconX, iconY, iconSize, iconSize, iconSize * 0.22);
-    ctx.fill();
+
+    if (iconImage) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(iconX, iconY, iconSize, iconSize, iconCornerR);
+      ctx.clip();
+      ctx.drawImage(iconImage, iconX, iconY, iconSize, iconSize);
+      ctx.restore();
+    } else {
+      ctx.fillStyle = isDarkBg ? "#2563EB" : "#3B82F6";
+      ctx.beginPath();
+      ctx.roundRect(iconX, iconY, iconSize, iconSize, iconCornerR);
+      ctx.fill();
+
+      // App Initial
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = `bold ${iconSize * 0.55}px sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(
+        brandWordmark.charAt(0).toUpperCase(),
+        iconX + iconSize / 2,
+        iconY + iconSize / 2,
+      );
+    }
+
     ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
     ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(iconX, iconY, iconSize, iconSize, iconCornerR);
     ctx.stroke();
     ctx.restore();
-
-    // App Initial
-    ctx.fillStyle = "#FFFFFF";
-    ctx.font = `bold ${iconSize * 0.55}px sans-serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(brandWordmark.charAt(0).toUpperCase(), iconX + iconSize / 2, iconY + iconSize / 2);
 
     // Kicker
     const kickerY = iconY + iconSize + height * 0.025;
@@ -519,28 +607,46 @@ export async function renderBannerCanvas(options: RenderBannerOptions): Promise<
     // 1. Brand Row: Squircle Logo + Wordmark Title
     const iconSize = Math.round(height * 0.1);
     const iconY = height * 0.09;
+    const iconCornerR = iconSize * 0.24;
 
     ctx.save();
     ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
     ctx.shadowBlur = iconSize * 0.35;
     ctx.shadowOffsetY = iconSize * 0.12;
-    const iconGrad = ctx.createLinearGradient(leftX, iconY, leftX + iconSize, iconY + iconSize);
-    iconGrad.addColorStop(0, "#3B82F6");
-    iconGrad.addColorStop(1, "#1D4ED8");
-    ctx.fillStyle = iconGrad;
-    ctx.beginPath();
-    ctx.roundRect(leftX, iconY, iconSize, iconSize, iconSize * 0.24);
-    ctx.fill();
+
+    if (iconImage) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(leftX, iconY, iconSize, iconSize, iconCornerR);
+      ctx.clip();
+      ctx.drawImage(iconImage, leftX, iconY, iconSize, iconSize);
+      ctx.restore();
+    } else {
+      const iconGrad = ctx.createLinearGradient(leftX, iconY, leftX + iconSize, iconY + iconSize);
+      iconGrad.addColorStop(0, "#3B82F6");
+      iconGrad.addColorStop(1, "#1D4ED8");
+      ctx.fillStyle = iconGrad;
+      ctx.beginPath();
+      ctx.roundRect(leftX, iconY, iconSize, iconSize, iconCornerR);
+      ctx.fill();
+
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = `bold ${Math.round(iconSize * 0.55)}px sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(
+        brandWordmark.charAt(0).toUpperCase(),
+        leftX + iconSize / 2,
+        iconY + iconSize / 2,
+      );
+    }
+
     ctx.strokeStyle = "rgba(255, 255, 255, 0.28)";
     ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(leftX, iconY, iconSize, iconSize, iconCornerR);
     ctx.stroke();
     ctx.restore();
-
-    ctx.fillStyle = "#FFFFFF";
-    ctx.font = `bold ${Math.round(iconSize * 0.55)}px sans-serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(brandWordmark.charAt(0).toUpperCase(), leftX + iconSize / 2, iconY + iconSize / 2);
 
     const wordmarkX = leftX + iconSize + height * 0.025;
     ctx.fillStyle = textPrimary;
@@ -611,57 +717,56 @@ export async function renderBannerCanvas(options: RenderBannerOptions): Promise<
     const baseW = baseH * devAspect;
 
     if (effectiveDeviceCount === "trio") {
-      // Center Phone (Phone 1 - Front & Center Elevated)
+      // Trio Dynamic Fan with bottom overlap:
+      // Center hero upright in front, Left phone tilted -7.5deg behind, Right phone tilted +7.5deg behind.
+      // Base corners converge and overlap at the bottom behind the center hero.
       const centerScale = 1.0;
       const centerW = baseW * centerScale;
       const centerH = baseH * centerScale;
-      const centerPhoneX = width * 0.7 - centerW / 2;
+      const centerPhoneX = width * 0.715 - centerW / 2;
       const centerPhoneY = height * 0.095;
 
-      // Left Phone (Phone 2 - Behind)
-      const leftScale = 0.89;
-      const leftW = baseW * leftScale;
-      const leftH = baseH * leftScale;
-      const leftPhoneX = centerPhoneX - leftW * 0.65;
-      const leftPhoneY = height * 0.14;
+      const sideScale = 0.98;
+      const sideW = baseW * sideScale;
+      const sideH = baseH * sideScale;
+      const sideY = height * 0.1;
 
-      // Right Phone (Phone 3 - Behind)
-      const rightScale = 0.89;
-      const rightW = baseW * rightScale;
-      const rightH = baseH * rightScale;
-      const rightPhoneX = centerPhoneX + centerW - rightW * 0.35;
-      const rightPhoneY = height * 0.14;
+      const leftPhoneX = centerPhoneX - sideW * 0.65;
+      const rightPhoneX = centerPhoneX + centerW - sideW * 0.35;
 
+      // Left Phone (tilted -7.5deg behind)
       drawPhoneMockup(
         ctx,
         shotImage2 || shotImage1,
         leftPhoneX,
-        leftPhoneY,
-        leftW,
-        leftH,
-        -2,
-        Math.round(width * 0.025),
+        sideY,
+        sideW,
+        sideH,
+        -7.5,
+        Math.round(width * 0.028),
         Math.round(height * 0.025),
         mockupStyle,
         isDarkBg,
-        0.4,
+        0.42,
       );
 
+      // Right Phone (tilted +7.5deg behind)
       drawPhoneMockup(
         ctx,
         shotImage3 || shotImage1,
         rightPhoneX,
-        rightPhoneY,
-        rightW,
-        rightH,
-        2,
-        Math.round(width * 0.025),
+        sideY,
+        sideW,
+        sideH,
+        7.5,
+        Math.round(width * 0.028),
         Math.round(height * 0.025),
         mockupStyle,
         isDarkBg,
-        0.4,
+        0.42,
       );
 
+      // Center Phone (Phone 1 - Front & Center Elevated Hero)
       drawPhoneMockup(
         ctx,
         shotImage1,
@@ -674,51 +779,55 @@ export async function renderBannerCanvas(options: RenderBannerOptions): Promise<
         Math.round(height * 0.04),
         mockupStyle,
         isDarkBg,
-        0.6,
+        0.65,
       );
     } else if (effectiveDeviceCount === "duo") {
-      // Front Phone (Phone 1 - Left front)
-      const frontScale = 1.0;
-      const frontW = baseW * frontScale;
-      const frontH = baseH * frontScale;
-      const frontPhoneX = width * 0.58;
-      const frontPhoneY = height * 0.1;
+      // Duo V-Shape arrangement with bottom overlap:
+      // Left phone tilted -7.5deg (front), Right phone tilted +7.5deg (back)
+      // Bottom-right of front phone overlaps over bottom-left of back phone
+      const duoScale = 1.0;
+      const duoW = baseW * duoScale;
+      const duoH = baseH * duoScale;
 
-      // Back Phone (Phone 2 - Right back)
-      const backScale = 0.92;
-      const backW = baseW * backScale;
-      const backH = baseH * backScale;
-      const backPhoneX = width * 0.76;
-      const backPhoneY = height * 0.13;
+      const clusterCenter = width * 0.73;
+      const offset = duoW * 0.83;
 
+      const leftPhoneX = clusterCenter - offset;
+      const leftPhoneY = height * 0.1;
+
+      const rightPhoneX = clusterCenter + offset - duoW;
+      const rightPhoneY = height * 0.1;
+
+      // Back Phone (Phone 2 - Right phone at +7.5deg)
       drawPhoneMockup(
         ctx,
         shotImage2 || shotImage1,
-        backPhoneX,
-        backPhoneY,
-        backW,
-        backH,
-        2,
-        Math.round(width * 0.028),
+        rightPhoneX,
+        rightPhoneY,
+        duoW,
+        duoH,
+        7.5,
+        Math.round(width * 0.03),
         Math.round(height * 0.025),
         mockupStyle,
         isDarkBg,
-        0.42,
+        0.45,
       );
 
+      // Front Phone (Phone 1 - Left phone at -7.5deg with bottom overlap)
       drawPhoneMockup(
         ctx,
         shotImage1,
-        frontPhoneX,
-        frontPhoneY,
-        frontW,
-        frontH,
-        0,
+        leftPhoneX,
+        leftPhoneY,
+        duoW,
+        duoH,
+        -7.5,
         Math.round(width * 0.045),
         Math.round(height * 0.038),
         mockupStyle,
         isDarkBg,
-        0.55,
+        0.65,
       );
     } else {
       // Single Hero Phone
@@ -744,5 +853,15 @@ export async function renderBannerCanvas(options: RenderBannerOptions): Promise<
     }
   }
 
-  return canvas.encode("png");
+  if (isRetina) {
+    return canvas.encode("png");
+  }
+
+  // Downsample 2x SSAA buffer to exact target store dimensions with high quality antialiasing
+  const finalCanvas = createCanvas(width, height);
+  const finalCtx = finalCanvas.getContext("2d");
+  finalCtx.imageSmoothingEnabled = true;
+  finalCtx.imageSmoothingQuality = "high";
+  finalCtx.drawImage(canvas, 0, 0, width, height);
+  return finalCanvas.encode("png");
 }

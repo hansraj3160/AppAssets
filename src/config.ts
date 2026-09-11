@@ -152,6 +152,8 @@ export type StoreListing = {
   ageRating: string;
   price: string;
   description: Record<Locale, string>;
+  /** Path to app icon image (relative or data URL). */
+  icon?: string;
 };
 
 export type GoldieConfig = {
@@ -249,7 +251,7 @@ async function importConfig(path: string): Promise<any> {
     )
       throw err;
     const { createJiti } = await import("jiti");
-    return createJiti(import.meta.url).import(path);
+    return createJiti(import.meta.url, { fsCache: false, moduleCache: false }).import(path);
   }
 }
 
@@ -334,6 +336,8 @@ export type DesignOverrides = {
   fontSizeScale?: number;
   /** Locales configured or enabled in the studio. */
   locales?: string[];
+  /** App icon image (relative path, /icon.png, or data URL). */
+  appIcon?: string;
 };
 
 export type SceneCopy = {
@@ -439,6 +443,10 @@ export function applyDesign(cfg: LoadedConfig, design: DesignOverrides): void {
   }
   if (design.locales && Array.isArray(design.locales) && design.locales.length > 0) {
     cfg.locales = Array.from(new Set([...cfg.locales, ...design.locales]));
+  }
+  if (design.appIcon) {
+    cfg.store = cfg.store || ({} as any);
+    cfg.store.icon = design.appIcon;
   }
 }
 

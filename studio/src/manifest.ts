@@ -147,8 +147,19 @@ export async function loadManifest(): Promise<StoreManifest> {
   return manifest;
 }
 
+export type AppInfo = {
+  name?: string;
+  subtitle?: string;
+  category?: string;
+  developer?: string;
+  description?: string;
+  icon?: string;
+};
+
 /** The design choices saved on disk next to the config; see src/studio-server.ts. */
 export type SavedDesign = {
+  appInfo?: AppInfo;
+  appIcon?: string;
   background?: string;
   frame?: string;
   fontFamily?: string;

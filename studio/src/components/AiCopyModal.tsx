@@ -13,7 +13,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { StoreManifest } from "../manifest";
+import type { AppInfo, StoreManifest } from "../manifest";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 
@@ -32,6 +32,7 @@ export interface AiCopyModalProps {
   device: string;
   locale: string;
   manifest?: StoreManifest;
+  appInfo?: AppInfo;
   onApplyCopy: (sceneId: string, field: "headline" | "subhead", text: string) => void;
 }
 
@@ -52,6 +53,7 @@ export function AiCopyModal({
   device,
   locale,
   manifest,
+  appInfo,
   onApplyCopy,
 }: AiCopyModalProps) {
   const [selectedTone, setSelectedTone] = useState("all");
@@ -65,8 +67,13 @@ export function AiCopyModal({
   const [cooldownSeconds, setCooldownSeconds] = useState<number | null>(null);
   const autoFetchedForRef = useRef<string | null>(null);
 
-  const app = manifest?.app;
-  const appDescription = app?.description?.[locale] || app?.description?.["en-US"];
+  const appName = appInfo?.name || manifest?.app?.name;
+  const appCategory = appInfo?.category || manifest?.app?.category;
+  const appDescription =
+    appInfo?.description ||
+    manifest?.app?.description?.[locale] ||
+    manifest?.app?.description?.["en-US"] ||
+    (manifest?.app?.description ? Object.values(manifest.app.description)[0] : undefined);
 
   // Countdown timer for rate-limit cooldown
   useEffect(() => {
@@ -99,13 +106,14 @@ export function AiCopyModal({
             locale,
             tone: overrideTone ?? selectedTone,
             customPrompt: customPrompt.trim() || undefined,
-            appContext: app
-              ? {
-                  name: app.name,
-                  category: app.category,
-                  description: appDescription,
-                }
-              : undefined,
+            appContext:
+              appName || appCategory || appDescription
+                ? {
+                    name: appName,
+                    category: appCategory,
+                    description: appDescription,
+                  }
+                : undefined,
           }),
         });
 
@@ -158,7 +166,7 @@ export function AiCopyModal({
         setLoading(false);
       }
     },
-    [sceneId, device, locale, selectedTone, customPrompt, app, appDescription],
+    [sceneId, device, locale, selectedTone, customPrompt, appName, appCategory, appDescription],
   );
 
   // Auto-generate on open once per scene/device/locale without looping on error
@@ -237,10 +245,18 @@ export function AiCopyModal({
                   </span>
                 ) : null}
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Visual screen analysis & high-converting App Store copy for{" "}
-                <span className="font-semibold text-foreground">"{sceneId}"</span> ({locale})
-              </p>
+              <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                <p className="text-xs text-muted-foreground">
+                  Visual screen analysis & high-converting copy for{" "}
+                  <span className="font-semibold text-foreground">"{sceneId}"</span> ({locale})
+                </p>
+                {appName ? (
+                  <span className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary border border-primary/20">
+                    {appName}
+                    {appCategory ? ` • ${appCategory}` : ""}
+                  </span>
+                ) : null}
+              </div>
             </div>
           </div>
           <button

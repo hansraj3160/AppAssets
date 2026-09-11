@@ -8,6 +8,7 @@ import {
   Loader2Icon,
   MoonIcon,
   Package,
+  Settings2,
   Smartphone,
   Sparkles,
   SunIcon,
@@ -15,7 +16,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { CUSTOM_TEMPLATE } from "../App";
-import { fontKey, type StoreManifest } from "../manifest";
+import { type AppInfo, fontKey, type StoreManifest } from "../manifest";
 import { ImportButton } from "./ImportButton";
 import { Button } from "./ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
@@ -35,6 +36,8 @@ export function Header({
   viewMode = "editor",
   onViewModeChange,
   onSaveDesign,
+  appInfo,
+  onOpenAppDetails,
 }: {
   manifest: StoreManifest;
   dark: boolean;
@@ -50,6 +53,8 @@ export function Header({
   viewMode?: "editor" | "store" | "promo";
   onViewModeChange?: (mode: "editor" | "store" | "promo") => void;
   onSaveDesign?: () => Promise<void>;
+  appInfo?: AppInfo;
+  onOpenAppDetails?: () => void;
 }) {
   const [clearing, setClearing] = useState(false);
 
@@ -122,7 +127,7 @@ export function Header({
   }
 
   async function exportZip() {
-    if (exportBusy) return;
+    if (exportBusy || !hasScreenshots) return;
     setExportBusy(true);
     setExportCompleted(false);
     setExportProgress(5);
@@ -210,6 +215,36 @@ export function Header({
         >
           {dark ? <SunIcon className="size-4" /> : <MoonIcon className="size-4" />}
         </Button>
+
+        {/* Dynamic App Info Button & Badge */}
+        {onOpenAppDetails ? (
+          <button
+            type="button"
+            onClick={onOpenAppDetails}
+            className="flex items-center gap-2 rounded-xl border border-border/80 bg-background/80 hover:bg-muted/70 px-2.5 py-1.5 transition-all cursor-pointer shadow-2xs group max-w-[200px]"
+            title="Click to edit App Name, Category, Description, and Logo"
+          >
+            <div className="relative size-6 shrink-0 rounded-lg overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 shadow-2xs flex items-center justify-center text-white font-bold text-xs border border-white/20">
+              {appInfo?.icon ? (
+                <img src={appInfo.icon} alt="" className="size-full object-cover" />
+              ) : appInfo?.name ? (
+                <span>{appInfo.name.charAt(0).toUpperCase()}</span>
+              ) : (
+                <Sparkles className="size-3.5 text-white" />
+              )}
+            </div>
+
+            <div className="flex flex-col text-left min-w-0">
+              <span className="text-xs font-semibold text-foreground leading-tight group-hover:text-primary transition-colors flex items-center gap-1 truncate">
+                <span className="truncate">{appInfo?.name || "Set App Name"}</span>
+                <Settings2 className="size-3 text-muted-foreground opacity-60 group-hover:opacity-100 shrink-0" />
+              </span>
+              <span className="text-[10px] text-muted-foreground font-normal leading-tight truncate">
+                {appInfo?.category || (appInfo?.name ? "App Details" : "Tap to configure")}
+              </span>
+            </div>
+          </button>
+        ) : null}
       </div>
 
       {/* Center: View Switcher (Studio Canvas vs Store Preview) */}
@@ -264,38 +299,56 @@ export function Header({
       </div>
 
       {/* Action Buttons: Import, Remove All, Export Screenshots */}
-      <div className="flex items-center gap-2.5 sm:gap-3">
+      <div className="flex items-center gap-2">
         {/* 1. Import screenshots */}
         <ImportButton
           wrapperClassName="shrink-0"
-          className="h-9 px-3.5 gap-2 text-xs sm:text-sm font-medium rounded-xl border border-border/80 bg-background hover:bg-muted text-foreground shadow-xs cursor-pointer transition-colors"
+          className="h-8 px-2.5 sm:px-3 gap-1.5 text-xs font-medium rounded-lg border border-border/80 bg-background hover:bg-muted text-foreground shadow-2xs cursor-pointer transition-colors [&_svg]:size-3.5"
           label="Import screenshots"
         />
 
         {/* 2. Remove all */}
-        <Button
-          type="button"
-          variant="outline"
-          onClick={handleClearAll}
-          disabled={clearing || !hasScreenshots}
-          title={hasScreenshots ? "Remove all screenshots" : "No screenshots to remove"}
-          className="h-9 px-3.5 gap-2 text-xs sm:text-sm font-medium rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50 hover:bg-red-100/80 dark:bg-red-950/25 dark:hover:bg-red-950/45 text-red-600 dark:text-red-400 shadow-xs cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {clearing ? (
-            <Loader2Icon className="size-4 animate-spin text-red-600 dark:text-red-400" />
-          ) : (
-            <Trash2 className="size-4 text-red-600 dark:text-red-400" />
-          )}
-          <span>{clearing ? "Removing all..." : "Remove all"}</span>
-        </Button>
+        {(() => {
+          const canClear = hasScreenshots || Boolean(appInfo?.name) || Boolean(appInfo?.icon);
+          return (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleClearAll}
+              disabled={clearing || !canClear}
+              title={canClear ? "Remove all screenshots & reset app details" : "Nothing to remove"}
+              className="h-8 px-2.5 sm:px-3 gap-1.5 text-xs font-medium rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 hover:bg-red-100/80 dark:bg-red-950/25 dark:hover:bg-red-950/45 text-red-600 dark:text-red-400 shadow-2xs cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {clearing ? (
+                <Loader2Icon className="size-3.5 animate-spin text-red-600 dark:text-red-400" />
+              ) : (
+                <Trash2 className="size-3.5 text-red-600 dark:text-red-400" />
+              )}
+              <span>{clearing ? "Removing all..." : "Remove all"}</span>
+            </Button>
+          );
+        })()}
 
         {/* 3. Export Store Package (.ZIP) */}
-        <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+        <Popover
+          open={popoverOpen}
+          onOpenChange={(open) => {
+            if (!hasScreenshots && !exportBusy) return;
+            setPopoverOpen(open);
+          }}
+        >
           <PopoverTrigger asChild>
             <Button
               type="button"
-              className="h-9 px-4 gap-2 text-xs sm:text-sm font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white shadow-sm shadow-blue-500/20 cursor-pointer transition-all disabled:opacity-85"
+              disabled={!hasScreenshots && !exportBusy}
+              title={
+                !hasScreenshots
+                  ? "Upload screenshots first to export"
+                  : "Export store-ready package (.ZIP)"
+              }
+              className="h-8 px-3 gap-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white shadow-xs shadow-blue-500/15 cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-auto disabled:shadow-none"
               onClick={() => {
+                if (!hasScreenshots && !exportBusy) return;
                 if (!exportBusy) {
                   void exportZip();
                 } else {
@@ -305,17 +358,17 @@ export function Header({
             >
               {exportBusy ? (
                 <>
-                  <Loader2Icon className="size-4 animate-spin text-white" />
+                  <Loader2Icon className="size-3.5 animate-spin text-white" />
                   <span>Exporting ({exportProgress}%)</span>
                 </>
               ) : exportCompleted ? (
                 <>
-                  <FolderArchive className="size-4 text-white" />
+                  <FolderArchive className="size-3.5 text-white" />
                   <span>Download ZIP Again</span>
                 </>
               ) : (
                 <>
-                  <Package className="size-4 text-white" />
+                  <Package className="size-3.5 text-white" />
                   <span>Export All (.ZIP)</span>
                 </>
               )}

@@ -654,6 +654,113 @@ export function importHandler({ paths, cli }: StudioApi): Handler {
   };
 }
 
+/** Handles /api/icon for uploading, retrieving, and resetting app icon/logo. */
+export function iconHandler({ paths }: StudioApi): Handler {
+  return (req, res) => {
+    if (req.method === "GET") {
+      (async () => {
+        let iconUrl: string | null = null;
+        if (existsSync(paths.designFile)) {
+          try {
+            const design = JSON.parse(await readFile(paths.designFile, "utf8"));
+            if (design?.appIcon) iconUrl = design.appIcon;
+          } catch {}
+        }
+        if (!iconUrl) {
+          const webIcon = join(paths.webDir, "icon.png");
+          const outIcon = join(paths.outDir, "icon.png");
+          if (existsSync(webIcon) || existsSync(outIcon)) {
+            iconUrl = "/icon.png";
+          }
+        }
+        res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+        res.end(JSON.stringify({ iconUrl }));
+      })();
+      return;
+    }
+
+    if (req.method === "POST") {
+      readBody(req).then(async (body) => {
+        try {
+          const { dataUrl } = JSON.parse(body) as { dataUrl: string };
+          if (!dataUrl) {
+            res.statusCode = 400;
+            res.end("dataUrl required");
+            return;
+          }
+
+          const base64Data = dataUrl.includes(";base64,")
+            ? dataUrl.split(";base64,")[1]!
+            : dataUrl.replace(/^data:[^;]+;base64,/, "");
+          const buffer = Buffer.from(base64Data, "base64");
+
+          await mkdir(paths.webDir, { recursive: true });
+          await mkdir(paths.outDir, { recursive: true });
+
+          await writeFile(join(paths.webDir, "icon.png"), buffer);
+          await writeFile(join(paths.outDir, "icon.png"), buffer);
+
+          // Persist in goldie.design.json
+          let design: Record<string, any> = {};
+          if (existsSync(paths.designFile)) {
+            try {
+              design = JSON.parse(await readFile(paths.designFile, "utf8"));
+            } catch {}
+          }
+          design.appIcon = "/icon.png";
+          if (design.appInfo && typeof design.appInfo === "object") {
+            design.appInfo.icon = "/icon.png";
+          }
+          const tmp = `${paths.designFile}.tmp`;
+          await writeFile(tmp, `${JSON.stringify(design, null, 2)}\n`);
+          await rename(tmp, paths.designFile);
+
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ success: true, iconUrl: "/icon.png" }));
+        } catch (err) {
+          res.statusCode = 500;
+          res.end(err instanceof Error ? err.message : String(err));
+        }
+      });
+      return;
+    }
+
+    if (req.method === "DELETE") {
+      (async () => {
+        try {
+          const webIcon = join(paths.webDir, "icon.png");
+          const outIcon = join(paths.outDir, "icon.png");
+          if (existsSync(webIcon)) await rm(webIcon, { force: true });
+          if (existsSync(outIcon)) await rm(outIcon, { force: true });
+
+          if (existsSync(paths.designFile)) {
+            try {
+              const design = JSON.parse(await readFile(paths.designFile, "utf8"));
+              delete design.appIcon;
+              if (design.appInfo && typeof design.appInfo === "object") {
+                delete design.appInfo.icon;
+              }
+              const tmp = `${paths.designFile}.tmp`;
+              await writeFile(tmp, `${JSON.stringify(design, null, 2)}\n`);
+              await rename(tmp, paths.designFile);
+            } catch {}
+          }
+
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ success: true, iconUrl: null }));
+        } catch (err) {
+          res.statusCode = 500;
+          res.end(err instanceof Error ? err.message : String(err));
+        }
+      })();
+      return;
+    }
+
+    res.statusCode = 405;
+    res.end("GET, POST, or DELETE only");
+  };
+}
+
 function removeSceneFromConfig(configContent: string, sceneId: string): string {
   const idPattern = new RegExp(`id:\\s*["']${sceneId}["']`);
   const match = idPattern.exec(configContent);
@@ -865,16 +972,25 @@ export function deleteAllHandler({ paths, cli }: StudioApi): Handler {
           }
         }
 
-        // Clean goldie.design.json
+        // Clean goldie.design.json and app identity
         if (existsSync(paths.designFile)) {
           try {
             const designJson = JSON.parse(await readFile(paths.designFile, "utf8"));
             designJson.order = [];
             designJson.copy = {};
             designJson.sceneLayouts = {};
+            designJson.sceneBackgrounds = {};
+            designJson.sceneBadges = {};
+            delete designJson.appInfo;
+            delete designJson.appIcon;
             await writeFile(paths.designFile, JSON.stringify(designJson, null, 2));
           } catch {}
         }
+
+        const webIcon = join(paths.webDir, "icon.png");
+        const outIcon = join(paths.outDir, "icon.png");
+        if (existsSync(webIcon)) await rm(webIcon, { force: true });
+        if (existsSync(outIcon)) await rm(outIcon, { force: true });
 
         // Rebuild store.json via manifest command
         const [bin, ...prefix] = cli;
@@ -1108,45 +1224,71 @@ export function singleExportHandler({ paths, cli }: StudioApi): Handler {
 /** Handles GET /api/export-banner?type=...&sceneId=...&locale=... for downloading individual marketing/store banners */
 export function bannerExportHandler({ paths }: StudioApi): Handler {
   return (req, res) => {
-    const url = new URL(req.url ?? "/", "http://localhost");
-    const type = (url.searchParams.get("type") || "google-play") as BannerType;
-    const sceneId = url.searchParams.get("sceneId") || undefined;
-    const secondarySceneId = url.searchParams.get("sceneId2") || undefined;
-    const tertiarySceneId = url.searchParams.get("sceneId3") || undefined;
-    const locale = url.searchParams.get("locale") || undefined;
-    const deviceCount = (url.searchParams.get("deviceCount") || undefined) as
-      | "single"
-      | "duo"
-      | "trio"
-      | undefined;
-    const kickerHeadline = url.searchParams.get("kicker") || undefined;
-    const customHeadline = url.searchParams.get("headline") || undefined;
-    const customTagline = url.searchParams.get("tagline") || undefined;
-    const benefitsParam = url.searchParams.get("benefits");
-    let benefits: string[] | undefined;
-    if (benefitsParam) {
-      try {
-        benefits = JSON.parse(benefitsParam);
-      } catch {
-        benefits = benefitsParam
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean);
-      }
-    }
-    const customBackground = url.searchParams.get("background") || undefined;
-    const layout = (url.searchParams.get("layout") || "split") as "split" | "center";
-    const mockupStyle = (url.searchParams.get("mockupStyle") || "card") as "card" | "screen";
-
-    const spec = BANNER_SPECS[type];
-    if (!spec) {
-      res.statusCode = 400;
-      res.end(`Unknown banner type: ${type}`);
-      return;
-    }
-
     (async () => {
       try {
+        let body: Record<string, any> = {};
+        if (req.method === "POST") {
+          try {
+            const raw = await readBody(req);
+            body = raw ? JSON.parse(raw) : {};
+          } catch {}
+        }
+
+        const url = new URL(req.url ?? "/", "http://localhost");
+        const type = (body.type || url.searchParams.get("type") || "google-play") as BannerType;
+        const sceneId = body.sceneId || url.searchParams.get("sceneId") || undefined;
+        const secondarySceneId = body.sceneId2 || url.searchParams.get("sceneId2") || undefined;
+        const tertiarySceneId = body.sceneId3 || url.searchParams.get("sceneId3") || undefined;
+        const locale = body.locale || url.searchParams.get("locale") || undefined;
+        const deviceKey = (body.device ||
+          body.deviceKey ||
+          url.searchParams.get("device") ||
+          undefined) as DeviceKey | undefined;
+        const deviceCount = (body.deviceCount ||
+          url.searchParams.get("deviceCount") ||
+          undefined) as "single" | "duo" | "trio" | undefined;
+        const kickerHeadline = body.kicker || url.searchParams.get("kicker") || undefined;
+        const customHeadline = body.headline || url.searchParams.get("headline") || undefined;
+        const customTagline = body.tagline || url.searchParams.get("tagline") || undefined;
+
+        let benefits: string[] | undefined = Array.isArray(body.benefits)
+          ? body.benefits
+          : undefined;
+        if (!benefits) {
+          const benefitsParam = url.searchParams.get("benefits");
+          if (benefitsParam) {
+            try {
+              benefits = JSON.parse(benefitsParam);
+            } catch {
+              benefits = benefitsParam
+                .split(",")
+                .map((s) => s.trim())
+                .filter(Boolean);
+            }
+          }
+        }
+
+        const customBackground = body.background || url.searchParams.get("background") || undefined;
+        const customIcon = body.customIcon || url.searchParams.get("customIcon") || undefined;
+        const layout = (body.layout || url.searchParams.get("layout") || "split") as
+          | "split"
+          | "center";
+        const mockupStyle = (body.mockupStyle || url.searchParams.get("mockupStyle") || "card") as
+          | "card"
+          | "screen";
+
+        const scale = Number(body.scale || url.searchParams.get("scale") || 1) as 1 | 2;
+        const retina =
+          body.retina === true || url.searchParams.get("retina") === "true" || scale === 2;
+
+        const spec = BANNER_SPECS[type];
+        if (!spec) {
+          res.statusCode = 400;
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify({ error: `Unknown banner type: ${type}` }));
+          return;
+        }
+
         const cfg = await loadConfig(paths.configPath);
         if (existsSync(paths.designFile)) {
           try {
@@ -1161,18 +1303,24 @@ export function bannerExportHandler({ paths }: StudioApi): Handler {
           sceneId,
           secondarySceneId,
           tertiarySceneId,
+          deviceKey,
           deviceCount,
           locale,
           kickerHeadline,
           customHeadline,
           customTagline,
+          customIcon,
           benefits,
           customBackground,
           layout,
           mockupStyle,
+          scale: retina ? 2 : 1,
+          retina,
         });
 
-        const filename = `${type}-${spec.width}x${spec.height}.png`;
+        const outW = retina ? spec.width * 2 : spec.width;
+        const outH = retina ? spec.height * 2 : spec.height;
+        const filename = `${type}-${outW}x${outH}${retina ? "@2x" : ""}.png`;
         res.writeHead(200, {
           "Content-Type": "image/png",
           "Content-Length": buffer.length,
@@ -1410,6 +1558,7 @@ export function aiCopyHandler({ paths }: StudioApi, rateLimiter = aiRateLimiter)
           tone,
           customPrompt,
           appContext,
+          imageBase64: directImageBase64,
         } = JSON.parse(body || "{}") as {
           sceneId?: string;
           device?: string;
@@ -1421,6 +1570,7 @@ export function aiCopyHandler({ paths }: StudioApi, rateLimiter = aiRateLimiter)
             category?: string;
             description?: string;
           };
+          imageBase64?: string;
         };
 
         if (!sceneId) {
@@ -1454,90 +1604,103 @@ export function aiCopyHandler({ paths }: StudioApi, rateLimiter = aiRateLimiter)
           return;
         }
 
-        // Clean candidate names (handle #slice, trailing -1, etc.)
-        const cleanSceneId = sceneId.split("#")[0];
-        const cleanBaseSceneId = cleanSceneId.replace(/-\d+$/, "");
-        const candidateNames = Array.from(
-          new Set([sceneId, cleanSceneId, cleanBaseSceneId].filter(Boolean)),
-        );
+        let imageBase64: string = "";
+        let mimeType: string = "image/jpeg";
 
-        const devicesToTry = Array.from(
-          new Set([device, "iphone-6.9", "pixel-10-pro", "ipad-13"].filter(Boolean)),
-        );
-
-        let screenshotPath: string | null = null;
-
-        // 1. Direct match in raw folder
-        for (const dev of devicesToTry) {
-          for (const name of candidateNames) {
-            for (const ext of [".png", ".jpg", ".jpeg", ".webp"]) {
-              const p = join(paths.outDir, "raw", dev, `${name}${ext}`);
-              if (existsSync(p)) {
-                screenshotPath = p;
-                break;
-              }
-            }
-            if (screenshotPath) break;
-          }
-          if (screenshotPath) break;
-        }
-
-        // 2. Try screenshots folder for each device
-        if (!screenshotPath) {
-          for (const dev of devicesToTry) {
-            const screenshotsDir = join(paths.outDir, "screenshots", dev, locale);
-            if (existsSync(screenshotsDir)) {
-              const files = await readdir(screenshotsDir);
-              for (const name of candidateNames) {
-                const matched = findScreenshotFile(files, name);
-                if (matched) {
-                  screenshotPath = join(screenshotsDir, matched);
-                  break;
-                }
-              }
-            }
-            if (screenshotPath) break;
-          }
-        }
-
-        // 3. Loose fallback in raw folder
-        if (!screenshotPath) {
-          for (const dev of devicesToTry) {
-            const rawDir = join(paths.outDir, "raw", dev);
-            if (existsSync(rawDir)) {
-              const files = await readdir(rawDir);
-              for (const name of candidateNames) {
-                const matched = files.find(
-                  (f) =>
-                    f.toLowerCase().includes(name.toLowerCase()) &&
-                    (f.endsWith(".png") ||
-                      f.endsWith(".jpg") ||
-                      f.endsWith(".jpeg") ||
-                      f.endsWith(".webp")),
-                );
-                if (matched) {
-                  screenshotPath = join(rawDir, matched);
-                  break;
-                }
-              }
-            }
-            if (screenshotPath) break;
-          }
-        }
-
-        if (!screenshotPath || !existsSync(screenshotPath)) {
-          res.statusCode = 404;
-          res.setHeader("Content-Type", "application/json");
-          res.end(
-            JSON.stringify({
-              error: `Screenshot file for scene "${sceneId}" not found in out/raw or out/screenshots.`,
-            }),
+        if (directImageBase64) {
+          const rawBase64 = directImageBase64.replace(/^data:image\/[a-z0-9]+;base64,/, "");
+          const buf = Buffer.from(rawBase64, "base64");
+          const optimized = await optimizeScreenshotForAi(buf, 640);
+          imageBase64 = optimized.base64;
+          mimeType = optimized.mimeType;
+        } else {
+          // Clean candidate names (handle #slice, trailing -1, etc.)
+          const cleanSceneId = sceneId.split("#")[0];
+          const cleanBaseSceneId = cleanSceneId.replace(/-\d+$/, "");
+          const candidateNames = Array.from(
+            new Set([sceneId, cleanSceneId, cleanBaseSceneId].filter(Boolean)),
           );
-          return;
-        }
 
-        const imageBuffer = await readFile(screenshotPath);
-        const { base64: imageBase64, mimeType } = await optimizeScreenshotForAi(imageBuffer, 640);
+          const devicesToTry = Array.from(
+            new Set([device, "iphone-6.9", "pixel-10-pro", "ipad-13"].filter(Boolean)),
+          );
+
+          let screenshotPath: string | null = null;
+
+          // 1. Direct match in raw folder
+          for (const dev of devicesToTry) {
+            for (const name of candidateNames) {
+              for (const ext of [".png", ".jpg", ".jpeg", ".webp"]) {
+                const p = join(paths.outDir, "raw", dev, `${name}${ext}`);
+                if (existsSync(p)) {
+                  screenshotPath = p;
+                  break;
+                }
+              }
+              if (screenshotPath) break;
+            }
+            if (screenshotPath) break;
+          }
+
+          // 2. Try screenshots folder for each device
+          if (!screenshotPath) {
+            for (const dev of devicesToTry) {
+              const screenshotsDir = join(paths.outDir, "screenshots", dev, locale);
+              if (existsSync(screenshotsDir)) {
+                const files = await readdir(screenshotsDir);
+                for (const name of candidateNames) {
+                  const matched = findScreenshotFile(files, name);
+                  if (matched) {
+                    screenshotPath = join(screenshotsDir, matched);
+                    break;
+                  }
+                }
+              }
+              if (screenshotPath) break;
+            }
+          }
+
+          // 3. Loose fallback in raw folder
+          if (!screenshotPath) {
+            for (const dev of devicesToTry) {
+              const rawDir = join(paths.outDir, "raw", dev);
+              if (existsSync(rawDir)) {
+                const files = await readdir(rawDir);
+                for (const name of candidateNames) {
+                  const matched = files.find(
+                    (f) =>
+                      f.toLowerCase().includes(name.toLowerCase()) &&
+                      (f.endsWith(".png") ||
+                        f.endsWith(".jpg") ||
+                        f.endsWith(".jpeg") ||
+                        f.endsWith(".webp")),
+                  );
+                  if (matched) {
+                    screenshotPath = join(rawDir, matched);
+                    break;
+                  }
+                }
+              }
+              if (screenshotPath) break;
+            }
+          }
+
+          if (!screenshotPath || !existsSync(screenshotPath)) {
+            res.statusCode = 404;
+            res.setHeader("Content-Type", "application/json");
+            res.end(
+              JSON.stringify({
+                error: `Screenshot file for scene "${sceneId}" not found in out/raw or out/screenshots.`,
+              }),
+            );
+            return;
+          }
+
+          const imageBuffer = await readFile(screenshotPath);
+          const optimized = await optimizeScreenshotForAi(imageBuffer, 640);
+          imageBase64 = optimized.base64;
+          mimeType = optimized.mimeType;
+        }
 
         // Build concise, token-efficient ASO prompt
         const appName = appContext?.name ? `App: "${appContext.name}"` : "";
@@ -1556,13 +1719,15 @@ export function aiCopyHandler({ paths }: StudioApi, rateLimiter = aiRateLimiter)
           .join(" | ");
 
         const promptText = `Analyze this mobile UI screenshot as an elite App Store copywriter.
-Context: ${contextInfo}
 Target Language/Locale: ${locale}
+Reference App Context (may be fallback or generic): ${contextInfo || "None"}
 
-Rules:
-1. Headline: punchy, under 30 characters.
-2. Subhead: highlights user benefit or screen feature, under 80 characters.
-3. Return exactly 3 options in JSON:
+CRITICAL RULES:
+1. PRIMARY FOCUS: Inspect the visible UI in this screenshot first. Identify the actual app name, domain (e.g. VPN, Privacy & Security, Utility, Finance, Social, Health), features, status, buttons, and metrics shown on screen.
+2. If the screenshot clearly depicts a different app than the reference context, ALWAYS base your copy 100% on what is visually shown in the screenshot. Do NOT force copy about an unrelated app or category.
+3. Headline: punchy, compelling marketing copy under 30 characters highlighting this screen's core benefit.
+4. Subhead: clear, benefit-driven explanation under 80 characters.
+5. Return exactly 3 options in valid JSON:
 {
   "screenAnalysis": "1-sentence summary of visible UI",
   "suggestions": [
@@ -1607,7 +1772,7 @@ Rules:
                   ],
                   generationConfig: {
                     responseMimeType: "application/json",
-                    maxOutputTokens: 350,
+                    maxOutputTokens: 600,
                     temperature: 0.7,
                   },
                 }),
@@ -1878,10 +2043,12 @@ export function serveStudio(api: StudioApi, port = 4321): Promise<string> {
   const delAll = deleteAllHandler(api);
   const locales = localesHandler(api);
   const aiCopy = aiCopyHandler(api);
+  const icon = iconHandler(api);
 
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
     const path = url.pathname;
+    if (path === "/api/icon") return icon(req, res);
     if (path === "/api/design") return design(req, res);
     if (path === "/api/locales") return locales(req, res);
     if (path === "/api/ai/generate-copy") return aiCopy(req, res);

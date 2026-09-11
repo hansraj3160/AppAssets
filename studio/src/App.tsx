@@ -8,6 +8,7 @@ import {
   UploadIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AppDetailsModal } from "./components/AppDetailsModal";
 import { EmptyState } from "./components/EmptyState";
 import { Header } from "./components/Header";
 import { LocaleManagerModal } from "./components/LocaleManagerModal";
@@ -17,6 +18,7 @@ import { StoreMockupPreview } from "./components/StoreMockupPreview";
 import { Strip } from "./components/Strip";
 import { useHistory } from "./lib/useHistory";
 import {
+  type AppInfo,
   type BundledFont,
   type Design,
   type DeviceEntry,
@@ -249,6 +251,48 @@ function Loaded({
       return { ...prev, sceneBadges: next };
     });
   const [isLocaleModalOpen, setIsLocaleModalOpen] = useState(false);
+  const [isAppDetailsModalOpen, setIsAppDetailsModalOpen] = useState(false);
+
+  const [appInfo, setAppInfo] = useState<AppInfo>(() => ({
+    name: saved.appInfo?.name || manifest.app.name || "",
+    subtitle:
+      saved.appInfo?.subtitle ||
+      manifest.app.subtitle?.[locale] ||
+      manifest.app.subtitle?.["en-US"] ||
+      Object.values(manifest.app.subtitle || {})[0] ||
+      "",
+    category: saved.appInfo?.category || manifest.app.category || "",
+    developer: saved.appInfo?.developer || manifest.app.developer || "",
+    description:
+      saved.appInfo?.description ||
+      manifest.app.description?.[locale] ||
+      manifest.app.description?.["en-US"] ||
+      Object.values(manifest.app.description || {})[0] ||
+      "",
+    icon: saved.appInfo?.icon || saved.appIcon || "",
+  }));
+
+  const handleUpdateAppInfo = (newInfo: AppInfo) => {
+    setAppInfo(newInfo);
+    saveDesign({
+      background,
+      frame: frame || undefined,
+      fontFamily,
+      headlineColor: headlineColor || undefined,
+      subheadColor: subheadColor || undefined,
+      fontSizeScale: fontSizeScale !== 1 ? fontSizeScale : undefined,
+      copy: Object.keys(copy).length > 0 ? copy : undefined,
+      order: order.length > 0 ? order : undefined,
+      template: template === CUSTOM_TEMPLATE ? undefined : template,
+      layout,
+      screenOnly,
+      sceneLayouts: Object.keys(sceneLayouts).length > 0 ? sceneLayouts : undefined,
+      sceneBackgrounds: Object.keys(sceneBackgrounds).length > 0 ? sceneBackgrounds : undefined,
+      sceneBadges: Object.keys(sceneBadges).length > 0 ? sceneBadges : undefined,
+      appInfo: newInfo.name?.trim() ? newInfo : undefined,
+      appIcon: newInfo.icon || undefined,
+    }).catch((e: Error) => setSaveError(e.message));
+  };
 
   const setSceneCopy = (sceneId: string, fieldName: "headline" | "subhead", text: string) =>
     set(`copy:${sceneId}:${fieldName}`, (prev) => ({
@@ -310,6 +354,8 @@ function Loaded({
         sceneLayouts: Object.keys(sceneLayouts).length > 0 ? sceneLayouts : undefined,
         sceneBackgrounds: Object.keys(sceneBackgrounds).length > 0 ? sceneBackgrounds : undefined,
         sceneBadges: Object.keys(sceneBadges).length > 0 ? sceneBadges : undefined,
+        appInfo: appInfo.name?.trim() ? appInfo : undefined,
+        appIcon: appInfo.icon || undefined,
       }).then(
         () => setSaveError(null),
         (e: Error) => setSaveError(e.message),
@@ -331,6 +377,7 @@ function Loaded({
     sceneLayouts,
     sceneBackgrounds,
     sceneBadges,
+    appInfo,
   ]);
 
   const flushDesign = async () => {
@@ -350,6 +397,8 @@ function Loaded({
         sceneLayouts: Object.keys(sceneLayouts).length > 0 ? sceneLayouts : undefined,
         sceneBackgrounds: Object.keys(sceneBackgrounds).length > 0 ? sceneBackgrounds : undefined,
         sceneBadges: Object.keys(sceneBadges).length > 0 ? sceneBadges : undefined,
+        appInfo: appInfo.name?.trim() ? appInfo : undefined,
+        appIcon: appInfo.icon || undefined,
       });
       setSaveError(null);
     } catch (e) {
@@ -563,6 +612,8 @@ function Loaded({
         viewMode={canvasView}
         onViewModeChange={setCanvasView}
         onSaveDesign={flushDesign}
+        appInfo={appInfo}
+        onOpenAppDetails={() => setIsAppDetailsModalOpen(true)}
       />
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -678,6 +729,8 @@ function Loaded({
                   sceneLayouts={sceneLayouts}
                   sceneBackgrounds={sceneBackgrounds}
                   sceneBadges={sceneBadges}
+                  appInfo={appInfo}
+                  onOpenAppDetails={() => setIsAppDetailsModalOpen(true)}
                 />
               ) : canvasView === "promo" ? (
                 <PromoBannersStudio
@@ -705,6 +758,7 @@ function Loaded({
                   sceneLayouts={sceneLayouts}
                   sceneBackgrounds={sceneBackgrounds}
                   sceneBadges={sceneBadges}
+                  appInfo={appInfo}
                 />
               ) : (
                 <div className="w-full max-w-[1400px]">
@@ -737,6 +791,7 @@ function Loaded({
                     onSceneBackground={setSceneBackground}
                     sceneBadges={sceneBadges}
                     onSceneBadge={setSceneBadge}
+                    appInfo={appInfo}
                   />
                 </div>
               )
@@ -745,7 +800,6 @@ function Loaded({
                 icon={CameraIcon}
                 title={`No screenshots for ${deviceLabel(spec)} yet`}
                 body="Drag & drop screenshots anywhere to get started, or browse files to auto-frame:"
-                command="goldie capture && goldie manifest"
                 deviceKey={spec.key}
                 platform={platform}
                 appName={manifest.app.name}
@@ -774,6 +828,13 @@ function Loaded({
         onRefreshManifest={onRefresh}
         activeLocale={locale}
         onSelectLocale={setLocale}
+      />
+
+      <AppDetailsModal
+        isOpen={isAppDetailsModalOpen}
+        onClose={() => setIsAppDetailsModalOpen(false)}
+        appInfo={appInfo}
+        onSaveAppInfo={handleUpdateAppInfo}
       />
     </div>
   );
