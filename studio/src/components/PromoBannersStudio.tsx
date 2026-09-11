@@ -7,10 +7,12 @@ import {
   Image as ImageIcon,
   Layers,
   Loader2,
+  Palette,
   RotateCcw,
   ShieldCheck,
   Smartphone,
   Sparkles,
+  Type,
   Upload,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -26,6 +28,7 @@ import { SceneBackgroundPopover } from "./SceneBackgroundPopover";
 import { buildScreenshotEntries, type ScreenshotEntry } from "./Strip";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 
 export type BannerFormat = "google-play" | "product-hunt" | "x-twitter" | "instagram-square";
 
@@ -284,6 +287,49 @@ export function PromoBannersStudio({
 
   const activeFormat = BANNER_FORMATS.find((f) => f.key === selectedFormat) || BANNER_FORMATS[0]!;
   const activeBg = customBg || background;
+
+  // Text color mode & custom color state
+  const [textColorMode, setTextColorMode] = useState<"auto" | "light" | "dark" | "custom">("auto");
+  const [customTextColor, setCustomTextColor] = useState<string>("#0F172A");
+  const [kickerColor, setKickerColor] = useState<string>("");
+
+  // Determine if active background is light/white
+  const isLightBg = useMemo(() => {
+    if (!activeBg) return false;
+    const s = activeBg.trim().toLowerCase();
+    if (s === "#fff" || s === "#ffffff" || s === "white") return true;
+    const hexes = s.match(/#([0-9a-f]{3}|[0-9a-f]{6})\b/gi);
+    if (hexes && hexes.length > 0) {
+      let totalLum = 0;
+      for (const h of hexes) {
+        let hex = h.slice(1);
+        if (hex.length === 3) {
+          hex = hex.split("").map((c) => c + c).join("");
+        }
+        const r = parseInt(hex.slice(0, 2), 16);
+        const g = parseInt(hex.slice(2, 4), 16);
+        const b = parseInt(hex.slice(4, 6), 16);
+        totalLum += (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+      }
+      return totalLum / hexes.length > 0.58;
+    }
+    return false;
+  }, [activeBg]);
+
+  // Effective text colors based on mode and background luminance
+  const effectiveTextColor = useMemo(() => {
+    if (textColorMode === "light") return "#FFFFFF";
+    if (textColorMode === "dark") return "#0F172A";
+    if (textColorMode === "custom") return customTextColor || "#FFFFFF";
+    // "auto": light text on dark backgrounds, dark text on light backgrounds
+    return isLightBg ? "#0F172A" : "#FFFFFF";
+  }, [textColorMode, customTextColor, isLightBg]);
+
+  const isDarkText = effectiveTextColor === "#0F172A" || textColorMode === "dark" || (textColorMode === "auto" && isLightBg);
+
+  const effectiveSubtextColor = isDarkText ? "rgba(15, 23, 42, 0.72)" : "rgba(255, 255, 255, 0.8)";
+  const effectiveBulletColor = isDarkText ? "#1E293B" : "rgba(255, 255, 255, 0.95)";
+  const effectiveKickerColor = kickerColor || (isDarkText ? "#0284C7" : "#38BDF8");
 
   // Deduplicated list of scenes for sidebar selection
   const sceneItems = useMemo(() => {
@@ -555,16 +601,16 @@ export function PromoBannersStudio({
       }
       ctx.restore();
 
-      ctx.fillStyle = "#38BDF8";
+      ctx.fillStyle = effectiveKickerColor;
       ctx.font = `bold ${Math.round(height * 0.025)}px sans-serif`;
       ctx.textAlign = "center";
       ctx.fillText(kickerText.toUpperCase(), width / 2, iconY + iconSize + height * 0.04);
 
-      ctx.fillStyle = "#FFFFFF";
+      ctx.fillStyle = effectiveTextColor;
       ctx.font = `bold ${Math.round(height * 0.05)}px sans-serif`;
       ctx.fillText(customHeadline, width / 2, iconY + iconSize + height * 0.1);
 
-      ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+      ctx.fillStyle = effectiveSubtextColor;
       ctx.font = `500 ${Math.round(height * 0.028)}px sans-serif`;
       ctx.fillText(customTagline, width / 2, iconY + iconSize + height * 0.15);
 
@@ -620,24 +666,24 @@ export function PromoBannersStudio({
       }
       ctx.restore();
 
-      ctx.fillStyle = "#FFFFFF";
+      ctx.fillStyle = effectiveTextColor;
       ctx.font = `bold ${Math.round(height * 0.056)}px sans-serif`;
       ctx.textAlign = "left";
       ctx.textBaseline = "middle";
       ctx.fillText(customTitle, iconX + iconSize + height * 0.025, iconY + iconSize / 2);
 
       const kickerY = iconY + iconSize + height * 0.045;
-      ctx.fillStyle = "#38BDF8";
+      ctx.fillStyle = effectiveKickerColor;
       ctx.font = `bold ${Math.round(height * 0.025)}px sans-serif`;
       ctx.fillText(kickerText.toUpperCase(), iconX, kickerY);
 
       const headY = kickerY + height * 0.06;
-      ctx.fillStyle = "#FFFFFF";
+      ctx.fillStyle = effectiveTextColor;
       ctx.font = `bold ${Math.round(height * 0.068)}px sans-serif`;
       ctx.fillText(customHeadline, iconX, headY);
 
       const tagY = headY + height * 0.07;
-      ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+      ctx.fillStyle = effectiveSubtextColor;
       ctx.font = `500 ${Math.round(height * 0.032)}px sans-serif`;
       ctx.fillText(customTagline, iconX, tagY);
 
@@ -649,7 +695,7 @@ export function PromoBannersStudio({
         ctx.arc(iconX + 6, benY - 4, 4, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.fillStyle = "rgba(255, 255, 255, 0.88)";
+        ctx.fillStyle = effectiveBulletColor;
         ctx.font = `bold ${Math.round(height * 0.027)}px sans-serif`;
         ctx.fillText(b.text, iconX + 18, benY);
         benY += height * 0.055;
@@ -993,6 +1039,165 @@ export function PromoBannersStudio({
         {/* Banner Preview Canvas Area */}
         <div className="flex flex-1 items-center justify-center p-6 sm:p-10 overflow-auto bg-neutral-950/20 dark:bg-black/40">
           <div className="flex flex-col items-center gap-4 max-w-full">
+            {/* Quick Edit Toolbar Directly Above Banner Card */}
+            <div className="w-full max-w-[960px] flex flex-wrap items-center justify-between gap-2 px-1 select-none">
+              {/* Left: Quick Label & Format Info */}
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold tracking-wide uppercase text-muted-foreground flex items-center gap-1.5">
+                  <Sparkles className="size-3.5 text-amber-500" />
+                  <span>Quick Edit</span>
+                </span>
+                <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-md bg-muted/80 text-muted-foreground border border-border/50">
+                  {activeFormat.shortLabel} · {activeFormat.width}×{activeFormat.height}
+                </span>
+              </div>
+
+              {/* Right: Quick Controls (Text Color Mode, Kicker Color, Background) */}
+              <div className="flex items-center gap-1.5 bg-background/90 backdrop-blur-md p-1 rounded-xl border border-border/70 shadow-xs">
+                {/* Text Color Segmented Control */}
+                <div className="flex items-center gap-0.5 bg-muted/60 p-0.5 rounded-lg border border-border/40">
+                  <span className="text-[10px] font-semibold text-muted-foreground px-1.5 flex items-center gap-1">
+                    <Type className="size-3 text-primary" />
+                    <span>Text:</span>
+                  </span>
+
+                  {/* Auto button */}
+                  <button
+                    type="button"
+                    onClick={() => setTextColorMode("auto")}
+                    title="Smart Auto-Contrast: Automatically switches text color based on background luminance"
+                    className={`px-2 py-0.5 text-[10px] font-bold rounded-md cursor-pointer transition-all ${
+                      textColorMode === "auto"
+                        ? "bg-primary text-primary-foreground shadow-xs"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Auto {isLightBg ? "(Dark)" : "(Light)"}
+                  </button>
+
+                  {/* Dark text button */}
+                  <button
+                    type="button"
+                    onClick={() => setTextColorMode("dark")}
+                    title="Dark Text: High contrast for white/light card backgrounds"
+                    className={`px-2 py-0.5 text-[10px] font-bold rounded-md cursor-pointer flex items-center gap-1 transition-all ${
+                      textColorMode === "dark"
+                        ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 shadow-xs ring-1 ring-primary"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <span className="size-2 rounded-full bg-neutral-950 border border-white/50" />
+                    <span>Dark</span>
+                  </button>
+
+                  {/* Light text button */}
+                  <button
+                    type="button"
+                    onClick={() => setTextColorMode("light")}
+                    title="Light Text: High contrast for dark/colorful backgrounds"
+                    className={`px-2 py-0.5 text-[10px] font-bold rounded-md cursor-pointer flex items-center gap-1 transition-all ${
+                      textColorMode === "light"
+                        ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 shadow-xs ring-1 ring-primary"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <span className="size-2 rounded-full bg-white border border-neutral-400" />
+                    <span>Light</span>
+                  </button>
+
+                  {/* Custom Text Color Picker Popover */}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        title="Pick Custom Text Color"
+                        className={`px-1.5 py-0.5 text-[10px] font-bold rounded-md cursor-pointer flex items-center gap-1 transition-all ${
+                          textColorMode === "custom"
+                            ? "bg-primary text-primary-foreground shadow-xs"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        <span
+                          className="size-2.5 rounded-full border border-border/80"
+                          style={{ backgroundColor: customTextColor }}
+                        />
+                        <Palette className="size-3" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-64 p-3 space-y-2.5" side="bottom" align="end">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-foreground">Custom Text Color</span>
+                        <span className="text-[10px] font-mono text-muted-foreground">{customTextColor}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={customTextColor.startsWith("#") ? customTextColor : "#0F172A"}
+                          onChange={(e) => {
+                            setCustomTextColor(e.target.value);
+                            setTextColorMode("custom");
+                          }}
+                          className="size-8 rounded cursor-pointer border border-border/80 bg-transparent p-0.5 shrink-0"
+                        />
+                        <Input
+                          type="text"
+                          value={customTextColor}
+                          onChange={(e) => {
+                            setCustomTextColor(e.target.value);
+                            setTextColorMode("custom");
+                          }}
+                          className="h-8 flex-1 text-xs font-mono uppercase"
+                          placeholder="#0F172A"
+                        />
+                      </div>
+                      <div className="text-[10px] font-medium text-muted-foreground pt-0.5">Quick Swatches</div>
+                      <div className="grid grid-cols-6 gap-1.5">
+                        {["#0F172A", "#1E293B", "#334155", "#FFFFFF", "#F8FAFC", "#2563EB", "#059669", "#7C3AED", "#DC2626", "#EA580C", "#D97706", "#0284C7"].map((c) => (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => {
+                              setCustomTextColor(c);
+                              setTextColorMode("custom");
+                            }}
+                            className={`size-6 rounded-md border border-border/60 cursor-pointer transition-transform hover:scale-110 ${
+                              customTextColor === c ? "ring-2 ring-primary ring-offset-1" : ""
+                            }`}
+                            style={{ backgroundColor: c }}
+                          />
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                {/* Quick Background Picker */}
+                <SceneBackgroundPopover
+                  value={customBg}
+                  globalBackground={background}
+                  onChange={setCustomBg}
+                  side="bottom"
+                  align="end"
+                  sceneName="Banner Card"
+                  trigger={
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 gap-1.5 rounded-lg text-[10px] font-medium border-border/70 cursor-pointer"
+                      title="Change Card Background"
+                    >
+                      <span
+                        className="size-3 rounded-full border border-white/20 shrink-0 shadow-2xs"
+                        style={{ background: activeBg }}
+                      />
+                      <span>Card BG</span>
+                    </Button>
+                  }
+                />
+              </div>
+            </div>
+
             {/* Banner Canvas Frame */}
             <div
               className="relative w-full max-w-[960px] rounded-2xl overflow-hidden shadow-2xl border border-white/15 transition-all select-none @container"
@@ -1006,32 +1211,34 @@ export function PromoBannersStudio({
               <div
                 className="absolute inset-0 pointer-events-none"
                 style={{
-                  background:
-                    "radial-gradient(circle at 35% 35%, rgba(255,255,255,0.18) 0%, rgba(0,0,0,0.3) 100%)",
+                  background: isLightBg
+                    ? "radial-gradient(circle at 35% 35%, rgba(0,0,0,0.02) 0%, rgba(0,0,0,0.06) 100%)"
+                    : "radial-gradient(circle at 35% 35%, rgba(255,255,255,0.18) 0%, rgba(0,0,0,0.3) 100%)",
                 }}
               />
 
               {/* Organic Background Wave Curves */}
               <svg
                 aria-hidden="true"
-                className="absolute inset-0 w-full h-full pointer-events-none opacity-25"
+                className="absolute inset-0 w-full h-full pointer-events-none"
+                style={{ opacity: isLightBg ? 0.08 : 0.25 }}
                 viewBox="0 0 1024 500"
                 fill="none"
                 preserveAspectRatio="none"
               >
                 <path
                   d="M320,0 C530,140 490,360 900,500 L1024,500 L1024,0 Z"
-                  fill="white"
+                  fill={isLightBg ? "#000000" : "white"}
                   fillOpacity="0.12"
-                  stroke="white"
+                  stroke={isLightBg ? "#000000" : "white"}
                   strokeWidth="2"
                   strokeOpacity="0.3"
                 />
                 <path
                   d="M470,0 C690,110 590,410 1024,340 L1024,0 Z"
-                  fill="white"
+                  fill={isLightBg ? "#000000" : "white"}
                   fillOpacity="0.08"
-                  stroke="white"
+                  stroke={isLightBg ? "#000000" : "white"}
                   strokeWidth="1.5"
                   strokeOpacity="0.25"
                 />
@@ -1092,15 +1299,27 @@ export function PromoBannersStudio({
                       )}
                     </div>
 
-                    <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-sky-400 drop-shadow-xs">
+                    <span
+                      className="text-[10px] sm:text-xs font-bold uppercase tracking-widest"
+                      style={{ color: effectiveKickerColor }}
+                    >
                       {kickerText || "FEATURED APP"}
                     </span>
 
-                    <h2 className="text-lg sm:text-2xl font-extrabold tracking-tight text-white drop-shadow-md">
+                    <h2
+                      className="text-lg sm:text-2xl font-extrabold tracking-tight"
+                      style={{
+                        color: effectiveTextColor,
+                        textShadow: isDarkText ? "none" : "0 2px 4px rgba(0,0,0,0.35)",
+                      }}
+                    >
                       {customHeadline}
                     </h2>
 
-                    <p className="max-w-md text-xs sm:text-sm font-medium text-white/80 drop-shadow-xs">
+                    <p
+                      className="max-w-md text-xs sm:text-sm font-medium"
+                      style={{ color: effectiveSubtextColor }}
+                    >
                       {customTagline}
                     </p>
                   </div>
@@ -1154,11 +1373,13 @@ export function PromoBannersStudio({
                         )}
                       </div>
                       <span
-                        className="font-black text-white tracking-tight drop-shadow-sm whitespace-nowrap overflow-hidden"
+                        className="font-black tracking-tight whitespace-nowrap overflow-hidden"
                         style={{
                           fontSize: "5.4cqh",
                           maxWidth: "32cqw",
                           textOverflow: "ellipsis",
+                          color: effectiveTextColor,
+                          textShadow: isDarkText ? "none" : "0 1px 3px rgba(0,0,0,0.3)",
                         }}
                       >
                         {customTitle}
@@ -1168,10 +1389,11 @@ export function PromoBannersStudio({
                     {/* 2. Kicker / Category Eyebrow */}
                     <div style={{ marginTop: "0.2cqh" }}>
                       <span
-                        className="font-extrabold uppercase text-sky-300 drop-shadow-xs"
+                        className="font-extrabold uppercase"
                         style={{
                           fontSize: "2.4cqh",
                           letterSpacing: "0.14em",
+                          color: effectiveKickerColor,
                         }}
                       >
                         {kickerText || "FEATURED APP"}
@@ -1180,10 +1402,12 @@ export function PromoBannersStudio({
 
                     {/* 3. Main Marketing Headline */}
                     <h2
-                      className="font-black tracking-tight text-white drop-shadow-md line-clamp-2"
+                      className="font-black tracking-tight line-clamp-2"
                       style={{
                         fontSize: deviceCount === "trio" ? "6.8cqh" : "7.5cqh",
                         lineHeight: 1.15,
+                        color: effectiveTextColor,
+                        textShadow: isDarkText ? "none" : "0 2px 4px rgba(0,0,0,0.35)",
                       }}
                     >
                       {customHeadline}
@@ -1191,10 +1415,11 @@ export function PromoBannersStudio({
 
                     {/* 4. Subtitle / Tagline */}
                     <p
-                      className="font-medium text-white/80 drop-shadow-xs line-clamp-2"
+                      className="font-medium line-clamp-2"
                       style={{
                         fontSize: "3.2cqh",
                         lineHeight: 1.32,
+                        color: effectiveSubtextColor,
                       }}
                     >
                       {customTagline}
@@ -1212,11 +1437,11 @@ export function PromoBannersStudio({
                         {benefits.slice(0, 3).map((b) => (
                           <div
                             key={b.id}
-                            className="flex items-center text-white/95"
-                            style={{ gap: "1.8cqw" }}
+                            className="flex items-center"
+                            style={{ gap: "1.8cqw", color: effectiveBulletColor }}
                           >
                             <div
-                              className="rounded-full bg-emerald-400 shrink-0 shadow-xs"
+                              className="rounded-full bg-emerald-500 shrink-0 shadow-xs"
                               style={{ width: "1.3cqh", height: "1.3cqh" }}
                             />
                             <span className="font-semibold truncate" style={{ fontSize: "2.7cqh" }}>
@@ -1754,7 +1979,121 @@ export function PromoBannersStudio({
             </div>
           </div>
 
-          {/* 5. Background Customizer */}
+          {/* 5. Typography & Text Colors */}
+          <div className="flex flex-col gap-2 pt-2 border-t border-border/60">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                <Type className="size-3.5 text-primary" />
+                <span>Text Contrast & Color</span>
+              </span>
+              {textColorMode !== "auto" || kickerColor ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTextColorMode("auto");
+                    setKickerColor("");
+                  }}
+                  className="text-[10px] text-primary hover:underline cursor-pointer flex items-center gap-1"
+                >
+                  <RotateCcw className="size-2.5" />
+                  <span>Reset to Auto</span>
+                </button>
+              ) : null}
+            </div>
+
+            {/* Mode selection buttons */}
+            <div className="grid grid-cols-4 gap-1 bg-muted/60 p-1 rounded-xl border border-border/60">
+              <button
+                type="button"
+                onClick={() => setTextColorMode("auto")}
+                className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
+                  textColorMode === "auto"
+                    ? "bg-background text-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                title="Auto Contrast based on background"
+              >
+                Auto
+              </button>
+              <button
+                type="button"
+                onClick={() => setTextColorMode("dark")}
+                className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                  textColorMode === "dark"
+                    ? "bg-background text-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                title="Dark text (#0F172A)"
+              >
+                <span className="size-2 rounded-full bg-neutral-950 border border-white/50" />
+                <span>Dark</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setTextColorMode("light")}
+                className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                  textColorMode === "light"
+                    ? "bg-background text-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                title="Light text (#FFFFFF)"
+              >
+                <span className="size-2 rounded-full bg-white border border-neutral-400" />
+                <span>Light</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setTextColorMode("custom")}
+                className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                  textColorMode === "custom"
+                    ? "bg-background text-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                title="Custom color"
+              >
+                <Palette className="size-2.5" />
+                <span>Custom</span>
+              </button>
+            </div>
+
+            {textColorMode === "custom" ? (
+              <div className="flex items-center gap-2 p-1.5 rounded-lg bg-background/80 border border-border/60">
+                <input
+                  type="color"
+                  value={customTextColor.startsWith("#") ? customTextColor : "#0F172A"}
+                  onChange={(e) => setCustomTextColor(e.target.value)}
+                  className="size-7 rounded cursor-pointer border border-border/80 bg-transparent p-0.5 shrink-0"
+                />
+                <Input
+                  type="text"
+                  value={customTextColor}
+                  onChange={(e) => setCustomTextColor(e.target.value)}
+                  className="h-7 text-xs font-mono uppercase flex-1"
+                  placeholder="#0F172A"
+                />
+              </div>
+            ) : null}
+
+            {/* Category / Kicker Accent Color */}
+            <div className="flex items-center justify-between pt-1">
+              <span className="text-[11px] font-medium text-muted-foreground">Kicker Tag Accent</span>
+              <div className="flex items-center gap-1">
+                {["#38BDF8", "#0284C7", "#10B981", "#8B5CF6", "#F59E0B", "#EF4444"].map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setKickerColor(c)}
+                    className={`size-4 rounded-full border border-border/60 cursor-pointer transition-transform hover:scale-125 ${
+                      effectiveKickerColor === c ? "ring-2 ring-primary ring-offset-1 scale-110" : ""
+                    }`}
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* 6. Background Customizer */}
           <div className="flex flex-col gap-2 pt-2 border-t border-border/60">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-foreground">Background Style</span>
