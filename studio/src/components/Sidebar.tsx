@@ -17,6 +17,7 @@ import type { BadgeData } from "./BadgePickerPopover";
 import { DesignPanel } from "./DesignPanel";
 
 import { SidebarSection } from "./SidebarSection";
+import { AdBanner } from "./AdBanner";
 
 /**
  * The device-type rows, in display order.
@@ -234,6 +235,7 @@ export function Sidebar({
           sceneBackgrounds={sceneBackgrounds}
           onSceneBackground={onSceneBackground}
         />
+        <AdBanner variant="sidebar" />
       </div>
     </aside>
   );

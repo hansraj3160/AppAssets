@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { Sparkles, X, Loader2, Mail, Lock, CheckCircle2 } from "lucide-react";
+import { sendPasswordResetEmail } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,9 +15,28 @@ export function AuthModal() {
   const [password, setPassword] = useState("");
   const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [loadingEmail, setLoadingEmail] = useState(false);
+  const [loadingReset, setLoadingReset] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (!isAuthModalOpen) return null;
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setError("Please enter your email above to receive a password reset link.");
+      return;
+    }
+    setError(null);
+    setLoadingReset(true);
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setResetSent(true);
+    } catch (err: any) {
+      setError(err?.message || "Failed to send password reset email.");
+    } finally {
+      setLoadingReset(false);
+    }
+  };
 
   const handleGoogle = async () => {
     setError(null);
@@ -79,8 +100,8 @@ export function AuthModal() {
 
         {/* Header Icon & Title */}
         <div className="flex flex-col items-center text-center mb-6">
-          <div className="size-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-md flex items-center justify-center text-white mb-3">
-            <Sparkles className="size-6 text-white" />
+          <div className="size-12 rounded-2xl bg-blue-500/10 text-[#007aff] border border-blue-500/20 shadow-xs flex items-center justify-center mb-3">
+            <Sparkles className="size-6" />
           </div>
           <h2 className="text-xl font-bold text-foreground">
             {mode === "signin" ? "Sign in to AppAssets" : "Create your account"}
@@ -177,7 +198,25 @@ export function AuthModal() {
                 required
               />
             </div>
+            {mode === "signin" ? (
+              <div className="flex justify-end pt-0.5">
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  disabled={loadingReset}
+                  className="text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:underline cursor-pointer disabled:opacity-50"
+                >
+                  {loadingReset ? "Sending reset link..." : "Forgot password?"}
+                </button>
+              </div>
+            ) : null}
           </div>
+
+          {resetSent ? (
+            <div className="text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 p-2.5 rounded-lg text-center font-medium">
+              Password reset link sent to <strong>{email}</strong>. Please check your inbox.
+            </div>
+          ) : null}
 
           {error ? (
             <div className="text-xs text-red-500 dark:text-red-400 bg-red-500/10 border border-red-500/20 p-2 rounded-lg text-center">
@@ -188,7 +227,7 @@ export function AuthModal() {
           <Button
             type="submit"
             disabled={loadingGoogle || loadingEmail}
-            className="w-full h-9.5 text-sm font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-xs cursor-pointer"
+            className="w-full h-9.5 text-sm font-semibold rounded-xl bg-[#007aff] hover:bg-[#006ee6] active:bg-[#0062cc] text-white shadow-xs cursor-pointer transition-colors"
           >
             {loadingEmail ? (
               <Loader2 className="size-4 animate-spin" />

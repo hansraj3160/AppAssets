@@ -33,6 +33,7 @@ declare module "firebase/auth" {
   export function signInWithEmailAndPassword(auth: Auth, email: string, pass: string): Promise<any>;
   export function createUserWithEmailAndPassword(auth: Auth, email: string, pass: string): Promise<any>;
   export function signOut(auth: Auth): Promise<void>;
+  export function sendPasswordResetEmail(auth: Auth, email: string): Promise<void>;
 }
 
 declare module "firebase/firestore" {

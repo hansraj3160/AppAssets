@@ -209,7 +209,10 @@ export function AiCopyModal({
     onApplyCopy(sceneId, "headline", suggestion.headline);
     onApplyCopy(sceneId, "subhead", suggestion.subhead);
     setAppliedIndex(index);
-    setTimeout(() => setAppliedIndex(null), 2000);
+    setTimeout(() => {
+      onClose();
+      setAppliedIndex(null);
+    }, 250);
   };
 
   const handleApplyHeadlineOnly = (headline: string) => {
@@ -239,7 +242,7 @@ export function AiCopyModal({
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-4 bg-muted/30">
           <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 text-white shadow-md">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-blue-500/10 text-[#007aff] border border-blue-500/20 shadow-xs">
               <Sparkles className="size-5" />
             </div>
             <div>
@@ -348,7 +351,7 @@ export function AiCopyModal({
                   (!isPro && aiCreditsRemaining <= 0)
                 }
                 onClick={() => fetchAiSuggestions()}
-                className="gap-1.5 cursor-pointer bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:opacity-90 shadow-sm disabled:opacity-50"
+                className="gap-1.5 cursor-pointer bg-[#007aff] hover:bg-[#006ee6] active:bg-[#0062cc] text-white shadow-xs disabled:opacity-50 font-medium"
               >
                 {loading ? (
                   <Loader2 className="size-3.5 animate-spin" />
@@ -408,32 +411,32 @@ export function AiCopyModal({
         <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-4">
           {!user ? (
             <div className="flex flex-col items-center justify-center my-auto py-10 px-4 text-center max-w-md mx-auto animate-in fade-in">
-              <div className="relative flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 text-white shadow-xl shadow-purple-500/25 mb-4">
-                <Sparkles className="size-8" />
+              <div className="relative flex size-14 items-center justify-center rounded-2xl bg-blue-500/10 text-[#007aff] border border-blue-500/20 shadow-sm mb-4">
+                <Sparkles className="size-7" />
               </div>
               <h3 className="text-xl font-bold tracking-tight text-foreground">
                 Sign In to Unlock AI Copywriter
               </h3>
               <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
-                Gemini Vision analyzes your uploaded app screenshots to generate high-converting App Store & Google Play headlines matching your exact UI layout.
+                Analyze your uploaded app screenshots to generate high-converting App Store & Google Play headlines matching your exact UI layout.
               </p>
 
               <div className="mt-6 w-full rounded-xl border border-border/80 bg-muted/40 p-3.5 text-left text-xs space-y-2.5">
                 <div className="flex items-center gap-2.5 text-foreground font-semibold">
-                  <div className="size-6 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-                    <Sparkles className="size-3.5 fill-amber-500" />
+                  <div className="size-6 rounded-md bg-muted border border-border/60 flex items-center justify-center shrink-0">
+                    <Sparkles className="size-3.5" />
                   </div>
                   <span>10 Free AI Copy Generations on Sign Up</span>
                 </div>
                 <div className="flex items-center gap-2.5 text-muted-foreground">
-                  <div className="size-6 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                    <Check className="size-3.5" />
+                  <div className="size-6 rounded-md bg-muted border border-border/60 flex items-center justify-center shrink-0">
+                    <Check className="size-3.5 text-foreground" />
                   </div>
                   <span>Automatic screenshot visual element detection</span>
                 </div>
                 <div className="flex items-center gap-2.5 text-muted-foreground">
-                  <div className="size-6 rounded-md bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
-                    <Check className="size-3.5" />
+                  <div className="size-6 rounded-md bg-muted border border-border/60 flex items-center justify-center shrink-0">
+                    <Check className="size-3.5 text-foreground" />
                   </div>
                   <span>4 conversion-tested tones & character limits</span>
                 </div>
@@ -442,13 +445,13 @@ export function AiCopyModal({
               <Button
                 onClick={openAuthModal}
                 size="lg"
-                className="mt-6 w-full gap-2 bg-gradient-to-r from-indigo-500 via-purple-600 to-pink-500 font-semibold text-white shadow-lg shadow-purple-500/20 hover:opacity-95 cursor-pointer text-sm"
+                className="mt-6 w-full gap-2 bg-[#007aff] hover:bg-[#006ee6] active:bg-[#0062cc] text-white font-semibold shadow-xs cursor-pointer text-sm h-11 rounded-xl transition-colors"
               >
                 <Sparkles className="size-4" />
                 Sign In to Get 10 Free Credits
               </Button>
               <p className="mt-3 text-[11px] text-muted-foreground">
-                Free forever • Google or Email login • Instant access
+                Free forever • Instant access • No credit card required
               </p>
             </div>
           ) : (

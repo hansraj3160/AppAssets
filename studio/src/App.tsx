@@ -20,6 +20,8 @@ import { Strip } from "./components/Strip";
 import { useHistory } from "./lib/useHistory";
 import { AuthProvider } from "./context/AuthContext";
 import { AuthModal } from "./components/AuthModal";
+import { UpgradeModal } from "./components/UpgradeModal";
+import { AdBanner } from "./components/AdBanner";
 import {
   type AppInfo,
   type BundledFont,
@@ -101,6 +103,7 @@ export function App() {
     <AuthProvider>
       <Loaded manifest={loaded.manifest} saved={loaded.design} onRefresh={refresh} />
       <AuthModal />
+      <UpgradeModal />
     </AuthProvider>
   );
 }
@@ -818,6 +821,11 @@ function Loaded({
               />
             )}
           </main>
+
+          {/* Bottom Docked Ad Banner (Hidden for Pro subscribers) */}
+          <div className="shrink-0 px-4 pb-2">
+            <AdBanner variant="banner" />
+          </div>
         </div>
       </div>
 

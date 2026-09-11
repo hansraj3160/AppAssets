@@ -30,6 +30,7 @@ import { buildScreenshotEntries, type ScreenshotEntry } from "./Strip";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { AdBanner } from "./AdBanner";
 
 export type BannerFormat = "google-play" | "product-hunt" | "x-twitter" | "instagram-square";
 
@@ -2810,6 +2811,11 @@ export function PromoBannersStudio({
               </span>
             </div>
             <p className="text-[11px] leading-relaxed">{activeFormat.description}</p>
+          </div>
+
+          {/* Ad Banner for Free & Guest users */}
+          <div className="pt-2">
+            <AdBanner variant="sidebar" />
           </div>
         </div>
       </div>

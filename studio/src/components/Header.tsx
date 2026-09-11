@@ -59,7 +59,8 @@ export function Header({
   appInfo?: AppInfo;
   onOpenAppDetails?: () => void;
 }) {
-  const { user, isPro, aiCreditsRemaining, signOutUser, openAuthModal } = useAuth();
+  const { user, isPro, aiCreditsRemaining, signOutUser, openAuthModal, openUpgradeModal } =
+    useAuth();
   const [clearing, setClearing] = useState(false);
 
   // Export pipeline state
@@ -520,23 +521,44 @@ export function Header({
           <div className="flex items-center gap-2 pl-1.5 border-l border-border/60">
             {/* AI Credits Badge */}
             <div
-              className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 text-blue-700 dark:text-blue-300 text-xs font-medium"
+              className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium ${
+                isPro
+                  ? "bg-purple-50 dark:bg-purple-950/40 border-purple-200 dark:border-purple-900/50 text-purple-700 dark:text-purple-300"
+                  : "bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 text-blue-700 dark:text-blue-300"
+              }`}
               title={
                 isPro
-                  ? "Unlimited AI Copy Generations"
+                  ? "Pro Plan: 100% Ad-Free & Unlimited AI Copy Generations"
                   : `${aiCreditsRemaining} Free AI Generations remaining`
               }
             >
-              <Sparkles className="size-3 text-blue-500" />
-              <span>{isPro ? "Pro" : `${aiCreditsRemaining} AI credits`}</span>
+              <Sparkles className="size-3 text-amber-500 fill-amber-500" />
+              <span>{isPro ? "PRO • Ad-Free" : `${aiCreditsRemaining} AI credits`}</span>
             </div>
+
+            {/* Go Pro CTA button for free users */}
+            {!isPro && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={openUpgradeModal}
+                className="hidden lg:flex h-8 px-2.5 gap-1.5 text-xs font-semibold rounded-lg bg-[#007aff] hover:bg-[#006ee6] active:bg-[#0062cc] text-white shadow-2xs cursor-pointer"
+              >
+                <Sparkles className="size-3 fill-current" />
+                <span>Go Pro</span>
+              </Button>
+            )}
 
             {/* User Dropdown / Avatar */}
             <Popover>
               <PopoverTrigger asChild>
                 <button
                   type="button"
-                  className="size-8 rounded-full border border-border/80 bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-bold text-xs flex items-center justify-center cursor-pointer shadow-2xs hover:ring-2 hover:ring-blue-500/30 transition-all overflow-hidden shrink-0"
+                  className={`size-8 rounded-full border font-bold text-xs flex items-center justify-center cursor-pointer shadow-2xs hover:ring-2 hover:ring-foreground/20 transition-all overflow-hidden shrink-0 ${
+                    isPro
+                      ? "border-emerald-500 bg-emerald-600 text-white"
+                      : "border-blue-200 dark:border-blue-900/50 bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400"
+                  }`}
                   title={user.displayName || user.email || "Account"}
                 >
                   {user.photoURL ? (
@@ -564,14 +586,25 @@ export function Header({
                   <div className="rounded-lg bg-muted/60 p-2 border border-border/40 text-xs flex items-center justify-between">
                     <span className="text-muted-foreground flex items-center gap-1">
                       <Sparkles className="size-3 text-blue-500" />
-                      AI Credits
+                      Plan Status
                     </span>
                     <span className="font-semibold text-foreground">
-                      {isPro ? "Unlimited" : `${aiCreditsRemaining} left`}
+                      {isPro ? "Pro (Ad-Free)" : "Free (Ads)"}
                     </span>
                   </div>
 
-                  <div className="border-t border-border/60 pt-2 flex flex-col gap-1">
+                  <div className="border-t border-border/60 pt-2 flex flex-col gap-1.5">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={openUpgradeModal}
+                      className="w-full justify-start text-xs font-semibold text-primary hover:bg-primary/10 cursor-pointer h-8 px-2 gap-1.5"
+                    >
+                      <Sparkles className="size-3.5 text-amber-500 fill-amber-500" />
+                      <span>{isPro ? "Manage Pro Plan" : "Upgrade to Pro"}</span>
+                    </Button>
+
                     <Button
                       type="button"
                       variant="ghost"

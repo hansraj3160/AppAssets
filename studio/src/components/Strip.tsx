@@ -1916,7 +1916,7 @@ function Tile({
             e.stopPropagation();
             onAiCopy();
           }}
-          className="absolute bottom-2 left-2 z-30 flex items-center gap-1 rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 px-2.5 py-1 text-[10px] font-bold text-white shadow-md backdrop-blur-md transition-all opacity-0 group-hover:opacity-100 hover:scale-105 active:scale-95 cursor-pointer"
+          className="absolute bottom-2 left-2 z-30 flex items-center gap-1.5 rounded-full bg-[#007aff] text-white hover:bg-[#006ee6] active:bg-[#0062cc] border border-white/20 px-2.5 py-1 text-[10px] font-semibold shadow-md backdrop-blur-md transition-all opacity-0 group-hover:opacity-100 hover:scale-105 active:scale-95 cursor-pointer"
           aria-label={sceneId ? `AI Copy for ${sceneId}` : "AI Copy"}
           title={sceneId ? `AI Copy Assistant for "${sceneId}"` : "AI Copy Assistant"}
         >

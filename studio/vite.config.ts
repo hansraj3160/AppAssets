@@ -45,7 +45,7 @@ const PATHS = studioPaths(CONFIG);
 export default defineConfig(({ command }) => ({
   plugins: [react(), tailwindcss(), goldieApi()],
   resolve: { alias: { "@": SRC_DIR } },
-  publicDir: command === "build" ? false : PATHS.webDir,
+  publicDir: command === "build" ? resolve(import.meta.dirname, "public") : PATHS.webDir,
   server: { port: 4321, open: true, fs: { allow: [GOLDIE_ROOT, PATHS.outDir] } },
 }));
 

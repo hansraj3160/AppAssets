@@ -38,6 +38,10 @@ interface AuthContextValue {
   isAuthModalOpen: boolean;
   openAuthModal: () => void;
   closeAuthModal: () => void;
+  isUpgradeModalOpen: boolean;
+  openUpgradeModal: () => void;
+  closeUpgradeModal: () => void;
+  toggleProPlan: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -47,6 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
 
   useEffect(() => {
     let unsubscribeProfile: (() => void) | null = null;
@@ -161,6 +166,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const toggleProPlan = async () => {
+    if (!user) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+    const newIsPro = !isPro;
+    const newPlan = newIsPro ? "pro_monthly" : "free";
+
+    // Optimistic local update
+    setProfile((prev) =>
+      prev ? { ...prev, isPro: newIsPro, plan: newPlan } : null
+    );
+
+    try {
+      const userRef = doc(db, "users", user.uid);
+      await updateDoc(userRef, {
+        isPro: newIsPro,
+        plan: newPlan,
+      });
+    } catch (err) {
+      console.error("Failed to update user pro plan in Firestore:", err);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -177,6 +206,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthModalOpen,
         openAuthModal: () => setIsAuthModalOpen(true),
         closeAuthModal: () => setIsAuthModalOpen(false),
+        isUpgradeModalOpen,
+        openUpgradeModal: () => setIsUpgradeModalOpen(true),
+        closeUpgradeModal: () => setIsUpgradeModalOpen(false),
+        toggleProPlan,
       }}
     >
       {children}
