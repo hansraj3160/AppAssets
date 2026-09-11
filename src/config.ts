@@ -388,7 +388,8 @@ export function applyDesign(cfg: LoadedConfig, design: DesignOverrides): void {
   if (design.headlineColor) cfg.theme.headlineColor = design.headlineColor;
   if (design.subheadColor) cfg.theme.subheadColor = design.subheadColor;
   if (design.frame) {
-    cfg.frame = { variant: design.frame };
+    const cleanVariant = (typeof design.frame === "string" ? design.frame.replace(/^\/?frames\//, "").replace(/\.png$/, "") : design.frame) as FrameVariant;
+    cfg.frame = { variant: cleanVariant };
     framePath(cfg); // throws on an unknown variant
   }
   if (design.fontFamily) cfg.theme.fontFamily = design.fontFamily;

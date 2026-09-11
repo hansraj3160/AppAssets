@@ -213,7 +213,7 @@ describe("importHandler", () => {
       set statusCode(code: number) {
         statusCode = code;
       },
-      setHeader: () => {},
+      setHeader: () => { },
       end(body: string) {
         endedWith = body;
       },
@@ -293,7 +293,7 @@ describe("locales helpers and handler", () => {
       set statusCode(code: number) {
         statusCode = code;
       },
-      end() {},
+      end() { },
     } as any;
 
     handler(req, res);
@@ -475,7 +475,7 @@ describe("aiCopyHandler", () => {
       set statusCode(code: number) {
         statusCode = code;
       },
-      setHeader: () => {},
+      setHeader: () => { },
       end(body: string) {
         endedWith = body;
       },
@@ -520,7 +520,7 @@ describe("aiCopyHandler", () => {
       set statusCode(code: number) {
         statusCode = code;
       },
-      setHeader: () => {},
+      setHeader: () => { },
       end(body: string) {
         endedWith = body;
       },
@@ -568,7 +568,7 @@ describe("aiCopyHandler", () => {
       set statusCode(code: number) {
         statusCode = code;
       },
-      setHeader: () => {},
+      setHeader: () => { },
       end(body: string) {
         endedWith = body;
       },
@@ -844,11 +844,11 @@ describe("exportHandler", () => {
       },
     } as any;
     const res = {
-      writeHead: () => {},
+      writeHead: () => { },
       write: (chunk: string) => {
         output += chunk;
       },
-      end: () => {},
+      end: () => { },
     } as any;
 
     handler("")(req, res);
@@ -903,7 +903,7 @@ describe("iconHandler", () => {
       let responseBody = "";
       const req = { method: "GET" } as any;
       const res = {
-        writeHead: () => {},
+        writeHead: () => { },
         end: (body: string) => {
           responseBody = body;
         },
@@ -928,7 +928,7 @@ describe("iconHandler", () => {
         },
       } as any;
       const res = {
-        writeHead: () => {},
+        writeHead: () => { },
         end: (body: string) => {
           responseBody = body;
         },
@@ -956,7 +956,7 @@ describe("iconHandler", () => {
       let responseBody = "";
       const req = { method: "GET" } as any;
       const res = {
-        writeHead: () => {},
+        writeHead: () => { },
         end: (body: string) => {
           responseBody = body;
         },
@@ -973,7 +973,7 @@ describe("iconHandler", () => {
       let responseBody = "";
       const req = { method: "DELETE" } as any;
       const res = {
-        writeHead: () => {},
+        writeHead: () => { },
         end: (body: string) => {
           responseBody = body;
         },
@@ -1031,7 +1031,7 @@ describe("iconHandler", () => {
           listeners[event] = cb;
         },
       } as any;
-      const res = { writeHead: () => {}, end: () => {} } as any;
+      const res = { writeHead: () => { }, end: () => { } } as any;
 
       handler(req, res);
       listeners.data?.(JSON.stringify({ dataUrl: fakePngDataUrl }));
@@ -1048,7 +1048,7 @@ describe("iconHandler", () => {
     // 2. Delete icon
     {
       const req = { method: "DELETE" } as any;
-      const res = { writeHead: () => {}, end: () => {} } as any;
+      const res = { writeHead: () => { }, end: () => { } } as any;
 
       handler(req, res);
       await new Promise((r) => setTimeout(r, 30));

@@ -329,7 +329,7 @@ export function PromoBannersStudio({
       .then((data) => {
         if (data?.iconUrl) setAppIconUrl(data.iconUrl);
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const handleIconUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -537,39 +537,6 @@ export function PromoBannersStudio({
     }
     ctx.fillRect(0, 0, width, height);
 
-    // Vignette
-    const spot = ctx.createRadialGradient(
-      width * 0.35,
-      height * 0.35,
-      width * 0.05,
-      width * 0.5,
-      height * 0.5,
-      width * 0.8,
-    );
-    spot.addColorStop(0, "rgba(255, 255, 255, 0.08)");
-    spot.addColorStop(1, "rgba(0, 0, 0, 0.35)");
-    ctx.fillStyle = spot;
-    ctx.fillRect(0, 0, width, height);
-
-    // Subtle waves
-    ctx.save();
-    ctx.fillStyle = "rgba(255, 255, 255, 0.03)";
-    ctx.beginPath();
-    ctx.moveTo(width * 0.32, 0);
-    ctx.bezierCurveTo(
-      width * 0.52,
-      height * 0.28,
-      width * 0.48,
-      height * 0.72,
-      width * 0.88,
-      height,
-    );
-    ctx.lineTo(width, height);
-    ctx.lineTo(width, 0);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-
     // Image loader helper
     const loadImg = (src?: string | null): Promise<HTMLImageElement | null> => {
       if (!src) return Promise.resolve(null);
@@ -757,25 +724,6 @@ export function PromoBannersStudio({
       const phH = phW * (2868 / 1320);
       drawPhone(cap1Img, (width - phW) / 2, height * 0.44, phW, phH, 0);
     } else {
-      // Split Layout - Google Play Feature Standard
-      const phoneCenterGlowX = width * 0.72;
-      const phoneCenterGlowY = height * 0.5;
-      const phoneBacklight = ctx.createRadialGradient(
-        phoneCenterGlowX,
-        phoneCenterGlowY,
-        width * 0.04,
-        phoneCenterGlowX,
-        phoneCenterGlowY,
-        width * 0.38,
-      );
-      phoneBacklight.addColorStop(0, "rgba(59, 130, 246, 0.28)");
-      phoneBacklight.addColorStop(0.5, "rgba(147, 51, 234, 0.12)");
-      phoneBacklight.addColorStop(1, "rgba(0, 0, 0, 0)");
-      ctx.save();
-      ctx.fillStyle = phoneBacklight;
-      ctx.fillRect(0, 0, width, height);
-      ctx.restore();
-
       const iconSize = Math.round(height * 0.1);
       const iconX = width * 0.06;
       const iconY = height * 0.09;
@@ -1024,7 +972,7 @@ export function PromoBannersStudio({
         if (res.ok) {
           blob = await res.blob();
         }
-      } catch {}
+      } catch { }
 
       if (!blob) {
         blob = await renderClientBannerBlob();
@@ -1052,9 +1000,8 @@ export function PromoBannersStudio({
   ) => {
     return (
       <div
-        className={`relative overflow-hidden shrink-0 select-none ${
-          mockupStyle === "card" ? "rounded-2xl border border-white/25" : "rounded-[22px]"
-        } ${extraClasses}`}
+        className={`relative overflow-hidden shrink-0 select-none ${mockupStyle === "card" ? "rounded-2xl border border-white/25" : "rounded-[22px]"
+          } ${extraClasses}`}
         style={{
           aspectRatio: `${entry ? entry.width : spec.screenshot.width} / ${entry ? entry.height : spec.screenshot.height}`,
           ...style,
@@ -1111,29 +1058,26 @@ export function PromoBannersStudio({
               key={fmt.key}
               type="button"
               onClick={() => setSelectedFormat(fmt.key)}
-              className={`shrink-0 whitespace-nowrap inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all cursor-pointer select-none ${
-                selectedFormat === fmt.key
-                  ? "bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/30"
-                  : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
+              className={`shrink-0 whitespace-nowrap inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all cursor-pointer select-none ${selectedFormat === fmt.key
+                ? "bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/30"
+                : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
             >
               <span>{fmt.shortLabel || fmt.label}</span>
               <span
-                className={`font-mono text-[10px] px-1.5 py-0.5 rounded-md font-normal ${
-                  selectedFormat === fmt.key
-                    ? "bg-primary-foreground/20 text-primary-foreground"
-                    : "bg-background/80 text-muted-foreground border border-border/50"
-                }`}
+                className={`font-mono text-[10px] px-1.5 py-0.5 rounded-md font-normal ${selectedFormat === fmt.key
+                  ? "bg-primary-foreground/20 text-primary-foreground"
+                  : "bg-background/80 text-muted-foreground border border-border/50"
+                  }`}
               >
                 {fmt.width}×{fmt.height}
               </span>
               {fmt.badge ? (
                 <span
-                  className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${
-                    selectedFormat === fmt.key
-                      ? "bg-primary-foreground/25 text-primary-foreground"
-                      : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
-                  }`}
+                  className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${selectedFormat === fmt.key
+                    ? "bg-primary-foreground/25 text-primary-foreground"
+                    : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                    }`}
                 >
                   {fmt.badge}
                 </span>
@@ -1143,17 +1087,16 @@ export function PromoBannersStudio({
         </div>
 
         {/* Right Actions: Safe Area Toggle, Copy, Download */}
-        <div className="flex shrink-0 items-center gap-2 ml-4">
+        <div className="flex shrink-0 items-center gap-2 ml-auto">
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={() => setShowSafeArea(!showSafeArea)}
-            className={`h-8.5 gap-1.5 rounded-xl text-xs font-semibold cursor-pointer border-border/80 whitespace-nowrap shrink-0 transition-all ${
-              showSafeArea
-                ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/40 shadow-xs"
-                : "bg-background/80 hover:bg-muted text-muted-foreground"
-            }`}
+            className={`h-7.5 gap-1.5 px-2.5 rounded-lg text-xs font-semibold cursor-pointer border-border/80 whitespace-nowrap shrink-0 transition-all ${showSafeArea
+              ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/40 shadow-xs"
+              : "bg-background/80 hover:bg-muted text-muted-foreground"
+              }`}
           >
             {showSafeArea ? (
               <Eye className="size-3.5 text-amber-500" />
@@ -1164,44 +1107,44 @@ export function PromoBannersStudio({
           </Button>
 
           {/* Resolution Selector: 1x Store Spec vs 2x Retina */}
-          <div className="flex items-center rounded-xl bg-muted/80 p-0.5 border border-border/80 shrink-0">
+          <div className="flex items-center rounded-lg bg-muted/80 p-0.5 border border-border/80 shrink-0 h-7.5">
             <button
               type="button"
               onClick={() => setExportResolution("1x")}
-              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                exportResolution === "1x"
-                  ? "bg-background text-foreground shadow-xs"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
+              className={`px-2 py-0.5 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${exportResolution === "1x"
+                ? "bg-background text-foreground shadow-xs"
+                : "text-muted-foreground hover:text-foreground"
+                }`}
               title="Store Spec: exact 1024×500 with 2x SSAA downsampling for Google Play Console"
             >
-              1x Store
+              1x
             </button>
             <button
               type="button"
               onClick={() => setExportResolution("2x")}
-              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                exportResolution === "2x"
-                  ? "bg-background text-foreground shadow-xs"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
+              className={`px-2 py-0.5 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${exportResolution === "2x"
+                ? "bg-background text-foreground shadow-xs"
+                : "text-muted-foreground hover:text-foreground"
+                }`}
               title="Ultra HD Retina: 2048×1000 crystal clear for marketing and presentations"
             >
-              2x Retina
+              2x
             </button>
           </div>
+
+          <div className="h-4 w-px bg-border/70 mx-0.5 shrink-0" />
 
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={handleCopyClipboard}
-            className="h-8.5 gap-1.5 rounded-xl text-xs font-semibold cursor-pointer border-border/80 bg-background/80 hover:bg-muted whitespace-nowrap shrink-0"
+            className="h-7.5 gap-1.5 px-2.5 rounded-lg text-xs font-semibold cursor-pointer border-border/80 bg-background/80 hover:bg-muted whitespace-nowrap shrink-0"
           >
             {copied ? (
               <>
                 <Check className="size-3.5 text-emerald-500" />
-                <span className="text-emerald-500">Copied PNG!</span>
+                <span className="text-emerald-500">Copied!</span>
               </>
             ) : (
               <>
@@ -1216,7 +1159,7 @@ export function PromoBannersStudio({
             size="sm"
             onClick={handleDownload}
             disabled={isDownloading}
-            className="h-8.5 gap-1.5 rounded-xl text-xs font-semibold cursor-pointer bg-blue-600 hover:bg-blue-700 text-white shadow-xs whitespace-nowrap shrink-0"
+            className="h-7.5 gap-1.3 px-1 rounded-lg text-xs font-semibold cursor-pointer bg-blue-600 hover:bg-blue-700 text-white shadow-xs whitespace-nowrap shrink-0"
           >
             {isDownloading ? (
               <Loader2 className="size-3.5 animate-spin" />
@@ -1224,8 +1167,10 @@ export function PromoBannersStudio({
               <Download className="size-3.5" />
             )}
             <span>
-              Download PNG (
-              {exportResolution === "2x" ? activeFormat.width * 2 : activeFormat.width}×
+              Download PNG
+            </span>
+            <span className="font-mono text-[10px] opacity-80 font-normal">
+              ({exportResolution === "2x" ? activeFormat.width * 2 : activeFormat.width}×
               {exportResolution === "2x" ? activeFormat.height * 2 : activeFormat.height})
             </span>
           </Button>
@@ -1264,11 +1209,10 @@ export function PromoBannersStudio({
                     type="button"
                     onClick={() => setTextColorMode("auto")}
                     title="Smart Auto-Contrast: Automatically switches text color based on background luminance"
-                    className={`px-2 py-0.5 text-[10px] font-bold rounded-md cursor-pointer transition-all ${
-                      textColorMode === "auto"
-                        ? "bg-primary text-primary-foreground shadow-xs"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
+                    className={`px-2 py-0.5 text-[10px] font-bold rounded-md cursor-pointer transition-all ${textColorMode === "auto"
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                      }`}
                   >
                     Auto {isLightBg ? "(Dark)" : "(Light)"}
                   </button>
@@ -1278,11 +1222,10 @@ export function PromoBannersStudio({
                     type="button"
                     onClick={() => setTextColorMode("dark")}
                     title="Dark Text: High contrast for white/light card backgrounds"
-                    className={`px-2 py-0.5 text-[10px] font-bold rounded-md cursor-pointer flex items-center gap-1 transition-all ${
-                      textColorMode === "dark"
-                        ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 shadow-xs ring-1 ring-primary"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
+                    className={`px-2 py-0.5 text-[10px] font-bold rounded-md cursor-pointer flex items-center gap-1 transition-all ${textColorMode === "dark"
+                      ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 shadow-xs ring-1 ring-primary"
+                      : "text-muted-foreground hover:text-foreground"
+                      }`}
                   >
                     <span className="size-2 rounded-full bg-neutral-950 border border-white/50" />
                     <span>Dark</span>
@@ -1293,11 +1236,10 @@ export function PromoBannersStudio({
                     type="button"
                     onClick={() => setTextColorMode("light")}
                     title="Light Text: High contrast for dark/colorful backgrounds"
-                    className={`px-2 py-0.5 text-[10px] font-bold rounded-md cursor-pointer flex items-center gap-1 transition-all ${
-                      textColorMode === "light"
-                        ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 shadow-xs ring-1 ring-primary"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
+                    className={`px-2 py-0.5 text-[10px] font-bold rounded-md cursor-pointer flex items-center gap-1 transition-all ${textColorMode === "light"
+                      ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 shadow-xs ring-1 ring-primary"
+                      : "text-muted-foreground hover:text-foreground"
+                      }`}
                   >
                     <span className="size-2 rounded-full bg-white border border-neutral-400" />
                     <span>Light</span>
@@ -1309,11 +1251,10 @@ export function PromoBannersStudio({
                       <button
                         type="button"
                         title="Pick Custom Text Color"
-                        className={`px-1.5 py-0.5 text-[10px] font-bold rounded-md cursor-pointer flex items-center gap-1 transition-all ${
-                          textColorMode === "custom"
-                            ? "bg-primary text-primary-foreground shadow-xs"
-                            : "text-muted-foreground hover:text-foreground"
-                        }`}
+                        className={`px-1.5 py-0.5 text-[10px] font-bold rounded-md cursor-pointer flex items-center gap-1 transition-all ${textColorMode === "custom"
+                          ? "bg-primary text-primary-foreground shadow-xs"
+                          : "text-muted-foreground hover:text-foreground"
+                          }`}
                       >
                         <span
                           className="size-2.5 rounded-full border border-border/80"
@@ -1358,9 +1299,8 @@ export function PromoBannersStudio({
                               setCustomTextColor(c);
                               setTextColorMode("custom");
                             }}
-                            className={`size-6 rounded-md border border-border/60 cursor-pointer transition-transform hover:scale-110 ${
-                              customTextColor === c ? "ring-2 ring-primary ring-offset-1" : ""
-                            }`}
+                            className={`size-6 rounded-md border border-border/60 cursor-pointer transition-transform hover:scale-110 ${customTextColor === c ? "ring-2 ring-primary ring-offset-1" : ""
+                              }`}
                             style={{ backgroundColor: c }}
                           />
                         ))}
@@ -1449,22 +1389,20 @@ export function PromoBannersStudio({
                         <button
                           type="button"
                           onClick={() => setKickerStyle("text")}
-                          className={`py-1 rounded-md transition-all cursor-pointer ${
-                            kickerStyle === "text"
-                              ? "bg-background text-foreground shadow-xs"
-                              : "text-muted-foreground hover:text-foreground"
-                          }`}
+                          className={`py-1 rounded-md transition-all cursor-pointer ${kickerStyle === "text"
+                            ? "bg-background text-foreground shadow-xs"
+                            : "text-muted-foreground hover:text-foreground"
+                            }`}
                         >
                           Plain Eyebrow
                         </button>
                         <button
                           type="button"
                           onClick={() => setKickerStyle("badge")}
-                          className={`py-1 rounded-md transition-all cursor-pointer flex items-center justify-center gap-1 ${
-                            kickerStyle === "badge"
-                              ? "bg-background text-foreground shadow-xs"
-                              : "text-muted-foreground hover:text-foreground"
-                          }`}
+                          className={`py-1 rounded-md transition-all cursor-pointer flex items-center justify-center gap-1 ${kickerStyle === "badge"
+                            ? "bg-background text-foreground shadow-xs"
+                            : "text-muted-foreground hover:text-foreground"
+                            }`}
                         >
                           <span className="size-1.5 rounded-full bg-primary" />
                           <span>Pill Badge</span>
@@ -1489,11 +1427,10 @@ export function PromoBannersStudio({
                                   key={tag}
                                   type="button"
                                   onClick={() => setKickerText(tag)}
-                                  className={`text-[10px] px-2 py-0.5 rounded-md font-semibold transition-all cursor-pointer border ${
-                                    kickerText.toUpperCase() === tag
-                                      ? "bg-primary text-primary-foreground border-primary shadow-2xs"
-                                      : "bg-muted/70 text-foreground/90 border-border/60 hover:bg-muted hover:border-primary/50"
-                                  }`}
+                                  className={`text-[10px] px-2 py-0.5 rounded-md font-semibold transition-all cursor-pointer border ${kickerText.toUpperCase() === tag
+                                    ? "bg-primary text-primary-foreground border-primary shadow-2xs"
+                                    : "bg-muted/70 text-foreground/90 border-border/60 hover:bg-muted hover:border-primary/50"
+                                    }`}
                                 >
                                   {tag}
                                 </button>
@@ -1520,9 +1457,8 @@ export function PromoBannersStudio({
                             key={c}
                             type="button"
                             onClick={() => setKickerColor(c)}
-                            className={`size-6 rounded-md border border-border/60 cursor-pointer transition-transform hover:scale-115 ${
-                              kickerColor === c ? "ring-2 ring-primary ring-offset-1 scale-105" : ""
-                            }`}
+                            className={`size-6 rounded-md border border-border/60 cursor-pointer transition-transform hover:scale-115 ${kickerColor === c ? "ring-2 ring-primary ring-offset-1 scale-105" : ""
+                              }`}
                             style={{ backgroundColor: c }}
                           />
                         ))}
@@ -1603,11 +1539,10 @@ export function PromoBannersStudio({
                       <button
                         type="button"
                         onClick={() => setLogoBg("transparent")}
-                        className={`py-1 px-1 rounded-md text-[10px] font-bold border transition-all cursor-pointer flex flex-col items-center gap-1 ${
-                          logoBg === "transparent"
-                            ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                            : "bg-muted/60 text-foreground border-border/60 hover:bg-muted"
-                        }`}
+                        className={`py-1 px-1 rounded-md text-[10px] font-bold border transition-all cursor-pointer flex flex-col items-center gap-1 ${logoBg === "transparent"
+                          ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                          : "bg-muted/60 text-foreground border-border/60 hover:bg-muted"
+                          }`}
                         title="Transparent: No background squircle, lets PNG float clean"
                       >
                         <div className="size-4 rounded-xs border border-border/60 bg-[repeating-conic-gradient(#94a3b8_0%_25%,transparent_0%_50%)_50%/4px_4px]" />
@@ -1616,11 +1551,10 @@ export function PromoBannersStudio({
                       <button
                         type="button"
                         onClick={() => setLogoBg("#FFFFFF")}
-                        className={`py-1 px-1 rounded-md text-[10px] font-bold border transition-all cursor-pointer flex flex-col items-center gap-1 ${
-                          logoBg === "#FFFFFF"
-                            ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                            : "bg-muted/60 text-foreground border-border/60 hover:bg-muted"
-                        }`}
+                        className={`py-1 px-1 rounded-md text-[10px] font-bold border transition-all cursor-pointer flex flex-col items-center gap-1 ${logoBg === "#FFFFFF"
+                          ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                          : "bg-muted/60 text-foreground border-border/60 hover:bg-muted"
+                          }`}
                         title="White: Clean white card squircle for dark/colorful logos"
                       >
                         <div className="size-4 rounded-xs bg-white border border-neutral-300 shadow-2xs" />
@@ -1629,11 +1563,10 @@ export function PromoBannersStudio({
                       <button
                         type="button"
                         onClick={() => setLogoBg("#0F172A")}
-                        className={`py-1 px-1 rounded-md text-[10px] font-bold border transition-all cursor-pointer flex flex-col items-center gap-1 ${
-                          logoBg === "#0F172A"
-                            ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                            : "bg-muted/60 text-foreground border-border/60 hover:bg-muted"
-                        }`}
+                        className={`py-1 px-1 rounded-md text-[10px] font-bold border transition-all cursor-pointer flex flex-col items-center gap-1 ${logoBg === "#0F172A"
+                          ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                          : "bg-muted/60 text-foreground border-border/60 hover:bg-muted"
+                          }`}
                         title="Dark: Dark slate squircle for light/white logos"
                       >
                         <div className="size-4 rounded-xs bg-[#0F172A] border border-neutral-700 shadow-2xs" />
@@ -1642,11 +1575,10 @@ export function PromoBannersStudio({
                       <button
                         type="button"
                         onClick={() => setLogoBg("gradient")}
-                        className={`py-1 px-1 rounded-md text-[10px] font-bold border transition-all cursor-pointer flex flex-col items-center gap-1 ${
-                          logoBg === "gradient"
-                            ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                            : "bg-muted/60 text-foreground border-border/60 hover:bg-muted"
-                        }`}
+                        className={`py-1 px-1 rounded-md text-[10px] font-bold border transition-all cursor-pointer flex flex-col items-center gap-1 ${logoBg === "gradient"
+                          ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                          : "bg-muted/60 text-foreground border-border/60 hover:bg-muted"
+                          }`}
                         title="Gradient: Default vibrant app icon gradient"
                       >
                         <div className="size-4 rounded-xs bg-gradient-to-br from-blue-500 via-indigo-600 to-purple-600 border border-white/20 shadow-2xs" />
@@ -1670,9 +1602,8 @@ export function PromoBannersStudio({
                             key={c}
                             type="button"
                             onClick={() => setLogoBg(c)}
-                            className={`size-6 rounded-md border border-border/60 cursor-pointer transition-transform hover:scale-115 ${
-                              logoBg === c ? "ring-2 ring-primary ring-offset-1 scale-105" : ""
-                            }`}
+                            className={`size-6 rounded-md border border-border/60 cursor-pointer transition-transform hover:scale-115 ${logoBg === c ? "ring-2 ring-primary ring-offset-1 scale-105" : ""
+                              }`}
                             style={{ backgroundColor: c }}
                           />
                         ))}
@@ -1705,11 +1636,10 @@ export function PromoBannersStudio({
                         <button
                           type="button"
                           onClick={() => setLogoFit("cover")}
-                          className={`py-1 rounded-md transition-all cursor-pointer ${
-                            logoFit === "cover"
-                              ? "bg-background text-foreground shadow-xs"
-                              : "text-muted-foreground hover:text-foreground"
-                          }`}
+                          className={`py-1 rounded-md transition-all cursor-pointer ${logoFit === "cover"
+                            ? "bg-background text-foreground shadow-xs"
+                            : "text-muted-foreground hover:text-foreground"
+                            }`}
                           title="Full Bleed: Icon fills entire squircle without padding"
                         >
                           Full Bleed (Cover)
@@ -1717,11 +1647,10 @@ export function PromoBannersStudio({
                         <button
                           type="button"
                           onClick={() => setLogoFit("contain")}
-                          className={`py-1 rounded-md transition-all cursor-pointer ${
-                            logoFit === "contain"
-                              ? "bg-background text-foreground shadow-xs"
-                              : "text-muted-foreground hover:text-foreground"
-                          }`}
+                          className={`py-1 rounded-md transition-all cursor-pointer ${logoFit === "contain"
+                            ? "bg-background text-foreground shadow-xs"
+                            : "text-muted-foreground hover:text-foreground"
+                            }`}
                           title="Inset Icon: Adds padding so transparent PNG symbols sit centered nicely"
                         >
                           Inset (Padding)
@@ -1767,43 +1696,6 @@ export function PromoBannersStudio({
                 containerType: "size",
               }}
             >
-              {/* Radial Lighting / Spotlight */}
-              <div
-                className="absolute inset-0 pointer-events-none"
-                style={{
-                  background: isLightBg
-                    ? "radial-gradient(circle at 35% 35%, rgba(0,0,0,0.02) 0%, rgba(0,0,0,0.06) 100%)"
-                    : "radial-gradient(circle at 35% 35%, rgba(255,255,255,0.18) 0%, rgba(0,0,0,0.3) 100%)",
-                }}
-              />
-
-              {/* Organic Background Wave Curves */}
-              <svg
-                aria-hidden="true"
-                className="absolute inset-0 w-full h-full pointer-events-none"
-                style={{ opacity: isLightBg ? 0.08 : 0.25 }}
-                viewBox="0 0 1024 500"
-                fill="none"
-                preserveAspectRatio="none"
-              >
-                <path
-                  d="M320,0 C530,140 490,360 900,500 L1024,500 L1024,0 Z"
-                  fill={isLightBg ? "#000000" : "white"}
-                  fillOpacity="0.12"
-                  stroke={isLightBg ? "#000000" : "white"}
-                  strokeWidth="2"
-                  strokeOpacity="0.3"
-                />
-                <path
-                  d="M470,0 C690,110 590,410 1024,340 L1024,0 Z"
-                  fill={isLightBg ? "#000000" : "white"}
-                  fillOpacity="0.08"
-                  stroke={isLightBg ? "#000000" : "white"}
-                  strokeWidth="1.5"
-                  strokeOpacity="0.25"
-                />
-              </svg>
-
               {/* Safe Area Guideline Overlay */}
               {showSafeArea ? (
                 <div className="absolute inset-0 pointer-events-none z-30 flex items-center justify-center">
@@ -1848,22 +1740,20 @@ export function PromoBannersStudio({
                   {/* Top: Icon, Kicker, Headline, Subtitle */}
                   <div className="flex flex-col items-center gap-1.5 sm:gap-2 shrink-0">
                     <div
-                      className={`size-13 sm:size-16 rounded-[22%] flex items-center justify-center text-white font-bold text-xl sm:text-2xl overflow-hidden transition-all ${
-                        logoBg === "transparent"
-                          ? ""
-                          : isDarkText && (logoBg === "#FFFFFF" || logoBg === "#F8FAFC")
-                            ? "shadow-lg border border-black/10"
-                            : "shadow-xl border border-white/25"
-                      }`}
+                      className={`size-13 sm:size-16 rounded-[22%] flex items-center justify-center text-white font-bold text-xl sm:text-2xl overflow-hidden transition-all ${logoBg === "transparent"
+                        ? ""
+                        : isDarkText && (logoBg === "#FFFFFF" || logoBg === "#F8FAFC")
+                          ? "shadow-lg border border-black/10"
+                          : "shadow-xl border border-white/25"
+                        }`}
                       style={{ background: resolvedLogoBackground }}
                     >
                       {appIconUrl ? (
                         <img
                           src={appIconUrl}
                           alt="App Logo"
-                          className={`w-full h-full ${
-                            logoFit === "contain" ? "object-contain p-[12%]" : "object-cover"
-                          }`}
+                          className={`w-full h-full ${logoFit === "contain" ? "object-contain p-[12%]" : "object-cover"
+                            }`}
                         />
                       ) : (
                         <span>{appInitial}</span>
@@ -1939,13 +1829,12 @@ export function PromoBannersStudio({
                     {/* 1. Brand Row: Squircle Logo + Wordmark */}
                     <div className="flex items-center" style={{ gap: "2cqw" }}>
                       <div
-                        className={`rounded-[22%] flex items-center justify-center text-white font-black shrink-0 overflow-hidden transition-all ${
-                          logoBg === "transparent"
-                            ? ""
-                            : isDarkText && (logoBg === "#FFFFFF" || logoBg === "#F8FAFC")
-                              ? "shadow-md border border-black/10"
-                              : "shadow-lg border border-white/30"
-                        }`}
+                        className={`rounded-[22%] flex items-center justify-center text-white font-black shrink-0 overflow-hidden transition-all ${logoBg === "transparent"
+                          ? ""
+                          : isDarkText && (logoBg === "#FFFFFF" || logoBg === "#F8FAFC")
+                            ? "shadow-md border border-black/10"
+                            : "shadow-lg border border-white/30"
+                          }`}
                         style={{
                           width: "9.5cqh",
                           height: "9.5cqh",
@@ -1957,9 +1846,8 @@ export function PromoBannersStudio({
                           <img
                             src={appIconUrl}
                             alt="App Logo"
-                            className={`w-full h-full ${
-                              logoFit === "contain" ? "object-contain p-[12%]" : "object-cover"
-                            }`}
+                            className={`w-full h-full ${logoFit === "contain" ? "object-contain p-[12%]" : "object-cover"
+                              }`}
                           />
                         ) : (
                           <span>{appInitial}</span>
@@ -2072,15 +1960,6 @@ export function PromoBannersStudio({
                       width: deviceCount === "trio" ? "53cqw" : "49cqw",
                     }}
                   >
-                    {/* Radial backlight behind phones */}
-                    <div
-                      className="absolute inset-0 pointer-events-none"
-                      style={{
-                        background:
-                          "radial-gradient(circle at 60% 50%, rgba(59,130,246,0.3) 0%, rgba(147,51,234,0.15) 50%, rgba(0,0,0,0) 75%)",
-                      }}
-                    />
-
                     {deviceCount === "trio" ? (
                       <div className="relative w-full h-full flex items-center justify-center">
                         {/* Left Phone (Behind, tilted -7.5deg) */}
@@ -2214,11 +2093,10 @@ export function PromoBannersStudio({
               <button
                 type="button"
                 onClick={() => setShowSafeArea(!showSafeArea)}
-                className={`text-[11px] font-bold px-2 py-0.5 rounded cursor-pointer transition-all ${
-                  showSafeArea
-                    ? "bg-amber-500 text-black shadow-xs"
-                    : "bg-muted text-muted-foreground hover:text-foreground"
-                }`}
+                className={`text-[11px] font-bold px-2 py-0.5 rounded cursor-pointer transition-all ${showSafeArea
+                  ? "bg-amber-500 text-black shadow-xs"
+                  : "bg-muted text-muted-foreground hover:text-foreground"
+                  }`}
               >
                 {showSafeArea ? "ON" : "OFF"}
               </button>
@@ -2233,33 +2111,30 @@ export function PromoBannersStudio({
                   <button
                     type="button"
                     onClick={() => setSafeAreaMargin("15%")}
-                    className={`py-1 text-[10px] font-bold rounded cursor-pointer ${
-                      safeAreaMargin === "15%"
-                        ? "bg-amber-500 text-black shadow-xs"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
+                    className={`py-1 text-[10px] font-bold rounded cursor-pointer ${safeAreaMargin === "15%"
+                      ? "bg-amber-500 text-black shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                      }`}
                   >
                     Play (15%)
                   </button>
                   <button
                     type="button"
                     onClick={() => setSafeAreaMargin("20%")}
-                    className={`py-1 text-[10px] font-bold rounded cursor-pointer ${
-                      safeAreaMargin === "20%"
-                        ? "bg-amber-500 text-black shadow-xs"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
+                    className={`py-1 text-[10px] font-bold rounded cursor-pointer ${safeAreaMargin === "20%"
+                      ? "bg-amber-500 text-black shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                      }`}
                   >
                     Strict (20%)
                   </button>
                   <button
                     type="button"
                     onClick={() => setSafeAreaMargin("8%")}
-                    className={`py-1 text-[10px] font-bold rounded cursor-pointer ${
-                      safeAreaMargin === "8%"
-                        ? "bg-amber-500 text-black shadow-xs"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
+                    className={`py-1 text-[10px] font-bold rounded cursor-pointer ${safeAreaMargin === "8%"
+                      ? "bg-amber-500 text-black shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                      }`}
                   >
                     Bleed (8%)
                   </button>
@@ -2280,33 +2155,30 @@ export function PromoBannersStudio({
               <button
                 type="button"
                 onClick={() => setDeviceCount("single")}
-                className={`py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                  deviceCount === "single"
-                    ? "bg-background text-foreground shadow-xs"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
+                className={`py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${deviceCount === "single"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+                  }`}
               >
                 1 phone
               </button>
               <button
                 type="button"
                 onClick={() => setDeviceCount("duo")}
-                className={`py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                  deviceCount === "duo"
-                    ? "bg-background text-foreground shadow-xs"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
+                className={`py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${deviceCount === "duo"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+                  }`}
               >
                 2 phone
               </button>
               <button
                 type="button"
                 onClick={() => setDeviceCount("trio")}
-                className={`py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                  deviceCount === "trio"
-                    ? "bg-background text-foreground shadow-xs"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
+                className={`py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${deviceCount === "trio"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+                  }`}
               >
                 3 phone
               </button>
@@ -2405,18 +2277,16 @@ export function PromoBannersStudio({
               <div className="flex items-center gap-3">
                 {/* Logo Preview Squircle */}
                 <div
-                  className={`size-12 rounded-[22%] flex items-center justify-center text-white font-black text-lg overflow-hidden shrink-0 transition-all ${
-                    logoBg === "transparent" ? "border border-border/80 bg-neutral-900/40" : "shadow-md border border-white/25"
-                  }`}
+                  className={`size-12 rounded-[22%] flex items-center justify-center text-white font-black text-lg overflow-hidden shrink-0 transition-all ${logoBg === "transparent" ? "border border-border/80 bg-neutral-900/40" : "shadow-md border border-white/25"
+                    }`}
                   style={{ background: resolvedLogoBackground }}
                 >
                   {appIconUrl ? (
                     <img
                       src={appIconUrl}
                       alt="App Icon Preview"
-                      className={`w-full h-full ${
-                        logoFit === "contain" ? "object-contain p-1.5" : "object-cover"
-                      }`}
+                      className={`w-full h-full ${logoFit === "contain" ? "object-contain p-1.5" : "object-cover"
+                        }`}
                     />
                   ) : (
                     <span>{appInitial}</span>
@@ -2468,22 +2338,20 @@ export function PromoBannersStudio({
                   <button
                     type="button"
                     onClick={() => setLogoBg("transparent")}
-                    className={`py-1 px-1 rounded-md text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${
-                      logoBg === "transparent"
-                        ? "bg-primary text-primary-foreground border-primary shadow-2xs"
-                        : "bg-muted/60 text-foreground border-border/60 hover:bg-muted"
-                    }`}
+                    className={`py-1 px-1 rounded-md text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${logoBg === "transparent"
+                      ? "bg-primary text-primary-foreground border-primary shadow-2xs"
+                      : "bg-muted/60 text-foreground border-border/60 hover:bg-muted"
+                      }`}
                   >
                     <span>Clear</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setLogoBg("#FFFFFF")}
-                    className={`py-1 px-1 rounded-md text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${
-                      logoBg === "#FFFFFF"
-                        ? "bg-primary text-primary-foreground border-primary shadow-2xs"
-                        : "bg-muted/60 text-foreground border-border/60 hover:bg-muted"
-                    }`}
+                    className={`py-1 px-1 rounded-md text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${logoBg === "#FFFFFF"
+                      ? "bg-primary text-primary-foreground border-primary shadow-2xs"
+                      : "bg-muted/60 text-foreground border-border/60 hover:bg-muted"
+                      }`}
                   >
                     <span className="size-2 rounded-full bg-white border border-neutral-300" />
                     <span>White</span>
@@ -2491,11 +2359,10 @@ export function PromoBannersStudio({
                   <button
                     type="button"
                     onClick={() => setLogoBg("#0F172A")}
-                    className={`py-1 px-1 rounded-md text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${
-                      logoBg === "#0F172A"
-                        ? "bg-primary text-primary-foreground border-primary shadow-2xs"
-                        : "bg-muted/60 text-foreground border-border/60 hover:bg-muted"
-                    }`}
+                    className={`py-1 px-1 rounded-md text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${logoBg === "#0F172A"
+                      ? "bg-primary text-primary-foreground border-primary shadow-2xs"
+                      : "bg-muted/60 text-foreground border-border/60 hover:bg-muted"
+                      }`}
                   >
                     <span className="size-2 rounded-full bg-neutral-900 border border-neutral-700" />
                     <span>Dark</span>
@@ -2503,11 +2370,10 @@ export function PromoBannersStudio({
                   <button
                     type="button"
                     onClick={() => setLogoBg("gradient")}
-                    className={`py-1 px-1 rounded-md text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${
-                      logoBg === "gradient"
-                        ? "bg-primary text-primary-foreground border-primary shadow-2xs"
-                        : "bg-muted/60 text-foreground border-border/60 hover:bg-muted"
-                    }`}
+                    className={`py-1 px-1 rounded-md text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${logoBg === "gradient"
+                      ? "bg-primary text-primary-foreground border-primary shadow-2xs"
+                      : "bg-muted/60 text-foreground border-border/60 hover:bg-muted"
+                      }`}
                   >
                     <span>Gradient</span>
                   </button>
@@ -2520,9 +2386,8 @@ export function PromoBannersStudio({
                       key={c}
                       type="button"
                       onClick={() => setLogoBg(c)}
-                      className={`h-5 rounded-md border border-border/60 cursor-pointer transition-transform hover:scale-110 ${
-                        logoBg === c ? "ring-2 ring-primary ring-offset-1 scale-105" : ""
-                      }`}
+                      className={`h-5 rounded-md border border-border/60 cursor-pointer transition-transform hover:scale-110 ${logoBg === c ? "ring-2 ring-primary ring-offset-1 scale-105" : ""
+                        }`}
                       style={{ backgroundColor: c }}
                     />
                   ))}
@@ -2552,22 +2417,20 @@ export function PromoBannersStudio({
                     <button
                       type="button"
                       onClick={() => setLogoFit("cover")}
-                      className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
-                        logoFit === "cover"
-                          ? "bg-background text-foreground shadow-2xs"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
+                      className={`px-2 py-0.5 rounded transition-all cursor-pointer ${logoFit === "cover"
+                        ? "bg-background text-foreground shadow-2xs"
+                        : "text-muted-foreground hover:text-foreground"
+                        }`}
                     >
                       Full Bleed
                     </button>
                     <button
                       type="button"
                       onClick={() => setLogoFit("contain")}
-                      className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
-                        logoFit === "contain"
-                          ? "bg-background text-foreground shadow-2xs"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
+                      className={`px-2 py-0.5 rounded transition-all cursor-pointer ${logoFit === "contain"
+                        ? "bg-background text-foreground shadow-2xs"
+                        : "text-muted-foreground hover:text-foreground"
+                        }`}
                     >
                       Inset (Padding)
                     </button>
@@ -2628,11 +2491,10 @@ export function PromoBannersStudio({
                     key={tag}
                     type="button"
                     onClick={() => setKickerText(tag)}
-                    className={`text-[9px] px-1.5 py-0.5 rounded font-medium transition-colors cursor-pointer border ${
-                      kickerText.toUpperCase() === tag
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-muted/60 text-muted-foreground border-border/50 hover:text-foreground hover:bg-muted"
-                    }`}
+                    className={`text-[9px] px-1.5 py-0.5 rounded font-medium transition-colors cursor-pointer border ${kickerText.toUpperCase() === tag
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-muted/60 text-muted-foreground border-border/50 hover:text-foreground hover:bg-muted"
+                      }`}
                   >
                     {tag}
                   </button>
@@ -2705,22 +2567,20 @@ export function PromoBannersStudio({
                 <button
                   type="button"
                   onClick={() => setMockupStyle("screen")}
-                  className={`py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                    mockupStyle === "screen"
-                      ? "bg-background text-foreground shadow-xs"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
+                  className={`py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${mockupStyle === "screen"
+                    ? "bg-background text-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                    }`}
                 >
                   Device Screen
                 </button>
                 <button
                   type="button"
                   onClick={() => setMockupStyle("card")}
-                  className={`py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                    mockupStyle === "card"
-                      ? "bg-background text-foreground shadow-xs"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
+                  className={`py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${mockupStyle === "card"
+                    ? "bg-background text-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                    }`}
                 >
                   Full Card
                 </button>
@@ -2755,11 +2615,10 @@ export function PromoBannersStudio({
               <button
                 type="button"
                 onClick={() => setTextColorMode("auto")}
-                className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
-                  textColorMode === "auto"
-                    ? "bg-background text-foreground shadow-xs"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
+                className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${textColorMode === "auto"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+                  }`}
                 title="Auto Contrast based on background"
               >
                 Auto
@@ -2767,11 +2626,10 @@ export function PromoBannersStudio({
               <button
                 type="button"
                 onClick={() => setTextColorMode("dark")}
-                className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
-                  textColorMode === "dark"
-                    ? "bg-background text-foreground shadow-xs"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
+                className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${textColorMode === "dark"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+                  }`}
                 title="Dark text (#0F172A)"
               >
                 <span className="size-2 rounded-full bg-neutral-950 border border-white/50" />
@@ -2780,11 +2638,10 @@ export function PromoBannersStudio({
               <button
                 type="button"
                 onClick={() => setTextColorMode("light")}
-                className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
-                  textColorMode === "light"
-                    ? "bg-background text-foreground shadow-xs"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
+                className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${textColorMode === "light"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+                  }`}
                 title="Light text (#FFFFFF)"
               >
                 <span className="size-2 rounded-full bg-white border border-neutral-400" />
@@ -2793,11 +2650,10 @@ export function PromoBannersStudio({
               <button
                 type="button"
                 onClick={() => setTextColorMode("custom")}
-                className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
-                  textColorMode === "custom"
-                    ? "bg-background text-foreground shadow-xs"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
+                className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${textColorMode === "custom"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+                  }`}
                 title="Custom color"
               >
                 <Palette className="size-2.5" />
@@ -2850,22 +2706,20 @@ export function PromoBannersStudio({
                 <button
                   type="button"
                   onClick={() => setKickerStyle("text")}
-                  className={`py-1 rounded-md transition-all cursor-pointer ${
-                    kickerStyle === "text"
-                      ? "bg-background text-foreground shadow-xs"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
+                  className={`py-1 rounded-md transition-all cursor-pointer ${kickerStyle === "text"
+                    ? "bg-background text-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                    }`}
                 >
                   Plain Eyebrow
                 </button>
                 <button
                   type="button"
                   onClick={() => setKickerStyle("badge")}
-                  className={`py-1 rounded-md transition-all cursor-pointer flex items-center justify-center gap-1 ${
-                    kickerStyle === "badge"
-                      ? "bg-background text-foreground shadow-xs"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
+                  className={`py-1 rounded-md transition-all cursor-pointer flex items-center justify-center gap-1 ${kickerStyle === "badge"
+                    ? "bg-background text-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                    }`}
                 >
                   <span className="size-1.5 rounded-full bg-primary" />
                   <span>Pill Badge</span>
@@ -2879,9 +2733,8 @@ export function PromoBannersStudio({
                     key={c}
                     type="button"
                     onClick={() => setKickerColor(c)}
-                    className={`size-5 rounded-md border border-border/60 cursor-pointer transition-transform hover:scale-115 ${
-                      kickerColor === c ? "ring-2 ring-primary ring-offset-1 scale-105" : ""
-                    }`}
+                    className={`size-5 rounded-md border border-border/60 cursor-pointer transition-transform hover:scale-115 ${kickerColor === c ? "ring-2 ring-primary ring-offset-1 scale-105" : ""
+                      }`}
                     style={{ backgroundColor: c }}
                   />
                 ))}

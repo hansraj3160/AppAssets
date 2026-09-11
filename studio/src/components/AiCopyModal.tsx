@@ -4,6 +4,7 @@ import {
   Clock,
   Feather,
   Loader2,
+  Lock,
   RefreshCw,
   Shield,
   Sparkles,
@@ -16,6 +17,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { AppInfo, StoreManifest } from "../manifest";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import { useAuth } from "../context/AuthContext";
 
 export interface AiSuggestion {
   tone: string;
@@ -56,6 +58,7 @@ export function AiCopyModal({
   appInfo,
   onApplyCopy,
 }: AiCopyModalProps) {
+  const { user, isPro, aiCreditsRemaining, consumeAiCredit, openAuthModal } = useAuth();
   const [selectedTone, setSelectedTone] = useState("all");
   const [customPrompt, setCustomPrompt] = useState("");
   const [loading, setLoading] = useState(false);
@@ -92,6 +95,15 @@ export function AiCopyModal({
 
   const fetchAiSuggestions = useCallback(
     async (overrideTone?: string) => {
+      if (!user) {
+        openAuthModal();
+        return;
+      }
+      if (!isPro && aiCreditsRemaining <= 0) {
+        setError("You have reached your 10 free AI credits limit. Upgrade to Pro for unlimited AI copy generation.");
+        return;
+      }
+
       setLoading(true);
       setError(null);
       setAppliedIndex(null);
@@ -157,6 +169,9 @@ export function AiCopyModal({
           throw new Error(data.error || `Failed to generate AI copy (HTTP ${res.status})`);
         }
 
+        // Successfully generated copy: deduct 1 AI credit for free plan users
+        await consumeAiCredit();
+
         setCooldownSeconds(null);
         setScreenAnalysis(data.screenAnalysis || null);
         setSuggestions(data.suggestions || []);
@@ -166,13 +181,17 @@ export function AiCopyModal({
         setLoading(false);
       }
     },
-    [sceneId, device, locale, selectedTone, customPrompt, appName, appCategory, appDescription],
+    [user, isPro, aiCreditsRemaining, consumeAiCredit, openAuthModal, sceneId, device, locale, selectedTone, customPrompt, appName, appCategory, appDescription],
   );
 
-  // Auto-generate on open once per scene/device/locale without looping on error
+  // Auto-generate on open once per scene/device/locale only if user is logged in
   useEffect(() => {
     if (!isOpen) {
       autoFetchedForRef.current = null;
+      return;
+    }
+
+    if (!user) {
       return;
     }
 
@@ -184,7 +203,7 @@ export function AiCopyModal({
       setScreenAnalysis(null);
       fetchAiSuggestions();
     }
-  }, [isOpen, sceneId, device, locale, fetchAiSuggestions]);
+  }, [isOpen, user, sceneId, device, locale, fetchAiSuggestions]);
 
   const handleApplyBoth = (suggestion: AiSuggestion, index: number) => {
     onApplyCopy(sceneId, "headline", suggestion.headline);
@@ -229,21 +248,37 @@ export function AiCopyModal({
                 <span className="rounded-md bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-primary tracking-wide">
                   GEMINI VISION
                 </span>
-                {rateLimit ? (
+                {user ? (
                   <span
                     className={`rounded-md px-2 py-0.5 text-[10px] font-semibold tracking-wide flex items-center gap-1 transition-colors ${
-                      rateLimit.remaining <= 2
+                      isPro
+                        ? "bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30"
+                        : aiCreditsRemaining <= 2
                         ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
-                        : "bg-muted text-muted-foreground border border-border/60"
+                        : "bg-primary/10 text-primary border border-primary/20"
                     }`}
+                    title={isPro ? "Pro Plan: Unlimited generations" : `${aiCreditsRemaining} free credits left`}
+                  >
+                    <Sparkles className="size-2.5 text-amber-500 fill-amber-500" />
+                    <span>{isPro ? "PRO • Unlimited" : `${aiCreditsRemaining}/10 credits`}</span>
+                  </span>
+                ) : (
+                  <span className="rounded-md bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1">
+                    <Lock className="size-2.5" />
+                    <span>Login Required</span>
+                  </span>
+                )}
+                {rateLimit && (
+                  <span
+                    className="rounded-md px-2 py-0.5 text-[10px] font-semibold tracking-wide flex items-center gap-1 bg-muted text-muted-foreground border border-border/60"
                     title="Fair-use rate limit quota"
                   >
                     <Shield className="size-2.5" />
                     <span>
-                      {rateLimit.remaining}/{rateLimit.limit} left
+                      {rateLimit.remaining}/{rateLimit.limit}
                     </span>
                   </span>
-                ) : null}
+                )}
               </div>
               <div className="flex flex-wrap items-center gap-2 mt-0.5">
                 <p className="text-xs text-muted-foreground">
@@ -269,87 +304,155 @@ export function AiCopyModal({
           </button>
         </div>
 
-        {/* Tone Selector & Custom Input Bar */}
-        <div className="shrink-0 border-b border-border bg-background/60 p-4 flex flex-col gap-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            {/* Tone Selector Pills */}
-            <div className="flex flex-wrap items-center gap-1.5">
-              {TONES.map((t) => {
-                const Icon = t.icon;
-                const isSelected = selectedTone === t.id;
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    disabled={cooldownSeconds !== null && cooldownSeconds > 0}
-                    onClick={() => {
-                      setSelectedTone(t.id);
-                      fetchAiSuggestions(t.id);
-                    }}
-                    className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-all cursor-pointer disabled:opacity-50 ${
-                      isSelected
-                        ? "bg-primary text-primary-foreground shadow-xs"
-                        : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground"
-                    }`}
-                  >
-                    <Icon className="size-3.5" />
-                    <span>{t.label}</span>
-                  </button>
-                );
-              })}
+        {/* Tone Selector & Custom Input Bar (Only when user is signed in) */}
+        {user ? (
+          <div className="shrink-0 border-b border-border bg-background/60 p-4 flex flex-col gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              {/* Tone Selector Pills */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                {TONES.map((t) => {
+                  const Icon = t.icon;
+                  const isSelected = selectedTone === t.id;
+                  const isPillDisabled =
+                    loading ||
+                    (cooldownSeconds !== null && cooldownSeconds > 0) ||
+                    (!isPro && aiCreditsRemaining <= 0);
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      disabled={isPillDisabled}
+                      onClick={() => {
+                        setSelectedTone(t.id);
+                        fetchAiSuggestions(t.id);
+                      }}
+                      className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-all cursor-pointer disabled:opacity-50 ${
+                        isSelected
+                          ? "bg-primary text-primary-foreground shadow-xs"
+                          : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
+                    >
+                      <Icon className="size-3.5" />
+                      <span>{t.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Re-generate Button with Cooldown & Credit state */}
+              <Button
+                size="sm"
+                disabled={
+                  loading ||
+                  (cooldownSeconds !== null && cooldownSeconds > 0) ||
+                  (!isPro && aiCreditsRemaining <= 0)
+                }
+                onClick={() => fetchAiSuggestions()}
+                className="gap-1.5 cursor-pointer bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:opacity-90 shadow-sm disabled:opacity-50"
+              >
+                {loading ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <RefreshCw className="size-3.5" />
+                )}
+                <span>
+                  {cooldownSeconds
+                    ? `Wait ${cooldownSeconds}s`
+                    : !isPro && aiCreditsRemaining <= 0
+                    ? "0 Credits Left"
+                    : "Regenerate"}
+                </span>
+              </Button>
             </div>
 
-            {/* Re-generate Button with Cooldown state */}
-            <Button
-              size="sm"
-              disabled={loading || (cooldownSeconds !== null && cooldownSeconds > 0)}
-              onClick={() => fetchAiSuggestions()}
-              className="gap-1.5 cursor-pointer bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:opacity-90 shadow-sm disabled:opacity-50"
-            >
-              {loading ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : (
-                <RefreshCw className="size-3.5" />
-              )}
-              <span>{cooldownSeconds ? `Wait ${cooldownSeconds}s` : "Regenerate"}</span>
-            </Button>
-          </div>
-
-          {/* Optional Direction Input with 300-char limiter */}
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <Input
-                value={customPrompt}
-                maxLength={300}
-                onChange={(e) => setCustomPrompt(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") fetchAiSuggestions();
-                }}
-                placeholder="Optional direction (max 300 chars, e.g. 'Focus on zero fees and security')"
-                className="h-8 text-xs w-full bg-muted/40 pr-14"
-              />
-              {customPrompt.length > 200 ? (
-                <span className="absolute right-2 top-2 text-[10px] text-muted-foreground font-mono">
-                  {customPrompt.length}/300
-                </span>
+            {/* Optional Direction Input with 300-char limiter */}
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Input
+                  value={customPrompt}
+                  maxLength={300}
+                  onChange={(e) => setCustomPrompt(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") fetchAiSuggestions();
+                  }}
+                  disabled={!isPro && aiCreditsRemaining <= 0}
+                  placeholder="Optional direction (max 300 chars, e.g. 'Focus on zero fees and security')"
+                  className="h-8 text-xs w-full bg-muted/40 pr-14"
+                />
+                {customPrompt.length > 200 ? (
+                  <span className="absolute right-2 top-2 text-[10px] text-muted-foreground font-mono">
+                    {customPrompt.length}/300
+                  </span>
+                ) : null}
+              </div>
+              {customPrompt ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fetchAiSuggestions()}
+                  disabled={
+                    loading ||
+                    (cooldownSeconds !== null && cooldownSeconds > 0) ||
+                    (!isPro && aiCreditsRemaining <= 0)
+                  }
+                  className="h-8 text-xs cursor-pointer"
+                >
+                  Apply Direction
+                </Button>
               ) : null}
             </div>
-            {customPrompt ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => fetchAiSuggestions()}
-                disabled={loading || (cooldownSeconds !== null && cooldownSeconds > 0)}
-                className="h-8 text-xs cursor-pointer"
-              >
-                Apply Direction
-              </Button>
-            ) : null}
           </div>
-        </div>
+        ) : null}
 
         {/* Content Area */}
         <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-4">
+          {!user ? (
+            <div className="flex flex-col items-center justify-center my-auto py-10 px-4 text-center max-w-md mx-auto animate-in fade-in">
+              <div className="relative flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 text-white shadow-xl shadow-purple-500/25 mb-4">
+                <Sparkles className="size-8" />
+              </div>
+              <h3 className="text-xl font-bold tracking-tight text-foreground">
+                Sign In to Unlock AI Copywriter
+              </h3>
+              <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+                Gemini Vision analyzes your uploaded app screenshots to generate high-converting App Store & Google Play headlines matching your exact UI layout.
+              </p>
+
+              <div className="mt-6 w-full rounded-xl border border-border/80 bg-muted/40 p-3.5 text-left text-xs space-y-2.5">
+                <div className="flex items-center gap-2.5 text-foreground font-semibold">
+                  <div className="size-6 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                    <Sparkles className="size-3.5 fill-amber-500" />
+                  </div>
+                  <span>10 Free AI Copy Generations on Sign Up</span>
+                </div>
+                <div className="flex items-center gap-2.5 text-muted-foreground">
+                  <div className="size-6 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                    <Check className="size-3.5" />
+                  </div>
+                  <span>Automatic screenshot visual element detection</span>
+                </div>
+                <div className="flex items-center gap-2.5 text-muted-foreground">
+                  <div className="size-6 rounded-md bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                    <Check className="size-3.5" />
+                  </div>
+                  <span>4 conversion-tested tones & character limits</span>
+                </div>
+              </div>
+
+              <Button
+                onClick={openAuthModal}
+                size="lg"
+                className="mt-6 w-full gap-2 bg-gradient-to-r from-indigo-500 via-purple-600 to-pink-500 font-semibold text-white shadow-lg shadow-purple-500/20 hover:opacity-95 cursor-pointer text-sm"
+              >
+                <Sparkles className="size-4" />
+                Sign In to Get 10 Free Credits
+              </Button>
+              <p className="mt-3 text-[11px] text-muted-foreground">
+                Free forever • Google or Email login • Instant access
+              </p>
+            </div>
+          ) : (
+            <>
           {/* Current Canvas Copy */}
           {(sceneHeadline || sceneSubhead) && (
             <div className="flex items-center justify-between rounded-xl border border-border/70 bg-muted/20 px-4 py-2.5 text-xs text-muted-foreground">
@@ -553,6 +656,21 @@ export function AiCopyModal({
               })}
             </div>
           )}
+
+          {/* Zero credits empty state */}
+          {!loading && !isPro && aiCreditsRemaining <= 0 && suggestions.length === 0 && (
+            <div className="flex flex-col items-center justify-center my-auto py-12 px-4 text-center max-w-sm mx-auto animate-in fade-in">
+              <div className="size-12 rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-3">
+                <Sparkles className="size-6 fill-amber-500" />
+              </div>
+              <h4 className="text-base font-bold text-foreground">Free AI Limit Reached</h4>
+              <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
+                You have used all 10 free AI generations. Upgrade to Pro for unlimited screenshot copywriting and an ad-free experience.
+              </p>
+            </div>
+          )}
+          </>
+        )}
         </div>
       </div>
     </div>

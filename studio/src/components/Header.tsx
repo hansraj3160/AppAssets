@@ -13,6 +13,8 @@ import {
   Sparkles,
   SunIcon,
   Trash2,
+  User as UserIcon,
+  LogOut,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { CUSTOM_TEMPLATE } from "../App";
@@ -20,6 +22,7 @@ import { type AppInfo, fontKey, type StoreManifest } from "../manifest";
 import { ImportButton } from "./ImportButton";
 import { Button } from "./ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { useAuth } from "@/context/AuthContext";
 
 export function Header({
   manifest,
@@ -56,6 +59,7 @@ export function Header({
   appInfo?: AppInfo;
   onOpenAppDetails?: () => void;
 }) {
+  const { user, isPro, aiCreditsRemaining, signOutUser, openAuthModal } = useAuth();
   const [clearing, setClearing] = useState(false);
 
   // Export pipeline state
@@ -138,7 +142,7 @@ export function Header({
 
     try {
       if (onSaveDesign) {
-        await onSaveDesign().catch(() => {});
+        await onSaveDesign().catch(() => { });
       }
       setExportProgress(12);
       setExportStage("Starting store export engine...");
@@ -166,7 +170,7 @@ export function Header({
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
-      for (;;) {
+      for (; ;) {
         const { done, value } = await reader.read();
         if (done) break;
         text += decoder.decode(value, { stream: true });
@@ -252,11 +256,10 @@ export function Header({
         <button
           type="button"
           onClick={() => onViewModeChange?.("editor")}
-          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
-            viewMode === "editor"
+          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${viewMode === "editor"
               ? "bg-background text-foreground shadow-xs"
               : "text-muted-foreground hover:text-foreground hover:bg-background/40"
-          }`}
+            }`}
         >
           <Layers className="size-3.5" />
           <span className="hidden sm:inline">Studio Canvas</span>
@@ -266,11 +269,10 @@ export function Header({
         <button
           type="button"
           onClick={() => onViewModeChange?.("store")}
-          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
-            viewMode === "store"
+          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${viewMode === "store"
               ? "bg-background text-foreground shadow-xs"
               : "text-muted-foreground hover:text-foreground hover:bg-background/40"
-          }`}
+            }`}
         >
           <Smartphone className="size-3.5 text-blue-500" />
           <span className="hidden sm:inline">Store Preview</span>
@@ -283,11 +285,10 @@ export function Header({
         <button
           type="button"
           onClick={() => onViewModeChange?.("promo")}
-          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
-            viewMode === "promo"
+          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${viewMode === "promo"
               ? "bg-background text-foreground shadow-xs"
               : "text-muted-foreground hover:text-foreground hover:bg-background/40"
-          }`}
+            }`}
         >
           <Sparkles className="size-3.5 text-amber-500" />
           <span className="hidden sm:inline">Promo Banners</span>
@@ -304,7 +305,7 @@ export function Header({
         <ImportButton
           wrapperClassName="shrink-0"
           className="h-8 px-2.5 sm:px-3 gap-1.5 text-xs font-medium rounded-lg border border-border/80 bg-background hover:bg-muted text-foreground shadow-2xs cursor-pointer transition-colors [&_svg]:size-3.5"
-          label="Import screenshots"
+          label="Import"
         />
 
         {/* 2. Remove all */}
@@ -513,6 +514,91 @@ export function Header({
             </div>
           </PopoverContent>
         </Popover>
+
+        {/* User Auth Section */}
+        {user ? (
+          <div className="flex items-center gap-2 pl-1.5 border-l border-border/60">
+            {/* AI Credits Badge */}
+            <div
+              className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 text-blue-700 dark:text-blue-300 text-xs font-medium"
+              title={
+                isPro
+                  ? "Unlimited AI Copy Generations"
+                  : `${aiCreditsRemaining} Free AI Generations remaining`
+              }
+            >
+              <Sparkles className="size-3 text-blue-500" />
+              <span>{isPro ? "Pro" : `${aiCreditsRemaining} AI credits`}</span>
+            </div>
+
+            {/* User Dropdown / Avatar */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="size-8 rounded-full border border-border/80 bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-bold text-xs flex items-center justify-center cursor-pointer shadow-2xs hover:ring-2 hover:ring-blue-500/30 transition-all overflow-hidden shrink-0"
+                  title={user.displayName || user.email || "Account"}
+                >
+                  {user.photoURL ? (
+                    <img src={user.photoURL} alt="" className="size-full object-cover" />
+                  ) : (
+                    <span>{(user.displayName || user.email || "U").charAt(0).toUpperCase()}</span>
+                  )}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="end"
+                sideOffset={8}
+                className="w-56 p-3 rounded-xl shadow-xl border border-border/80 bg-popover/95 backdrop-blur-md"
+              >
+                <div className="flex flex-col gap-2.5">
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-xs font-semibold text-foreground truncate">
+                      {user.displayName || "User"}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground truncate">
+                      {user.email}
+                    </span>
+                  </div>
+
+                  <div className="rounded-lg bg-muted/60 p-2 border border-border/40 text-xs flex items-center justify-between">
+                    <span className="text-muted-foreground flex items-center gap-1">
+                      <Sparkles className="size-3 text-blue-500" />
+                      AI Credits
+                    </span>
+                    <span className="font-semibold text-foreground">
+                      {isPro ? "Unlimited" : `${aiCreditsRemaining} left`}
+                    </span>
+                  </div>
+
+                  <div className="border-t border-border/60 pt-2 flex flex-col gap-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => signOutUser()}
+                      className="w-full justify-start text-xs text-red-500 hover:text-red-600 hover:bg-red-500/10 cursor-pointer h-8 px-2"
+                    >
+                      <LogOut className="size-3.5 mr-2" />
+                      Sign Out
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+        ) : (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={openAuthModal}
+            className="h-8 px-3 gap-1.5 text-xs font-semibold rounded-lg border-blue-200 dark:border-blue-900/50 bg-blue-50/70 hover:bg-blue-100/80 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 shadow-2xs cursor-pointer transition-colors"
+          >
+            <UserIcon className="size-3.5" />
+            <span>Sign In</span>
+          </Button>
+        )}
       </div>
 
       {/* Thin animated progress indicator under the header when exporting */}

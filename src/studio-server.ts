@@ -188,7 +188,10 @@ export function exportHandler({ paths, cli }: StudioApi): (sub: string) => Handl
 
       const flags: string[] = ["--config", paths.configPath];
       if (opts.background) flags.push("--background", opts.background);
-      if (opts.frame) flags.push("--frame", opts.frame);
+      if (opts.frame) {
+        const cleanFrame = opts.frame.replace(/^\/?frames\//, "").replace(/\.png$/, "");
+        flags.push("--frame", cleanFrame);
+      }
       if (opts.font) flags.push("--font", opts.font);
       if (opts.template) flags.push("--template", opts.template);
       if (opts.layout) flags.push("--layout", opts.layout);
@@ -1161,7 +1164,10 @@ export function singleExportHandler({ paths, cli }: StudioApi): Handler {
         if (force || isStale) {
           const flags: string[] = [];
           if (background) flags.push("--background", background);
-          if (frame) flags.push("--frame", frame);
+          if (frame) {
+            const cleanFrame = frame.replace(/^\/?frames\//, "").replace(/\.png$/, "");
+            flags.push("--frame", cleanFrame);
+          }
           if (font) flags.push("--font", font);
           if (template && template !== "none") flags.push("--template", template);
           if (layout) flags.push("--layout", layout);
@@ -1169,7 +1175,7 @@ export function singleExportHandler({ paths, cli }: StudioApi): Handler {
           if (fontSizeScale) flags.push("--font-size-scale", fontSizeScale);
 
           const [bin, ...prefix] = cli;
-          await exec(
+          const execRes = await exec(
             bin!,
             [
               ...prefix,
@@ -1184,6 +1190,11 @@ export function singleExportHandler({ paths, cli }: StudioApi): Handler {
             ],
             { quiet: true },
           );
+          if (execRes.code !== 0) {
+            res.statusCode = 500;
+            res.end(`Frame rendering failed: ${execRes.stderr || execRes.stdout || `exit code ${execRes.code}`}`);
+            return;
+          }
           if (existsSync(screenshotsDir)) {
             const files = await readdir(screenshotsDir);
             const matched = findScreenshotFile(files, sceneId, sliceNum);

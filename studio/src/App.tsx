@@ -18,6 +18,8 @@ import { Sidebar } from "./components/Sidebar";
 import { StoreMockupPreview } from "./components/StoreMockupPreview";
 import { Strip } from "./components/Strip";
 import { useHistory } from "./lib/useHistory";
+import { AuthProvider } from "./context/AuthContext";
+import { AuthModal } from "./components/AuthModal";
 import {
   type AppInfo,
   type BundledFont,
@@ -95,7 +97,12 @@ export function App() {
       />
     );
   if (!loaded) return null;
-  return <Loaded manifest={loaded.manifest} saved={loaded.design} onRefresh={refresh} />;
+  return (
+    <AuthProvider>
+      <Loaded manifest={loaded.manifest} saved={loaded.design} onRefresh={refresh} />
+      <AuthModal />
+    </AuthProvider>
+  );
 }
 
 /**

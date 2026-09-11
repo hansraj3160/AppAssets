@@ -259,15 +259,15 @@ export function buildScreenshotEntries({
         (slice === (sceneBadges[scene.id]?.slice ?? 0) ? sceneBadges[scene.id] : undefined);
       const customBadgeDec: Decoration[] = userBadge
         ? [
-            {
-              kind: "badge",
-              text: { [locale]: userBadge.text },
-              position: userBadge.position,
-              background: userBadge.background,
-              color: userBadge.color,
-              slice,
-            },
-          ]
+          {
+            kind: "badge",
+            text: { [locale]: userBadge.text },
+            position: userBadge.position,
+            background: userBadge.background,
+            color: userBadge.color,
+            slice,
+          },
+        ]
         : [];
       const decorations = [...design.decorations, ...(scene.decorations ?? []), ...customBadgeDec];
       entries.push({
@@ -344,7 +344,8 @@ export async function downloadSingleScreenshot({
   });
   if (slice !== undefined) params.set("slice", String(slice));
   if (background) params.set("background", background);
-  if (frameUrl) params.set("frame", frameUrl);
+  const cleanFrame = design?.frameVariant || (frameUrl ? frameUrl.replace(/^\/?frames\//, "").replace(/\.png$/, "") : undefined);
+  if (cleanFrame) params.set("frame", cleanFrame);
   if (design && fontFamily) {
     const font = fontKey(design, fontFamily);
     if (font) params.set("font", font);
@@ -429,11 +430,11 @@ export function Strip({
     sceneId: string,
     badge:
       | {
-          text: string;
-          position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
-          background?: string;
-          color?: string;
-        }
+        text: string;
+        position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
+        background?: string;
+        color?: string;
+      }
       | undefined,
   ) => void;
   copy: Record<string, SceneCopy>;
@@ -493,9 +494,9 @@ export function Strip({
   const segments =
     design.preview && captures.clips
       ? design.preview.segments.flatMap((seg) => {
-          const clip = captures.clips!.find((c) => c.segmentId === seg.id);
-          return clip ? [{ url: clip.url, durationSeconds: clip.durationSeconds }] : [];
-        })
+        const clip = captures.clips!.find((c) => c.segmentId === seg.id);
+        return clip ? [{ url: clip.url, durationSeconds: clip.durationSeconds }] : [];
+      })
       : [];
 
   const totalSeconds = segments.reduce((s, c) => s + c.durationSeconds, 0);
@@ -565,10 +566,10 @@ export function Strip({
     const scene = scenes.find((s) => s.id === item.sceneId);
     const layoutControl = scene
       ? {
-          value: sceneLayouts[item.sceneId],
-          defaultKey: defaultLayoutOf(scene),
-          onChange: (key: string | undefined) => onSceneLayout(item.sceneId, key),
-        }
+        value: sceneLayouts[item.sceneId],
+        defaultKey: defaultLayoutOf(scene),
+        onChange: (key: string | undefined) => onSceneLayout(item.sceneId, key),
+      }
       : undefined;
     entries.push({
       key: item.key,
@@ -807,11 +808,10 @@ export function Strip({
                     type="button"
                     variant="outline"
                     size="sm"
-                    className={`h-7 px-2 gap-1 rounded-lg text-[10px] font-medium border shadow-2xs cursor-pointer transition-all ${
-                      currentBadge
-                        ? "border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400"
-                        : "border-border/80 bg-background/90 text-muted-foreground hover:text-foreground"
-                    }`}
+                    className={`h-7 px-2 gap-1 rounded-lg text-[10px] font-medium border shadow-2xs cursor-pointer transition-all ${currentBadge
+                      ? "border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400"
+                      : "border-border/80 bg-background/90 text-muted-foreground hover:text-foreground"
+                      }`}
                     title="Add or edit badge"
                   >
                     <Tag className="size-2.5 text-amber-500 shrink-0" />
@@ -1061,11 +1061,11 @@ export function Strip({
           onAiCopy={
             (entries[open]?.targetSceneId ?? entries[open]?.sceneId)
               ? () =>
-                  setActiveAiSceneId(
-                    (entries[open].targetSceneId ??
-                      entries[open].sceneId ??
-                      entries[open].key.split("#")[0])!,
-                  )
+                setActiveAiSceneId(
+                  (entries[open].targetSceneId ??
+                    entries[open].sceneId ??
+                    entries[open].key.split("#")[0])!,
+                )
               : undefined
           }
           onClose={() => setOpen(null)}
@@ -1157,11 +1157,11 @@ function Lightbox({
   onSceneBadge?: (
     badge:
       | {
-          text: string;
-          position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
-          background?: string;
-          color?: string;
-        }
+        text: string;
+        position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
+        background?: string;
+        color?: string;
+      }
       | undefined,
   ) => void;
   onDownload?: () => void;
@@ -1230,9 +1230,9 @@ function Lightbox({
             <SceneBackgroundPopover
               value={sceneBackground}
               globalBackground={globalBackground}
-              onChange={onSceneBackground ?? (() => {})}
+              onChange={onSceneBackground ?? (() => { })}
             />
-            <BadgePickerPopover badge={badge} onChange={onSceneBadge ?? (() => {})} />
+            <BadgePickerPopover badge={badge} onChange={onSceneBadge ?? (() => { })} />
           </>
         ) : null}
         {entry.key !== "preview" && onAiCopy ? (
@@ -1456,10 +1456,10 @@ export function ScreenshotScene({
               ...(copy.position === "top"
                 ? { top: 0, paddingTop: h(copy.y), justifyContent: "flex-start" }
                 : {
-                    bottom: 0,
-                    paddingBottom: h(tile.height - copy.y),
-                    justifyContent: "flex-end",
-                  }),
+                  bottom: 0,
+                  paddingBottom: h(tile.height - copy.y),
+                  justifyContent: "flex-end",
+                }),
               height: h(copy.box.height),
               display: "flex",
               flexDirection: "column",
@@ -1781,9 +1781,8 @@ function Tile({
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: drag-and-drop target container
     <div
-      className={`group relative transition-all rounded-2xl ${
-        isDragOver ? "ring-4 ring-primary scale-[1.02] z-30" : ""
-      }`}
+      className={`group relative transition-all rounded-2xl ${isDragOver ? "ring-4 ring-primary scale-[1.02] z-30" : ""
+        }`}
       onDragEnter={(e) => {
         const hasFiles =
           e.dataTransfer &&
@@ -1850,9 +1849,8 @@ function Tile({
         }
         title={draggable ? "Drag to reorder" : undefined}
         onClick={onOpen}
-        className={`tile-shadow relative block w-full overflow-hidden rounded-2xl bg-neutral-200 ring-1 ring-black/10 transition-[transform,box-shadow,--tw-ring-color] duration-150 select-none hover:-translate-y-0.5 hover:ring-black/25 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none dark:bg-neutral-800 dark:ring-white/10 dark:hover:ring-white/30 ${
-          draggable ? "cursor-grab active:cursor-grabbing" : "cursor-zoom-in"
-        }`}
+        className={`tile-shadow relative block w-full overflow-hidden rounded-2xl bg-neutral-200 ring-1 ring-black/10 transition-[transform,box-shadow,--tw-ring-color] duration-150 select-none hover:-translate-y-0.5 hover:ring-black/25 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none dark:bg-neutral-800 dark:ring-white/10 dark:hover:ring-white/30 ${draggable ? "cursor-grab active:cursor-grabbing" : "cursor-zoom-in"
+          }`}
         style={{ aspectRatio: `${width} / ${height}`, viewTransitionName: transitionName }}
       >
         {children}
