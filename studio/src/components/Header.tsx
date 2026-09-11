@@ -10,16 +10,20 @@ import {
   MoonIcon,
   Package,
   Settings2,
+  ShieldAlert,
+  ShieldCheck,
   Smartphone,
   Sparkles,
   SunIcon,
   Trash2,
   User as UserIcon,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { CUSTOM_TEMPLATE } from "../App";
 import { type AppInfo, fontKey, type StoreManifest } from "../manifest";
+import { runStoreAudit } from "../lib/storeAudit";
+import { StoreAuditModal } from "./StoreAuditModal";
 import { ImportButton } from "./ImportButton";
 import { Button } from "./ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
@@ -71,7 +75,19 @@ export function Header({
   const [exportLog, setExportLog] = useState<string | null>(null);
   const [showLog, setShowLog] = useState(false);
   const [popoverOpen, setPopoverOpen] = useState(false);
+  const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
   const logRef = useRef<HTMLPreElement>(null);
+
+  // Live Store Pre-Flight Audit checks (Apple App Store + Google Play)
+  const auditResult = useMemo(() => {
+    return runStoreAudit({
+      manifest,
+      appInfo,
+      hasScreenshots,
+      scenes: manifest?.design?.scenes,
+      theme: manifest?.design?.theme,
+    });
+  }, [manifest, appInfo, hasScreenshots]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: scroll whenever the log changes
   useEffect(() => {
@@ -143,7 +159,7 @@ export function Header({
 
     try {
       if (onSaveDesign) {
-        await onSaveDesign().catch(() => {});
+        await onSaveDesign().catch(() => { });
       }
       setExportProgress(12);
       setExportStage("Starting store export engine...");
@@ -171,7 +187,7 @@ export function Header({
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
-      for (;;) {
+      for (; ;) {
         const { done, value } = await reader.read();
         if (done) break;
         text += decoder.decode(value, { stream: true });
@@ -257,11 +273,10 @@ export function Header({
         <button
           type="button"
           onClick={() => onViewModeChange?.("editor")}
-          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
-            viewMode === "editor"
-              ? "bg-background text-foreground shadow-xs"
-              : "text-muted-foreground hover:text-foreground hover:bg-background/40"
-          }`}
+          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${viewMode === "editor"
+            ? "bg-background text-foreground shadow-xs"
+            : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+            }`}
         >
           <Layers className="size-3.5" />
           <span className="hidden sm:inline">Studio Canvas</span>
@@ -271,11 +286,10 @@ export function Header({
         <button
           type="button"
           onClick={() => onViewModeChange?.("store")}
-          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
-            viewMode === "store"
-              ? "bg-background text-foreground shadow-xs"
-              : "text-muted-foreground hover:text-foreground hover:bg-background/40"
-          }`}
+          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${viewMode === "store"
+            ? "bg-background text-foreground shadow-xs"
+            : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+            }`}
         >
           <Smartphone className="size-3.5 text-blue-500" />
           <span className="hidden sm:inline">Store Preview</span>
@@ -288,11 +302,10 @@ export function Header({
         <button
           type="button"
           onClick={() => onViewModeChange?.("promo")}
-          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
-            viewMode === "promo"
-              ? "bg-background text-foreground shadow-xs"
-              : "text-muted-foreground hover:text-foreground hover:bg-background/40"
-          }`}
+          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${viewMode === "promo"
+            ? "bg-background text-foreground shadow-xs"
+            : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+            }`}
         >
           <Sparkles className="size-3.5 text-amber-500" />
           <span className="hidden sm:inline">Promo Banners</span>
@@ -334,6 +347,35 @@ export function Header({
           );
         })()}
 
+        {/* 2.5 Store Pre-Flight Audit Badge */}
+        <button
+          type="button"
+          onClick={() => setIsAuditModalOpen(true)}
+          title={`Store Pre-Flight Audit Score: ${auditResult.score}%\n${auditResult.passedCount}/${auditResult.totalChecks} checks passed.\nClick to view recommendations for Google Play & App Store approval.`}
+          className={`h-8 px-2.5 sm:px-3 gap-1.5 text-xs font-semibold rounded-lg border shadow-2xs cursor-pointer transition-all flex items-center ${auditResult.score >= 90
+            ? "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
+            : auditResult.score >= 70
+              ? "bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-500/30"
+              : "bg-red-500/10 hover:bg-red-500/20 text-red-700 dark:text-red-400 border-red-500/30"
+            }`}
+        >
+          {auditResult.score >= 90 ? (
+            <ShieldCheck className="size-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+          ) : (
+            <ShieldAlert className="size-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+          )}
+          <span className="hidden sm:inline">Store Audit</span>
+          <span className="font-mono text-[11px] font-bold">
+            {auditResult.score}%
+          </span>
+          {auditResult.errorCount > 0 && (
+            <span
+              className="size-1.5 rounded-full bg-red-500 animate-pulse shrink-0"
+              title={`${auditResult.errorCount} critical issue(s)`}
+            />
+          )}
+        </button>
+
         {/* 3. Export Store Package (.ZIP) */}
         <Popover
           open={popoverOpen}
@@ -374,7 +416,7 @@ export function Header({
               ) : (
                 <>
                   <Package className="size-3.5 text-white" />
-                  <span>Export All (.ZIP)</span>
+                  <span>Export</span>
                 </>
               )}
             </Button>
@@ -524,11 +566,10 @@ export function Header({
           <div className="flex items-center gap-2 pl-1.5 border-l border-border/60">
             {/* AI Credits Badge */}
             <div
-              className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium ${
-                isPro
-                  ? "bg-purple-50 dark:bg-purple-950/40 border-purple-200 dark:border-purple-900/50 text-purple-700 dark:text-purple-300"
-                  : "bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 text-blue-700 dark:text-blue-300"
-              }`}
+              className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium ${isPro
+                ? "bg-purple-50 dark:bg-purple-950/40 border-purple-200 dark:border-purple-900/50 text-purple-700 dark:text-purple-300"
+                : "bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 text-blue-700 dark:text-blue-300"
+                }`}
               title={
                 isPro
                   ? "Pro Plan: 100% Ad-Free & Unlimited AI Copy Generations"
@@ -557,11 +598,10 @@ export function Header({
               <PopoverTrigger asChild>
                 <button
                   type="button"
-                  className={`size-8 rounded-full border font-bold text-xs flex items-center justify-center cursor-pointer shadow-2xs hover:ring-2 hover:ring-foreground/20 transition-all overflow-hidden shrink-0 ${
-                    isPro
-                      ? "border-emerald-500 bg-emerald-600 text-white"
-                      : "border-blue-200 dark:border-blue-900/50 bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400"
-                  }`}
+                  className={`size-8 rounded-full border font-bold text-xs flex items-center justify-center cursor-pointer shadow-2xs hover:ring-2 hover:ring-foreground/20 transition-all overflow-hidden shrink-0 ${isPro
+                    ? "border-emerald-500 bg-emerald-600 text-white"
+                    : "border-blue-200 dark:border-blue-900/50 bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400"
+                    }`}
                   title={user.displayName || user.email || "Account"}
                 >
                   {user.photoURL ? (
@@ -642,6 +682,26 @@ export function Header({
           style={{ width: `${exportProgress}%` }}
         />
       )}
+      {/* Store Pre-Flight Audit Modal */}
+      <StoreAuditModal
+        isOpen={isAuditModalOpen}
+        onClose={() => setIsAuditModalOpen(false)}
+        auditResult={auditResult}
+        onAction={(action) => {
+          setIsAuditModalOpen(false);
+          if (action.actionType === "icon-studio" || action.actionType === "app-details") {
+            onOpenAppDetails?.();
+          } else if (action.actionType === "promo-studio") {
+            onViewModeChange?.("promo");
+          } else if (action.actionType === "editor-scene") {
+            onViewModeChange?.("editor");
+          }
+        }}
+        onExportZip={() => {
+          setIsAuditModalOpen(false);
+          void exportZip();
+        }}
+      />
     </header>
   );
 }

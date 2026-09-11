@@ -8,6 +8,7 @@ import {
   bannerExportHandler,
   exportHandler,
   extractLocalesFromConfig,
+  faviconExportHandler,
   findScreenshotFile,
   getClientIp,
   getDimensionsFromBuffer,
@@ -1253,6 +1254,59 @@ describe("bannerExportHandler", () => {
       expect(dims1024).not.toBeNull();
       expect(dims1024!.width).toBe(1024);
       expect(dims1024!.height).toBe(1024);
+    });
+
+    test("faviconExportHandler generates complete web & favicon kit ZIP", async () => {
+      const tmp = await mkdtemp(join(tmpdir(), "goldie-fav-"));
+      const paths = studioPaths(join(tmp, "goldie.config.ts"));
+      await mkdir(paths.webDir, { recursive: true });
+
+      const handler = faviconExportHandler({ paths, cli: { run: async () => 0 } as any });
+
+      // 1. Returns 404 when no icon exists
+      const mockReqEmpty: any = { method: "GET", url: "/api/export-favicon" };
+      let statusCode = 0;
+      const mockResEmpty: any = {
+        setHeader() {},
+        end() {},
+        set statusCode(val: number) {
+          statusCode = val;
+        },
+      };
+      handler(mockReqEmpty, mockResEmpty);
+      await new Promise((r) => setTimeout(r, 50));
+      expect(statusCode).toBe(404);
+
+      // 2. Put a test PNG icon in webDir
+      const testPng = Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+        "base64",
+      );
+      await writeFile(join(paths.webDir, "icon.png"), testPng);
+
+      // 3. Request favicon export
+      let resHeaders: any = {};
+      let writtenData: Buffer | null = null;
+      const mockResValid: any = {
+        writeHead(code: number, headers: any) {
+          statusCode = code;
+          resHeaders = headers;
+        },
+        end(data: any) {
+          writtenData = data;
+        },
+      };
+      const mockReqValid: any = { method: "GET", url: "/api/export-favicon?appName=MyTestApp" };
+      handler(mockReqValid, mockResValid);
+      await new Promise((r) => setTimeout(r, 150));
+
+      expect(statusCode).toBe(200);
+      expect(resHeaders["Content-Type"]).toBe("application/zip");
+      expect(resHeaders["Content-Disposition"]).toContain("MyTestApp-favicon-web-kit.zip");
+      expect(Buffer.isBuffer(writtenData)).toBe(true);
+      expect(writtenData!.length).toBeGreaterThan(100);
+
+      await rm(tmp, { recursive: true, force: true });
     });
   });
 });
