@@ -16,6 +16,7 @@ import {
   localesHandler,
   MemoryRateLimiter,
   PRESET_LOCALES,
+  renderAppIconCanvas,
   replaceCaptureHandler,
   resolveDeviceFromDimensions,
   singleExportHandler,
@@ -814,6 +815,11 @@ describe("exportHandler", () => {
       join(paths.outDir, "screenshots", "iphone-6.9", "en-US", "01-home.png"),
       Buffer.from("mock-png"),
     );
+    const testIconPng = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+      "base64",
+    );
+    await writeFile(join(paths.outDir, "icon.png"), testIconPng);
 
     // Mock CLI script: exits 0 for frame/manifest, exits 1 for preview
     const cliScript = join(tmp, "mock-cli.js");
@@ -876,6 +882,8 @@ describe("exportHandler", () => {
     if (listing.code === 0) {
       expect(listing.stdout).toContain("AppStore/iPhone-6.9/en-US/01-home.png");
       expect(listing.stdout).toContain("STORE_GUIDE.txt");
+      expect(listing.stdout).toContain("GooglePlay/app-icon-512x512.png");
+      expect(listing.stdout).toContain("AppStore/app-icon-1024x1024.png");
     }
 
     await rm(tmp, { recursive: true, force: true });
@@ -1220,5 +1228,31 @@ describe("bannerExportHandler", () => {
     }
 
     await rm(tmp, { recursive: true, force: true });
+  });
+
+  describe("renderAppIconCanvas & store packaging", () => {
+    test("renders 512x512 Google Play and 1024x1024 App Store icons accurately", async () => {
+      // 1x1 test PNG
+      const testPng = Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+        "base64",
+      );
+
+      // Render 512x512 with scaling, corner radius, and background
+      const icon512 = await renderAppIconCanvas(testPng, 512, { scale: 0.8, bg: "#007AFF", cornerRadius: 20 });
+      expect(Buffer.isBuffer(icon512)).toBe(true);
+      const dims512 = getDimensionsFromBuffer(icon512);
+      expect(dims512).not.toBeNull();
+      expect(dims512!.width).toBe(512);
+      expect(dims512!.height).toBe(512);
+
+      // Render 1024x1024 with zoom 1.25, offset pan, and cornerRadius
+      const icon1024 = await renderAppIconCanvas(testPng, 1024, { scale: 1.25, offsetX: 10, offsetY: -5, cornerRadius: 22.5 });
+      expect(Buffer.isBuffer(icon1024)).toBe(true);
+      const dims1024 = getDimensionsFromBuffer(icon1024);
+      expect(dims1024).not.toBeNull();
+      expect(dims1024!.width).toBe(1024);
+      expect(dims1024!.height).toBe(1024);
+    });
   });
 });

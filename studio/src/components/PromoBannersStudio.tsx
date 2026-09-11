@@ -2,8 +2,6 @@ import {
   Check,
   Copy,
   Download,
-  Eye,
-  EyeOff,
   Image as ImageIcon,
   Layers,
   Loader2,
@@ -25,12 +23,12 @@ import type {
   SceneCopy,
   StoreManifest,
 } from "../manifest";
+import { AdBanner } from "./AdBanner";
 import { SceneBackgroundPopover } from "./SceneBackgroundPopover";
 import { buildScreenshotEntries, type ScreenshotEntry } from "./Strip";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
-import { AdBanner } from "./AdBanner";
 
 export type BannerFormat = "google-play" | "product-hunt" | "x-twitter" | "instagram-square";
 
@@ -130,21 +128,45 @@ export const KICKER_PRESETS: { category: string; tags: string[] }[] = [
 
 export const KICKER_COLOR_SWATCHES = [
   // Sky / Cyan / Blue
-  "#38BDF8", "#0284C7", "#2563EB", "#06B6D4", "#0D9488",
+  "#38BDF8",
+  "#0284C7",
+  "#2563EB",
+  "#06B6D4",
+  "#0D9488",
   // Emerald / Green / Lime
-  "#10B981", "#059669", "#84CC16", "#22C55E",
+  "#10B981",
+  "#059669",
+  "#84CC16",
+  "#22C55E",
   // Amber / Orange / Red
-  "#F59E0B", "#D97706", "#EA580C", "#F97316", "#EF4444", "#DC2626",
+  "#F59E0B",
+  "#D97706",
+  "#EA580C",
+  "#F97316",
+  "#EF4444",
+  "#DC2626",
   // Pink / Purple / Indigo
-  "#F43F5E", "#EC4899", "#D946EF", "#A855F7", "#7C3AED", "#6366F1",
+  "#F43F5E",
+  "#EC4899",
+  "#D946EF",
+  "#A855F7",
+  "#7C3AED",
+  "#6366F1",
   // Light / Neutral
-  "#FFFFFF", "#CBD5E1", "#94A3B8", "#0F172A",
+  "#FFFFFF",
+  "#CBD5E1",
+  "#94A3B8",
+  "#0F172A",
 ];
 
 export function hexToRgba(hex: string, alpha: number): string {
   if (!hex) return `rgba(56, 189, 248, ${alpha})`;
   let c = hex.replace("#", "").trim();
-  if (c.length === 3) c = c.split("").map((x) => x + x).join("");
+  if (c.length === 3)
+    c = c
+      .split("")
+      .map((x) => x + x)
+      .join("");
   if (c.length === 6) {
     const r = parseInt(c.slice(0, 2), 16);
     const g = parseInt(c.slice(2, 4), 16);
@@ -155,9 +177,24 @@ export function hexToRgba(hex: string, alpha: number): string {
 }
 
 export const LOGO_COLOR_SWATCHES = [
-  "#FFFFFF", "#0F172A", "#000000", "#2563EB", "#0284C7", "#059669",
-  "#10B981", "#D97706", "#F59E0B", "#DC2626", "#EF4444", "#7C3AED",
-  "#9333EA", "#DB2777", "#F8FAFC", "#E2E8F0", "#64748B", "#1E293B",
+  "#FFFFFF",
+  "#0F172A",
+  "#000000",
+  "#2563EB",
+  "#0284C7",
+  "#059669",
+  "#10B981",
+  "#D97706",
+  "#F59E0B",
+  "#DC2626",
+  "#EF4444",
+  "#7C3AED",
+  "#9333EA",
+  "#DB2777",
+  "#F8FAFC",
+  "#E2E8F0",
+  "#64748B",
+  "#1E293B",
 ];
 
 export interface PromoBannersStudioProps {
@@ -388,7 +425,10 @@ export function PromoBannersStudio({
       for (const h of hexes) {
         let hex = h.slice(1);
         if (hex.length === 3) {
-          hex = hex.split("").map((c) => c + c).join("");
+          hex = hex
+            .split("")
+            .map((c) => c + c)
+            .join("");
         }
         const r = parseInt(hex.slice(0, 2), 16);
         const g = parseInt(hex.slice(2, 4), 16);
@@ -409,7 +449,10 @@ export function PromoBannersStudio({
     return isLightBg ? "#0F172A" : "#FFFFFF";
   }, [textColorMode, customTextColor, isLightBg]);
 
-  const isDarkText = effectiveTextColor === "#0F172A" || textColorMode === "dark" || (textColorMode === "auto" && isLightBg);
+  const isDarkText =
+    effectiveTextColor === "#0F172A" ||
+    textColorMode === "dark" ||
+    (textColorMode === "auto" && isLightBg);
 
   const effectiveSubtextColor = isDarkText ? "rgba(15, 23, 42, 0.72)" : "rgba(255, 255, 255, 0.8)";
   const effectiveBulletColor = isDarkText ? "#1E293B" : "rgba(255, 255, 255, 0.95)";
@@ -649,7 +692,10 @@ export function PromoBannersStudio({
           ctx.fillStyle = logoBg;
         }
         ctx.fill();
-        ctx.strokeStyle = isDarkText && (logoBg === "#FFFFFF" || logoBg === "#F8FAFC") ? "rgba(0, 0, 0, 0.08)" : "rgba(255, 255, 255, 0.25)";
+        ctx.strokeStyle =
+          isDarkText && (logoBg === "#FFFFFF" || logoBg === "#F8FAFC")
+            ? "rgba(0, 0, 0, 0.08)"
+            : "rgba(255, 255, 255, 0.25)";
         ctx.lineWidth = Math.max(1, Math.round(iconSize * 0.02));
         ctx.stroke();
         ctx.restore();
@@ -749,7 +795,10 @@ export function PromoBannersStudio({
           ctx.fillStyle = logoBg;
         }
         ctx.fill();
-        ctx.strokeStyle = isDarkText && (logoBg === "#FFFFFF" || logoBg === "#F8FAFC") ? "rgba(0, 0, 0, 0.08)" : "rgba(255, 255, 255, 0.3)";
+        ctx.strokeStyle =
+          isDarkText && (logoBg === "#FFFFFF" || logoBg === "#F8FAFC")
+            ? "rgba(0, 0, 0, 0.08)"
+            : "rgba(255, 255, 255, 0.3)";
         ctx.lineWidth = Math.max(1, Math.round(iconSize * 0.02));
         ctx.stroke();
         ctx.restore();
@@ -1089,15 +1138,16 @@ export function PromoBannersStudio({
 
         {/* Right Actions: Safe Area Toggle, Copy, Download */}
         <div className="flex shrink-0 items-center gap-2 ml-auto">
-          <Button
+          {/* <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={() => setShowSafeArea(!showSafeArea)}
-            className={`h-7.5 gap-1.5 px-2.5 rounded-lg text-xs font-semibold cursor-pointer border-border/80 whitespace-nowrap shrink-0 transition-all ${showSafeArea
-              ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/40 shadow-xs"
-              : "bg-background/80 hover:bg-muted text-muted-foreground"
-              }`}
+            className={`h-7.5 gap-1.5 px-2.5 rounded-lg text-xs font-semibold cursor-pointer border-border/80 whitespace-nowrap shrink-0 transition-all ${
+              showSafeArea
+                ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/40 shadow-xs"
+                : "bg-background/80 hover:bg-muted text-muted-foreground"
+            }`}
           >
             {showSafeArea ? (
               <Eye className="size-3.5 text-amber-500" />
@@ -1105,7 +1155,7 @@ export function PromoBannersStudio({
               <EyeOff className="size-3.5" />
             )}
             <span>{showSafeArea ? "Safe Area: ON" : "Safe Area"}</span>
-          </Button>
+          </Button> */}
 
           {/* Resolution Selector: 1x Store Spec vs 2x Retina */}
           <div className="flex items-center rounded-lg bg-muted/80 p-0.5 border border-border/80 shrink-0 h-7.5">
@@ -1167,9 +1217,7 @@ export function PromoBannersStudio({
             ) : (
               <Download className="size-3.5" />
             )}
-            <span>
-              Download PNG
-            </span>
+            <span>Download PNG</span>
             <span className="font-mono text-[10px] opacity-80 font-normal">
               ({exportResolution === "2x" ? activeFormat.width * 2 : activeFormat.width}×
               {exportResolution === "2x" ? activeFormat.height * 2 : activeFormat.height})
@@ -1267,7 +1315,9 @@ export function PromoBannersStudio({
                     <PopoverContent className="w-64 p-3 space-y-2.5" side="bottom" align="end">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold text-foreground">Custom Text Color</span>
-                        <span className="text-[10px] font-mono text-muted-foreground">{customTextColor}</span>
+                        <span className="text-[10px] font-mono text-muted-foreground">
+                          {customTextColor}
+                        </span>
                       </div>
                       <div className="flex items-center gap-2">
                         <input
@@ -1290,9 +1340,24 @@ export function PromoBannersStudio({
                           placeholder="#0F172A"
                         />
                       </div>
-                      <div className="text-[10px] font-medium text-muted-foreground pt-0.5">Quick Swatches</div>
+                      <div className="text-[10px] font-medium text-muted-foreground pt-0.5">
+                        Quick Swatches
+                      </div>
                       <div className="grid grid-cols-6 gap-1.5">
-                        {["#0F172A", "#1E293B", "#334155", "#FFFFFF", "#F8FAFC", "#2563EB", "#059669", "#7C3AED", "#DC2626", "#EA580C", "#D97706", "#0284C7"].map((c) => (
+                        {[
+                          "#0F172A",
+                          "#1E293B",
+                          "#334155",
+                          "#FFFFFF",
+                          "#F8FAFC",
+                          "#2563EB",
+                          "#059669",
+                          "#7C3AED",
+                          "#DC2626",
+                          "#EA580C",
+                          "#D97706",
+                          "#0284C7",
+                        ].map((c) => (
                           <button
                             key={c}
                             type="button"
@@ -1348,7 +1413,9 @@ export function PromoBannersStudio({
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5">
                         <Tag className="size-3.5 text-primary" />
-                        <span className="text-xs font-bold text-foreground">Kicker Tag / Badge</span>
+                        <span className="text-xs font-bold text-foreground">
+                          Kicker Tag / Badge
+                        </span>
                       </div>
                       {kickerColor || kickerStyle !== "text" ? (
                         <button
@@ -1371,7 +1438,9 @@ export function PromoBannersStudio({
                         <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
                           Tag Text
                         </label>
-                        <span className="text-[9px] font-mono text-muted-foreground">{kickerText.length} chars</span>
+                        <span className="text-[9px] font-mono text-muted-foreground">
+                          {kickerText.length} chars
+                        </span>
                       </div>
                       <Input
                         value={kickerText}
@@ -1467,7 +1536,13 @@ export function PromoBannersStudio({
                       <div className="flex items-center gap-1.5 pt-1">
                         <input
                           type="color"
-                          value={kickerColor.startsWith("#") ? kickerColor : (isDarkText ? "#0284C7" : "#38BDF8")}
+                          value={
+                            kickerColor.startsWith("#")
+                              ? kickerColor
+                              : isDarkText
+                                ? "#0284C7"
+                                : "#38BDF8"
+                          }
                           onChange={(e) => setKickerColor(e.target.value)}
                           className="size-7 rounded cursor-pointer border border-border/80 bg-transparent p-0.5 shrink-0"
                         />
@@ -1510,7 +1585,15 @@ export function PromoBannersStudio({
                       </div>
                       <span className="font-semibold">Logo BG</span>
                       <span className="text-[9px] text-muted-foreground capitalize font-mono">
-                        {logoBg === "gradient" ? "Grad" : logoBg === "transparent" ? "Clear" : logoBg === "#FFFFFF" ? "White" : logoBg.startsWith("#") ? logoBg.slice(0, 4) : "Custom"}
+                        {logoBg === "gradient"
+                          ? "Grad"
+                          : logoBg === "transparent"
+                            ? "Clear"
+                            : logoBg === "#FFFFFF"
+                              ? "White"
+                              : logoBg.startsWith("#")
+                                ? logoBg.slice(0, 4)
+                                : "Custom"}
                       </span>
                     </Button>
                   </PopoverTrigger>
@@ -1518,7 +1601,9 @@ export function PromoBannersStudio({
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5">
                         <ImageIcon className="size-3.5 text-blue-500" />
-                        <span className="text-xs font-bold text-foreground">Logo Background & Fit</span>
+                        <span className="text-xs font-bold text-foreground">
+                          Logo Background & Fit
+                        </span>
                       </div>
                       {logoBg !== "gradient" || logoFit !== "cover" ? (
                         <button
@@ -2278,7 +2363,9 @@ export function PromoBannersStudio({
               <div className="flex items-center gap-3">
                 {/* Logo Preview Squircle */}
                 <div
-                  className={`size-12 rounded-[22%] flex items-center justify-center text-white font-black text-lg overflow-hidden shrink-0 transition-all ${logoBg === "transparent" ? "border border-border/80 bg-neutral-900/40" : "shadow-md border border-white/25"
+                  className={`size-12 rounded-[22%] flex items-center justify-center text-white font-black text-lg overflow-hidden shrink-0 transition-all ${logoBg === "transparent"
+                    ? "border border-border/80 bg-neutral-900/40"
+                    : "shadow-md border border-white/25"
                     }`}
                   style={{ background: resolvedLogoBackground }}
                 >
@@ -2745,7 +2832,9 @@ export function PromoBannersStudio({
               <div className="flex items-center gap-1.5">
                 <input
                   type="color"
-                  value={kickerColor.startsWith("#") ? kickerColor : (isDarkText ? "#0284C7" : "#38BDF8")}
+                  value={
+                    kickerColor.startsWith("#") ? kickerColor : isDarkText ? "#0284C7" : "#38BDF8"
+                  }
                   onChange={(e) => setKickerColor(e.target.value)}
                   className="size-6 rounded cursor-pointer border border-border/80 bg-transparent p-0.5 shrink-0"
                 />

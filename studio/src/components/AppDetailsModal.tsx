@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { AppInfo } from "../manifest";
+import { AppIconModal } from "./AppIconModal";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 
@@ -53,6 +54,7 @@ export function AppDetailsModal({ isOpen, onClose, appInfo, onSaveAppInfo }: App
   const [icon, setIcon] = useState<string | null>(appInfo.icon || null);
   const [uploadingIcon, setUploadingIcon] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [isIconModalOpen, setIsIconModalOpen] = useState(false);
 
   // Sync state when modal opens or appInfo updates
   useEffect(() => {
@@ -107,6 +109,27 @@ export function AppDetailsModal({ isOpen, onClose, appInfo, onSaveAppInfo }: App
     try {
       await fetch("/api/icon", { method: "DELETE" });
     } catch {}
+  };
+
+  const handleApplyFromStudio = async (dataUrl: string) => {
+    setIcon(dataUrl);
+    try {
+      await fetch("/api/icon", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dataUrl }),
+      });
+      onSaveAppInfo({
+        name: name.trim(),
+        subtitle: subtitle.trim(),
+        category: category.trim(),
+        developer: developer.trim(),
+        description: description.trim(),
+        icon: dataUrl,
+      });
+    } catch (err) {
+      console.error("Failed to save icon from Studio:", err);
+    }
   };
 
   const handleReset = async () => {
@@ -200,27 +223,50 @@ export function AppDetailsModal({ isOpen, onClose, appInfo, onSaveAppInfo }: App
           {/* Logo & Brand Identity */}
           <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/40 border border-border/80">
             {/* App Icon Preview */}
-            <div className="relative size-16 shrink-0 rounded-2xl overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 shadow-md flex items-center justify-center text-white font-bold text-2xl border border-white/20">
+            <button
+              type="button"
+              onClick={() => setIsIconModalOpen(true)}
+              className="relative size-16 shrink-0 rounded-2xl overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 shadow-md flex items-center justify-center text-white font-bold text-2xl border border-white/20 hover:ring-2 hover:ring-[#007aff]/50 transition-all cursor-pointer group"
+              title="Click to open Icon Studio & Resizer"
+            >
               {icon ? (
                 <img src={icon} alt={name || "App Icon"} className="size-full object-cover" />
               ) : (
                 <span>{initial}</span>
               )}
-            </div>
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                <Sparkles className="size-5 text-white" />
+              </div>
+            </button>
 
             <div className="flex-1 min-w-0 space-y-1">
-              <h4 className="text-sm font-semibold text-foreground">App Logo / Icon</h4>
+              <div className="flex items-center justify-between gap-2">
+                <h4 className="text-sm font-semibold text-foreground">App Logo / Icon</h4>
+                <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-md bg-blue-500/10 text-[#007aff] border border-blue-500/20">
+                  512×512 & 1024×1024
+                </span>
+              </div>
               <p className="text-xs text-muted-foreground">
-                Square PNG, JPEG, or WebP. Appears on Store pages and Promo Banners.
+                Square PNG, JPEG, or WebP. Appears on Store pages, Promo Banners, and export ZIP.
               </p>
-              <div className="flex items-center gap-2 pt-1">
-                <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer shadow-xs transition-colors">
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => setIsIconModalOpen(true)}
+                  className="h-8 px-2.5 gap-1.5 text-xs font-semibold rounded-lg bg-[#007aff] hover:bg-[#006ee6] active:bg-[#0062cc] text-white cursor-pointer shadow-2xs"
+                >
+                  <Sparkles className="size-3.5" />
+                  <span>Icon Studio & Resizer</span>
+                </Button>
+
+                <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-muted text-foreground hover:bg-muted/80 cursor-pointer shadow-2xs border border-border/80 transition-colors">
                   {uploadingIcon ? (
                     <Loader2 className="size-3.5 animate-spin" />
                   ) : (
-                    <Upload className="size-3.5" />
+                    <Upload className="size-3.5 text-muted-foreground" />
                   )}
-                  <span>{icon ? "Change Logo" : "Upload Logo"}</span>
+                  <span>{icon ? "Upload File" : "Quick Upload"}</span>
                   <input
                     type="file"
                     accept="image/png,image/jpeg,image/webp,image/svg+xml"
@@ -235,7 +281,7 @@ export function AppDetailsModal({ isOpen, onClose, appInfo, onSaveAppInfo }: App
                     variant="ghost"
                     size="sm"
                     onClick={handleRemoveIcon}
-                    className="h-8 px-2.5 text-xs text-destructive hover:bg-destructive/10"
+                    className="h-8 px-2.5 text-xs text-destructive hover:bg-destructive/10 cursor-pointer"
                   >
                     <Trash2 className="size-3.5 mr-1" />
                     <span>Remove</span>
@@ -426,6 +472,15 @@ export function AppDetailsModal({ isOpen, onClose, appInfo, onSaveAppInfo }: App
           </div>
         </div>
       </div>
+
+      {/* App Icon Studio & Resizer Dialog */}
+      <AppIconModal
+        isOpen={isIconModalOpen}
+        onClose={() => setIsIconModalOpen(false)}
+        currentIcon={icon}
+        appName={name || "App"}
+        onApplyIcon={handleApplyFromStudio}
+      />
     </div>
   );
 }

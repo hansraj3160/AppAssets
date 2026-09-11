@@ -9,7 +9,9 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AdBanner } from "./components/AdBanner";
 import { AppDetailsModal } from "./components/AppDetailsModal";
+import { AuthModal } from "./components/AuthModal";
 import { EmptyState } from "./components/EmptyState";
 import { Header } from "./components/Header";
 import { LocaleManagerModal } from "./components/LocaleManagerModal";
@@ -17,11 +19,9 @@ import { PromoBannersStudio } from "./components/PromoBannersStudio";
 import { Sidebar } from "./components/Sidebar";
 import { StoreMockupPreview } from "./components/StoreMockupPreview";
 import { Strip } from "./components/Strip";
-import { useHistory } from "./lib/useHistory";
-import { AuthProvider } from "./context/AuthContext";
-import { AuthModal } from "./components/AuthModal";
 import { UpgradeModal } from "./components/UpgradeModal";
-import { AdBanner } from "./components/AdBanner";
+import { AuthProvider } from "./context/AuthContext";
+import { useHistory } from "./lib/useHistory";
 import {
   type AppInfo,
   type BundledFont,

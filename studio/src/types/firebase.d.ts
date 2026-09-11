@@ -27,11 +27,15 @@ declare module "firebase/auth" {
   export function onAuthStateChanged(
     auth: Auth,
     next: (user: User | null) => void,
-    error?: (error: Error) => void
+    error?: (error: Error) => void,
   ): () => void;
   export function signInWithPopup(auth: Auth, provider: any): Promise<any>;
   export function signInWithEmailAndPassword(auth: Auth, email: string, pass: string): Promise<any>;
-  export function createUserWithEmailAndPassword(auth: Auth, email: string, pass: string): Promise<any>;
+  export function createUserWithEmailAndPassword(
+    auth: Auth,
+    email: string,
+    pass: string,
+  ): Promise<any>;
   export function signOut(auth: Auth): Promise<void>;
   export function sendPasswordResetEmail(auth: Auth, email: string): Promise<void>;
 }
@@ -48,14 +52,18 @@ declare module "firebase/firestore" {
     id: string;
   }
   export function getFirestore(app?: any): Firestore;
-  export function doc(firestore: Firestore, path: string, ...pathSegments: string[]): DocumentReference;
+  export function doc(
+    firestore: Firestore,
+    path: string,
+    ...pathSegments: string[]
+  ): DocumentReference;
   export function getDoc(reference: DocumentReference): Promise<DocumentSnapshot>;
   export function setDoc(reference: DocumentReference, data: any, options?: any): Promise<void>;
   export function updateDoc(reference: DocumentReference, data: any): Promise<void>;
   export function onSnapshot(
     reference: DocumentReference,
     observer: (snapshot: DocumentSnapshot) => void,
-    onError?: (error: Error) => void
+    onError?: (error: Error) => void,
   ): () => void;
   export function increment(n: number): any;
 }

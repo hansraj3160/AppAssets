@@ -1,10 +1,11 @@
-import React, { useState } from "react";
-import { Sparkles, X, Loader2, Mail, Lock, CheckCircle2 } from "lucide-react";
 import { sendPasswordResetEmail } from "firebase/auth";
-import { auth } from "@/lib/firebase";
-import { useAuth } from "@/context/AuthContext";
+import { CheckCircle2, Loader2, Lock, Mail, Sparkles, X } from "lucide-react";
+import type React from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useAuth } from "@/context/AuthContext";
+import { auth } from "@/lib/firebase";
 
 export function AuthModal() {
   const { isAuthModalOpen, closeAuthModal, signInWithGoogle, signInWithEmail, signUpWithEmail } =
@@ -69,10 +70,10 @@ export function AuthModal() {
         err?.code === "auth/invalid-credential"
           ? "Invalid email or password."
           : err?.code === "auth/email-already-in-use"
-          ? "This email is already registered. Please sign in."
-          : err?.code === "auth/weak-password"
-          ? "Password should be at least 6 characters."
-          : err?.message || "Authentication failed.";
+            ? "This email is already registered. Please sign in."
+            : err?.code === "auth/weak-password"
+              ? "Password should be at least 6 characters."
+              : err?.message || "Authentication failed.";
       setError(msg);
     } finally {
       setLoadingEmail(false);
@@ -83,7 +84,11 @@ export function AuthModal() {
     <div
       role="dialog"
       aria-modal="true"
+      tabIndex={-1}
       className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150"
+      onKeyDown={(e) => {
+        if (e.key === "Escape" && e.target === e.currentTarget) closeAuthModal();
+      }}
       onClick={(e) => {
         if (e.target === e.currentTarget) closeAuthModal();
       }}
@@ -140,6 +145,7 @@ export function AuthModal() {
             <Loader2 className="size-4 animate-spin" />
           ) : (
             <svg className="size-4.5" viewBox="0 0 24 24">
+              <title>Google</title>
               <path
                 fill="#4285F4"
                 d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z"

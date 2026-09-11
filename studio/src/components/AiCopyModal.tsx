@@ -14,10 +14,10 @@ import {
   Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useAuth } from "../context/AuthContext";
 import type { AppInfo, StoreManifest } from "../manifest";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { useAuth } from "../context/AuthContext";
 
 export interface AiSuggestion {
   tone: string;
@@ -100,7 +100,9 @@ export function AiCopyModal({
         return;
       }
       if (!isPro && aiCreditsRemaining <= 0) {
-        setError("You have reached your 10 free AI credits limit. Upgrade to Pro for unlimited AI copy generation.");
+        setError(
+          "You have reached your 10 free AI credits limit. Upgrade to Pro for unlimited AI copy generation.",
+        );
         return;
       }
 
@@ -181,7 +183,21 @@ export function AiCopyModal({
         setLoading(false);
       }
     },
-    [user, isPro, aiCreditsRemaining, consumeAiCredit, openAuthModal, sceneId, device, locale, selectedTone, customPrompt, appName, appCategory, appDescription],
+    [
+      user,
+      isPro,
+      aiCreditsRemaining,
+      consumeAiCredit,
+      openAuthModal,
+      sceneId,
+      device,
+      locale,
+      selectedTone,
+      customPrompt,
+      appName,
+      appCategory,
+      appDescription,
+    ],
   );
 
   // Auto-generate on open once per scene/device/locale only if user is logged in
@@ -257,10 +273,14 @@ export function AiCopyModal({
                       isPro
                         ? "bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30"
                         : aiCreditsRemaining <= 2
-                        ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
-                        : "bg-primary/10 text-primary border border-primary/20"
+                          ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                          : "bg-primary/10 text-primary border border-primary/20"
                     }`}
-                    title={isPro ? "Pro Plan: Unlimited generations" : `${aiCreditsRemaining} free credits left`}
+                    title={
+                      isPro
+                        ? "Pro Plan: Unlimited generations"
+                        : `${aiCreditsRemaining} free credits left`
+                    }
                   >
                     <Sparkles className="size-2.5 text-amber-500 fill-amber-500" />
                     <span>{isPro ? "PRO • Unlimited" : `${aiCreditsRemaining}/10 credits`}</span>
@@ -362,8 +382,8 @@ export function AiCopyModal({
                   {cooldownSeconds
                     ? `Wait ${cooldownSeconds}s`
                     : !isPro && aiCreditsRemaining <= 0
-                    ? "0 Credits Left"
-                    : "Regenerate"}
+                      ? "0 Credits Left"
+                      : "Regenerate"}
                 </span>
               </Button>
             </div>
@@ -418,7 +438,8 @@ export function AiCopyModal({
                 Sign In to Unlock AI Copywriter
               </h3>
               <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
-                Analyze your uploaded app screenshots to generate high-converting App Store & Google Play headlines matching your exact UI layout.
+                Analyze your uploaded app screenshots to generate high-converting App Store & Google
+                Play headlines matching your exact UI layout.
               </p>
 
               <div className="mt-6 w-full rounded-xl border border-border/80 bg-muted/40 p-3.5 text-left text-xs space-y-2.5">
@@ -456,224 +477,227 @@ export function AiCopyModal({
             </div>
           ) : (
             <>
-          {/* Current Canvas Copy */}
-          {(sceneHeadline || sceneSubhead) && (
-            <div className="flex items-center justify-between rounded-xl border border-border/70 bg-muted/20 px-4 py-2.5 text-xs text-muted-foreground">
-              <div className="flex items-center gap-3 truncate">
-                <span className="font-semibold text-foreground/80 uppercase text-[10px] tracking-wider shrink-0">
-                  Current Copy:
-                </span>
-                <span className="font-medium text-foreground truncate">
-                  {sceneHeadline || "(No headline)"}
-                </span>
-                <span className="text-muted-foreground/60">•</span>
-                <span className="truncate text-muted-foreground">
-                  {sceneSubhead || "(No subhead)"}
-                </span>
-              </div>
-            </div>
-          )}
-
-          {/* Screen Analysis Callout */}
-          {screenAnalysis && (
-            <div className="flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 p-3.5 text-xs animate-in fade-in duration-200">
-              <div className="rounded-md bg-primary/20 p-1 text-primary shrink-0 mt-0.5">
-                <Sparkles className="size-3.5" />
-              </div>
-              <div className="flex flex-col gap-0.5">
-                <span className="font-semibold text-primary text-[11px] uppercase tracking-wider">
-                  Vision Analysis
-                </span>
-                <p className="text-foreground/90 leading-relaxed">{screenAnalysis}</p>
-              </div>
-            </div>
-          )}
-
-          {/* Loading Indicator */}
-          {loading && (
-            <div className="flex flex-col items-center justify-center py-16 gap-3 text-center animate-in fade-in">
-              <div className="relative flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                <Sparkles className="size-7 animate-pulse text-primary" />
-                <Loader2 className="absolute size-10 animate-spin text-primary/40" />
-              </div>
-              <p className="text-sm font-semibold text-foreground">
-                Analyzing screen with Gemini Vision…
-              </p>
-              <p className="text-xs text-muted-foreground max-w-sm">
-                Examining visual layout, cards, charts, and text to craft high-converting App Store
-                marketing copy.
-              </p>
-            </div>
-          )}
-
-          {/* Error Message with Cooldown card */}
-          {error && !loading && (
-            <div
-              className={`flex items-start gap-3 rounded-xl border p-4 text-xs ${
-                cooldownSeconds
-                  ? "border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-200"
-                  : "border-destructive/30 bg-destructive/10 text-destructive"
-              }`}
-            >
-              {cooldownSeconds ? (
-                <Clock className="size-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
-              ) : (
-                <AlertCircle className="size-4 shrink-0 mt-0.5" />
-              )}
-              <div className="flex-1 flex flex-col gap-1">
-                <span className="font-semibold">
-                  {cooldownSeconds ? "Generation Limit Reached" : "Generation Failed"}
-                </span>
-                <p className="opacity-90">{error}</p>
-                {cooldownSeconds ? (
-                  <div className="pt-2 flex items-center gap-2">
-                    <span className="text-[11px] font-medium flex items-center gap-1.5">
-                      Cooldown remaining:{" "}
-                      <span className="font-bold underline">
-                        {Math.floor(cooldownSeconds / 60)}:
-                        {String(cooldownSeconds % 60).padStart(2, "0")}
-                      </span>
+              {/* Current Canvas Copy */}
+              {(sceneHeadline || sceneSubhead) && (
+                <div className="flex items-center justify-between rounded-xl border border-border/70 bg-muted/20 px-4 py-2.5 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-3 truncate">
+                    <span className="font-semibold text-foreground/80 uppercase text-[10px] tracking-wider shrink-0">
+                      Current Copy:
+                    </span>
+                    <span className="font-medium text-foreground truncate">
+                      {sceneHeadline || "(No headline)"}
+                    </span>
+                    <span className="text-muted-foreground/60">•</span>
+                    <span className="truncate text-muted-foreground">
+                      {sceneSubhead || "(No subhead)"}
                     </span>
                   </div>
-                ) : (
-                  <div className="pt-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => fetchAiSuggestions()}
-                      className="border-destructive/30 text-destructive hover:bg-destructive/10 cursor-pointer text-xs"
-                    >
-                      Try Again
-                    </Button>
+                </div>
+              )}
+
+              {/* Screen Analysis Callout */}
+              {screenAnalysis && (
+                <div className="flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 p-3.5 text-xs animate-in fade-in duration-200">
+                  <div className="rounded-md bg-primary/20 p-1 text-primary shrink-0 mt-0.5">
+                    <Sparkles className="size-3.5" />
                   </div>
-                )}
-              </div>
-            </div>
-          )}
+                  <div className="flex flex-col gap-0.5">
+                    <span className="font-semibold text-primary text-[11px] uppercase tracking-wider">
+                      Vision Analysis
+                    </span>
+                    <p className="text-foreground/90 leading-relaxed">{screenAnalysis}</p>
+                  </div>
+                </div>
+              )}
 
-          {/* Generated Suggestions Grid */}
-          {!loading && suggestions.length > 0 && (
-            <div className="grid grid-cols-1 gap-3.5 animate-in fade-in">
-              {suggestions.map((suggestion, index) => {
-                const isApplied = appliedIndex === index;
-                const headlineChars = suggestion.headline.length;
-                const subheadChars = suggestion.subhead.length;
+              {/* Loading Indicator */}
+              {loading && (
+                <div className="flex flex-col items-center justify-center py-16 gap-3 text-center animate-in fade-in">
+                  <div className="relative flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                    <Sparkles className="size-7 animate-pulse text-primary" />
+                    <Loader2 className="absolute size-10 animate-spin text-primary/40" />
+                  </div>
+                  <p className="text-sm font-semibold text-foreground">
+                    Analyzing screen with Gemini Vision…
+                  </p>
+                  <p className="text-xs text-muted-foreground max-w-sm">
+                    Examining visual layout, cards, charts, and text to craft high-converting App
+                    Store marketing copy.
+                  </p>
+                </div>
+              )}
 
-                return (
-                  <div
-                    key={`${suggestion.tone}-${suggestion.headline}`}
-                    className={`group relative flex flex-col justify-between gap-3 rounded-xl border p-4.5 transition-all ${
-                      isApplied
-                        ? "border-emerald-500/60 bg-emerald-500/10 shadow-sm"
-                        : "border-border bg-card/80 hover:border-primary/40 hover:shadow-md"
-                    }`}
-                  >
-                    {/* Top Row: Tone Tag & Character Counters */}
-                    <div className="flex items-center justify-between">
-                      <span className="rounded-md bg-secondary px-2 py-0.5 text-[10px] font-semibold text-secondary-foreground">
-                        {suggestion.tone}
-                      </span>
-                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                        <span>
-                          Headline:{" "}
-                          <span
-                            className={
-                              headlineChars > 35 ? "text-amber-500 font-semibold" : "font-medium"
-                            }
-                          >
-                            {headlineChars}
+              {/* Error Message with Cooldown card */}
+              {error && !loading && (
+                <div
+                  className={`flex items-start gap-3 rounded-xl border p-4 text-xs ${
+                    cooldownSeconds
+                      ? "border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-200"
+                      : "border-destructive/30 bg-destructive/10 text-destructive"
+                  }`}
+                >
+                  {cooldownSeconds ? (
+                    <Clock className="size-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                  ) : (
+                    <AlertCircle className="size-4 shrink-0 mt-0.5" />
+                  )}
+                  <div className="flex-1 flex flex-col gap-1">
+                    <span className="font-semibold">
+                      {cooldownSeconds ? "Generation Limit Reached" : "Generation Failed"}
+                    </span>
+                    <p className="opacity-90">{error}</p>
+                    {cooldownSeconds ? (
+                      <div className="pt-2 flex items-center gap-2">
+                        <span className="text-[11px] font-medium flex items-center gap-1.5">
+                          Cooldown remaining:{" "}
+                          <span className="font-bold underline">
+                            {Math.floor(cooldownSeconds / 60)}:
+                            {String(cooldownSeconds % 60).padStart(2, "0")}
                           </span>
-                          /35
-                        </span>
-                        <span>•</span>
-                        <span>
-                          Subhead:{" "}
-                          <span
-                            className={
-                              subheadChars > 85 ? "text-amber-500 font-semibold" : "font-medium"
-                            }
-                          >
-                            {subheadChars}
-                          </span>
-                          /85
                         </span>
                       </div>
-                    </div>
-
-                    {/* Headline & Subhead Preview */}
-                    <div className="flex flex-col gap-1.5">
-                      <div className="flex items-start justify-between gap-2">
-                        <h4 className="text-base font-bold text-foreground leading-snug">
-                          {suggestion.headline}
-                        </h4>
-                        <button
-                          type="button"
-                          onClick={() => handleApplyHeadlineOnly(suggestion.headline)}
-                          className="opacity-0 group-hover:opacity-100 text-[10px] text-primary hover:underline shrink-0 cursor-pointer transition-opacity"
-                          title="Apply only headline"
+                    ) : (
+                      <div className="pt-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => fetchAiSuggestions()}
+                          className="border-destructive/30 text-destructive hover:bg-destructive/10 cursor-pointer text-xs"
                         >
-                          Use headline only
-                        </button>
+                          Try Again
+                        </Button>
                       </div>
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-xs text-muted-foreground leading-relaxed">
-                          {suggestion.subhead}
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => handleApplySubheadOnly(suggestion.subhead)}
-                          className="opacity-0 group-hover:opacity-100 text-[10px] text-primary hover:underline shrink-0 cursor-pointer transition-opacity"
-                          title="Apply only subhead"
-                        >
-                          Use subhead only
-                        </button>
-                      </div>
-                    </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
-                    {/* Action Bar */}
-                    <div className="flex items-center justify-end border-t border-border/50 pt-3 mt-1">
-                      <Button
-                        size="sm"
-                        onClick={() => handleApplyBoth(suggestion, index)}
-                        className={`gap-1.5 cursor-pointer text-xs transition-all ${
+              {/* Generated Suggestions Grid */}
+              {!loading && suggestions.length > 0 && (
+                <div className="grid grid-cols-1 gap-3.5 animate-in fade-in">
+                  {suggestions.map((suggestion, index) => {
+                    const isApplied = appliedIndex === index;
+                    const headlineChars = suggestion.headline.length;
+                    const subheadChars = suggestion.subhead.length;
+
+                    return (
+                      <div
+                        key={`${suggestion.tone}-${suggestion.headline}`}
+                        className={`group relative flex flex-col justify-between gap-3 rounded-xl border p-4.5 transition-all ${
                           isApplied
-                            ? "bg-emerald-600 text-white hover:bg-emerald-600"
-                            : "bg-primary text-primary-foreground hover:opacity-90"
+                            ? "border-emerald-500/60 bg-emerald-500/10 shadow-sm"
+                            : "border-border bg-card/80 hover:border-primary/40 hover:shadow-md"
                         }`}
                       >
-                        {isApplied ? (
-                          <>
-                            <Check className="size-3.5" />
-                            <span>Applied to Scene!</span>
-                          </>
-                        ) : (
-                          <>
-                            <Sparkles className="size-3.5" />
-                            <span>Apply to Scene</span>
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                        {/* Top Row: Tone Tag & Character Counters */}
+                        <div className="flex items-center justify-between">
+                          <span className="rounded-md bg-secondary px-2 py-0.5 text-[10px] font-semibold text-secondary-foreground">
+                            {suggestion.tone}
+                          </span>
+                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                            <span>
+                              Headline:{" "}
+                              <span
+                                className={
+                                  headlineChars > 35
+                                    ? "text-amber-500 font-semibold"
+                                    : "font-medium"
+                                }
+                              >
+                                {headlineChars}
+                              </span>
+                              /35
+                            </span>
+                            <span>•</span>
+                            <span>
+                              Subhead:{" "}
+                              <span
+                                className={
+                                  subheadChars > 85 ? "text-amber-500 font-semibold" : "font-medium"
+                                }
+                              >
+                                {subheadChars}
+                              </span>
+                              /85
+                            </span>
+                          </div>
+                        </div>
 
-          {/* Zero credits empty state */}
-          {!loading && !isPro && aiCreditsRemaining <= 0 && suggestions.length === 0 && (
-            <div className="flex flex-col items-center justify-center my-auto py-12 px-4 text-center max-w-sm mx-auto animate-in fade-in">
-              <div className="size-12 rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-3">
-                <Sparkles className="size-6 fill-amber-500" />
-              </div>
-              <h4 className="text-base font-bold text-foreground">Free AI Limit Reached</h4>
-              <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
-                You have used all 10 free AI generations. Upgrade to Pro for unlimited screenshot copywriting and an ad-free experience.
-              </p>
-            </div>
+                        {/* Headline & Subhead Preview */}
+                        <div className="flex flex-col gap-1.5">
+                          <div className="flex items-start justify-between gap-2">
+                            <h4 className="text-base font-bold text-foreground leading-snug">
+                              {suggestion.headline}
+                            </h4>
+                            <button
+                              type="button"
+                              onClick={() => handleApplyHeadlineOnly(suggestion.headline)}
+                              className="opacity-0 group-hover:opacity-100 text-[10px] text-primary hover:underline shrink-0 cursor-pointer transition-opacity"
+                              title="Apply only headline"
+                            >
+                              Use headline only
+                            </button>
+                          </div>
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-xs text-muted-foreground leading-relaxed">
+                              {suggestion.subhead}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => handleApplySubheadOnly(suggestion.subhead)}
+                              className="opacity-0 group-hover:opacity-100 text-[10px] text-primary hover:underline shrink-0 cursor-pointer transition-opacity"
+                              title="Apply only subhead"
+                            >
+                              Use subhead only
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Action Bar */}
+                        <div className="flex items-center justify-end border-t border-border/50 pt-3 mt-1">
+                          <Button
+                            size="sm"
+                            onClick={() => handleApplyBoth(suggestion, index)}
+                            className={`gap-1.5 cursor-pointer text-xs transition-all ${
+                              isApplied
+                                ? "bg-emerald-600 text-white hover:bg-emerald-600"
+                                : "bg-primary text-primary-foreground hover:opacity-90"
+                            }`}
+                          >
+                            {isApplied ? (
+                              <>
+                                <Check className="size-3.5" />
+                                <span>Applied to Scene!</span>
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles className="size-3.5" />
+                                <span>Apply to Scene</span>
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Zero credits empty state */}
+              {!loading && !isPro && aiCreditsRemaining <= 0 && suggestions.length === 0 && (
+                <div className="flex flex-col items-center justify-center my-auto py-12 px-4 text-center max-w-sm mx-auto animate-in fade-in">
+                  <div className="size-12 rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-3">
+                    <Sparkles className="size-6 fill-amber-500" />
+                  </div>
+                  <h4 className="text-base font-bold text-foreground">Free AI Limit Reached</h4>
+                  <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
+                    You have used all 10 free AI generations. Upgrade to Pro for unlimited
+                    screenshot copywriting and an ad-free experience.
+                  </p>
+                </div>
+              )}
+            </>
           )}
-          </>
-        )}
         </div>
       </div>
     </div>

@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
 import { Sparkles, X } from "lucide-react";
-import { useAuth } from "@/context/AuthContext";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/context/AuthContext";
 
 export interface AdBannerProps {
   slot?: string;
@@ -47,17 +47,13 @@ export function AdBanner({
   }
 
   const isConfiguredAdSense =
-    Boolean(clientId) &&
-    clientId.startsWith("ca-pub-") &&
-    !clientId.includes("xxxxxxxx");
+    Boolean(clientId) && clientId.startsWith("ca-pub-") && !clientId.includes("xxxxxxxx");
 
   // Load Google AdSense script only once when valid credentials exist
   useEffect(() => {
     if (!isConfiguredAdSense) return;
 
-    const existingScript = document.querySelector(
-      `script[src*="pagead2.googlesyndication.com"]`
-    );
+    const existingScript = document.querySelector(`script[src*="pagead2.googlesyndication.com"]`);
     if (!existingScript) {
       const script = document.createElement("script");
       script.async = true;
@@ -88,7 +84,9 @@ export function AdBanner({
   // 1. If Google AdSense is fully configured and ad blocker isn't active, render official AdSense tag
   if (isConfiguredAdSense && !isAdBlockActive) {
     return (
-      <div className={`relative flex flex-col items-center overflow-hidden rounded-xl border border-border/70 bg-card/60 p-2 my-2 ${className}`}>
+      <div
+        className={`relative flex flex-col items-center overflow-hidden rounded-xl border border-border/70 bg-card/60 p-2 my-2 ${className}`}
+      >
         <div className="flex w-full items-center justify-between px-1 pb-1 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/80">
           <span>Sponsored</span>
           <button
@@ -140,9 +138,7 @@ export function AdBanner({
             <Sparkles className="size-4" />
           </div>
           <div className="flex-1">
-            <h4 className="text-xs font-bold leading-tight text-foreground">
-              Remove Ads & Go Pro
-            </h4>
+            <h4 className="text-xs font-bold leading-tight text-foreground">Remove Ads & Go Pro</h4>
             <p className="mt-1 text-[11px] text-muted-foreground leading-snug">
               Get a 100% ad-free studio, unlimited AI copywriter generations, and 4K exports.
             </p>
@@ -179,7 +175,8 @@ export function AdBanner({
             <Sparkles className="size-3" />
           </div>
           <p className="text-xs text-muted-foreground">
-            <span className="font-semibold text-foreground">Tired of ads?</span> Upgrade to Pro for an ad-free workflow & unlimited AI copy.
+            <span className="font-semibold text-foreground">Tired of ads?</span> Upgrade to Pro for
+            an ad-free workflow & unlimited AI copy.
           </p>
         </div>
       </div>

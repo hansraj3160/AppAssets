@@ -1,7 +1,7 @@
+import { Check, Loader2, Sparkles, X } from "lucide-react";
 import { useState } from "react";
-import { Sparkles, Check, X, Loader2 } from "lucide-react";
-import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/context/AuthContext";
 
 export function UpgradeModal() {
   const { isUpgradeModalOpen, closeUpgradeModal, isPro, toggleProPlan, user, openAuthModal } =
@@ -29,7 +29,11 @@ export function UpgradeModal() {
     <div
       role="dialog"
       aria-modal="true"
+      tabIndex={-1}
       className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150"
+      onKeyDown={(e) => {
+        if (e.key === "Escape" && e.target === e.currentTarget) closeUpgradeModal();
+      }}
       onClick={(e) => {
         if (e.target === e.currentTarget) closeUpgradeModal();
       }}
@@ -64,10 +68,14 @@ export function UpgradeModal() {
         {/* Plan Cards Comparison */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
           {/* Free Plan */}
-          <div className={`rounded-2xl border p-4.5 flex flex-col justify-between ${!isPro ? "border-border/90 bg-muted/20" : "border-border/60 bg-muted/10 opacity-75"}`}>
+          <div
+            className={`rounded-2xl border p-4.5 flex flex-col justify-between ${!isPro ? "border-border/90 bg-muted/20" : "border-border/60 bg-muted/10 opacity-75"}`}
+          >
             <div>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Free Plan</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Free Plan
+                </span>
                 {!isPro && (
                   <span className="rounded-md bg-secondary px-2 py-0.5 text-[10px] font-semibold text-secondary-foreground">
                     Current
@@ -96,13 +104,17 @@ export function UpgradeModal() {
           </div>
 
           {/* Pro Plan */}
-          <div className={`relative rounded-2xl border-2 p-4.5 flex flex-col justify-between overflow-hidden ${isPro ? "border-[#007aff] bg-blue-500/5 shadow-xs" : "border-[#007aff]/80 bg-blue-500/5 shadow-xs"}`}>
+          <div
+            className={`relative rounded-2xl border-2 p-4.5 flex flex-col justify-between overflow-hidden ${isPro ? "border-[#007aff] bg-blue-500/5 shadow-xs" : "border-[#007aff]/80 bg-blue-500/5 shadow-xs"}`}
+          >
             <div className="absolute top-0 right-0 bg-[#007aff] text-white px-2.5 py-0.5 rounded-bl-lg text-[10px] font-bold uppercase tracking-wider">
               Popular
             </div>
             <div>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#007aff] dark:text-[#0a84ff]">Pro Member</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-[#007aff] dark:text-[#0a84ff]">
+                  Pro Member
+                </span>
                 {isPro && (
                   <span className="rounded-md bg-[#007aff] text-white px-2 py-0.5 text-[10px] font-semibold">
                     Active
@@ -116,11 +128,15 @@ export function UpgradeModal() {
               <ul className="mt-4 space-y-2.5 text-xs text-foreground font-medium">
                 <li className="flex items-center gap-2">
                   <Check className="size-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                  <span><strong>100% Ad-Free</strong> Studio</span>
+                  <span>
+                    <strong>100% Ad-Free</strong> Studio
+                  </span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="size-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                  <span><strong>Unlimited</strong> AI Copywriting</span>
+                  <span>
+                    <strong>Unlimited</strong> AI Copywriting
+                  </span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="size-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
@@ -153,9 +169,7 @@ export function UpgradeModal() {
               <Sparkles className="size-4 fill-current" />
             )}
             <span>
-              {isPro
-                ? "Downgrade to Free Plan (Test Ads)"
-                : "Upgrade to Pro (Instant Ad-Free)"}
+              {isPro ? "Downgrade to Free Plan (Test Ads)" : "Upgrade to Pro (Instant Ad-Free)"}
             </span>
           </Button>
 

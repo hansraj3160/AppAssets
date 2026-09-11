@@ -140,6 +140,61 @@ export function designHandler({ paths }: StudioApi): Handler {
   };
 }
 
+/**
+ * Renders a pixel-perfect square PNG app icon at the target dimension (e.g. 512 for Google Play, 1024 for App Store).
+ * Preserves aspect ratio, centers the icon mark, and applies optional background styling.
+ */
+export async function renderAppIconCanvas(
+  iconSource: string | Buffer,
+  size: number,
+  options?: {
+    scale?: number;
+    bg?: string;
+    offsetX?: number;
+    offsetY?: number;
+    cornerRadius?: number;
+  },
+): Promise<Buffer> {
+  const canvas = createCanvas(size, size);
+  const ctx = canvas.getContext("2d");
+
+  // Optional corner radius clipping
+  const cornerRadius = options?.cornerRadius ?? 0;
+  if (cornerRadius > 0) {
+    const radiusPx = (cornerRadius / 100) * size;
+    ctx.beginPath();
+    ctx.roundRect(0, 0, size, size, radiusPx);
+    ctx.clip();
+  }
+
+  // Optional background
+  if (options?.bg && options.bg !== "transparent") {
+    ctx.fillStyle = options.bg;
+    ctx.fillRect(0, 0, size, size);
+  }
+
+  const img = await loadImage(iconSource);
+  const scale = options?.scale ?? 1.0;
+  const offsetX = options?.offsetX ?? 0;
+  const offsetY = options?.offsetY ?? 0;
+
+  // Center and maintain aspect ratio
+  const imgAspect = img.width / img.height;
+  let drawW = size * scale;
+  let drawH = size * scale;
+  if (imgAspect > 1) {
+    drawH = drawW / imgAspect;
+  } else if (imgAspect < 1) {
+    drawW = drawH * imgAspect;
+  }
+
+  const drawX = (size - drawW) / 2 + (offsetX / 100) * drawW;
+  const drawY = (size - drawH) / 2 + (offsetY / 100) * drawH;
+
+  ctx.drawImage(img, drawX, drawY, drawW, drawH);
+  return canvas.toBuffer("image/png");
+}
+
 /** Handles /api/export and /api/export/download. `sub` is the path after /api/export. */
 export function exportHandler({ paths, cli }: StudioApi): (sub: string) => Handler {
   let busy = false;
@@ -268,6 +323,35 @@ export function exportHandler({ paths, cli }: StudioApi): (sub: string) => Handl
           }
         } catch (err) {
           res.write(`  warning: could not load config for banners: ${err}\n`);
+        }
+
+        // 4b. If an app icon exists, package 512x512 Google Play & 1024x1024 App Store icons
+        const iconPath = existsSync(join(paths.webDir, "icon.png"))
+          ? join(paths.webDir, "icon.png")
+          : existsSync(join(paths.outDir, "icon.png"))
+            ? join(paths.outDir, "icon.png")
+            : null;
+
+        if (iconPath) {
+          try {
+            const icon512 = await renderAppIconCanvas(iconPath, 512);
+            extraEntries.push({
+              name: "GooglePlay/app-icon-512x512.png",
+              data: icon512,
+              mtime: new Date(),
+            });
+            const icon1024 = await renderAppIconCanvas(iconPath, 1024);
+            extraEntries.push({
+              name: "AppStore/app-icon-1024x1024.png",
+              data: icon1024,
+              mtime: new Date(),
+            });
+            res.write(
+              "  app icons packaged (GooglePlay/app-icon-512x512.png & AppStore/app-icon-1024x1024.png)\n",
+            );
+          } catch (err) {
+            res.write(`  warning: could not package app icons: ${err}\n`);
+          }
         }
 
         const count = await zipDirs(
@@ -1192,7 +1276,9 @@ export function singleExportHandler({ paths, cli }: StudioApi): Handler {
           );
           if (execRes.code !== 0) {
             res.statusCode = 500;
-            res.end(`Frame rendering failed: ${execRes.stderr || execRes.stdout || `exit code ${execRes.code}`}`);
+            res.end(
+              `Frame rendering failed: ${execRes.stderr || execRes.stdout || `exit code ${execRes.code}`}`,
+            );
             return;
           }
           if (existsSync(screenshotsDir)) {

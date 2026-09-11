@@ -161,7 +161,17 @@ AppAssets - App Store & Google Play Screenshot Package
      * Resolution: 2064 x 2752 px (Portrait)
      * Upload: App Store Connect > iOS App > Screenshots > 13" Display
 
+   - AppStore/app-icon-1024x1024.png
+     * Target: Official App Store Connect Marketing Icon
+     * Resolution: 1024 x 1024 px (Full Square, No Transparency)
+     * Upload: App Store Connect > App Information > App Icon
+
 2. Google Play Console:
+   - GooglePlay/app-icon-512x512.png
+     * Target: Official Google Play Console High-Res Icon
+     * Resolution: 512 x 512 px (32-bit PNG, Full Square)
+     * Upload: Google Play Console > Store presence > Main store listing > Graphics > App icon
+
    - GooglePlay/feature-graphic.png
      * Target: Mandatory Play Store Feature Graphic Banner
      * Resolution: 1024 x 500 px (24-bit PNG / JPEG)

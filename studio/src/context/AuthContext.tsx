@@ -1,13 +1,14 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
 import {
-  type User,
-  onAuthStateChanged,
-  signInWithPopup,
-  signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signInWithPopup,
   signOut,
+  type User,
 } from "firebase/auth";
-import { doc, getDoc, setDoc, updateDoc, onSnapshot, increment } from "firebase/firestore";
+import { doc, getDoc, increment, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
+import type React from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { auth, db, googleProvider } from "@/lib/firebase";
 
 export interface UserProfile {
@@ -141,7 +142,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isPro = profile?.isPro ?? false;
   const aiCreditsRemaining = isPro
     ? 9999
-    : Math.max(0, (profile?.aiCreditsLimit ?? DEFAULT_FREE_CREDITS) - (profile?.aiCreditsUsed ?? 0));
+    : Math.max(
+        0,
+        (profile?.aiCreditsLimit ?? DEFAULT_FREE_CREDITS) - (profile?.aiCreditsUsed ?? 0),
+      );
 
   const consumeAiCredit = async (): Promise<boolean> => {
     if (isPro) return true;
@@ -175,9 +179,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const newPlan = newIsPro ? "pro_monthly" : "free";
 
     // Optimistic local update
-    setProfile((prev) =>
-      prev ? { ...prev, isPro: newIsPro, plan: newPlan } : null
-    );
+    setProfile((prev) => (prev ? { ...prev, isPro: newIsPro, plan: newPlan } : null));
 
     try {
       const userRef = doc(db, "users", user.uid);

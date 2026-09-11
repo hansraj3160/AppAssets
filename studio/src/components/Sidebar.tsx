@@ -13,11 +13,10 @@ import {
 import { cn } from "@/lib/utils";
 import type { Platform } from "../App";
 import { isRtlLocale, type StoreManifest } from "../manifest";
+import { AdBanner } from "./AdBanner";
 import type { BadgeData } from "./BadgePickerPopover";
 import { DesignPanel } from "./DesignPanel";
-
 import { SidebarSection } from "./SidebarSection";
-import { AdBanner } from "./AdBanner";
 
 /**
  * The device-type rows, in display order.

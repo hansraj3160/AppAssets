@@ -6,6 +6,7 @@ import {
   FolderArchive,
   Layers,
   Loader2Icon,
+  LogOut,
   MoonIcon,
   Package,
   Settings2,
@@ -14,15 +15,14 @@ import {
   SunIcon,
   Trash2,
   User as UserIcon,
-  LogOut,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { CUSTOM_TEMPLATE } from "../App";
 import { type AppInfo, fontKey, type StoreManifest } from "../manifest";
 import { ImportButton } from "./ImportButton";
 import { Button } from "./ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
-import { useAuth } from "@/context/AuthContext";
 
 export function Header({
   manifest,
@@ -143,7 +143,7 @@ export function Header({
 
     try {
       if (onSaveDesign) {
-        await onSaveDesign().catch(() => { });
+        await onSaveDesign().catch(() => {});
       }
       setExportProgress(12);
       setExportStage("Starting store export engine...");
@@ -171,7 +171,7 @@ export function Header({
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
-      for (; ;) {
+      for (;;) {
         const { done, value } = await reader.read();
         if (done) break;
         text += decoder.decode(value, { stream: true });
@@ -257,10 +257,11 @@ export function Header({
         <button
           type="button"
           onClick={() => onViewModeChange?.("editor")}
-          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${viewMode === "editor"
+          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+            viewMode === "editor"
               ? "bg-background text-foreground shadow-xs"
               : "text-muted-foreground hover:text-foreground hover:bg-background/40"
-            }`}
+          }`}
         >
           <Layers className="size-3.5" />
           <span className="hidden sm:inline">Studio Canvas</span>
@@ -270,10 +271,11 @@ export function Header({
         <button
           type="button"
           onClick={() => onViewModeChange?.("store")}
-          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${viewMode === "store"
+          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+            viewMode === "store"
               ? "bg-background text-foreground shadow-xs"
               : "text-muted-foreground hover:text-foreground hover:bg-background/40"
-            }`}
+          }`}
         >
           <Smartphone className="size-3.5 text-blue-500" />
           <span className="hidden sm:inline">Store Preview</span>
@@ -286,10 +288,11 @@ export function Header({
         <button
           type="button"
           onClick={() => onViewModeChange?.("promo")}
-          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${viewMode === "promo"
+          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+            viewMode === "promo"
               ? "bg-background text-foreground shadow-xs"
               : "text-muted-foreground hover:text-foreground hover:bg-background/40"
-            }`}
+          }`}
         >
           <Sparkles className="size-3.5 text-amber-500" />
           <span className="hidden sm:inline">Promo Banners</span>
@@ -578,9 +581,7 @@ export function Header({
                     <span className="text-xs font-semibold text-foreground truncate">
                       {user.displayName || "User"}
                     </span>
-                    <span className="text-[10px] text-muted-foreground truncate">
-                      {user.email}
-                    </span>
+                    <span className="text-[10px] text-muted-foreground truncate">{user.email}</span>
                   </div>
 
                   <div className="rounded-lg bg-muted/60 p-2 border border-border/40 text-xs flex items-center justify-between">
