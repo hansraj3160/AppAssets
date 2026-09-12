@@ -101,6 +101,25 @@ function readBody(req: IncomingMessage): Promise<string> {
   });
 }
 
+/** Handles /api/health and /health for container liveness and uptime monitoring. */
+export function healthHandler({ paths: _paths }: StudioApi): Handler {
+  const startedAt = Date.now();
+  return (_req, res) => {
+    res.writeHead(200, {
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store",
+    });
+    res.end(
+      JSON.stringify({
+        status: "ok",
+        service: "appassets-studio",
+        uptimeSeconds: Math.floor((Date.now() - startedAt) / 1000),
+        timestamp: new Date().toISOString(),
+      }),
+    );
+  };
+}
+
 /** Handles /api/design. */
 export function designHandler({ paths }: StudioApi): Handler {
   return (req, res) => {
@@ -1561,7 +1580,11 @@ Copy the files into your web root (e.g. \`public/\` in Next.js, Vite, or Astro) 
           { name: "apple-touch-icon.png", data: icon180, mtime: new Date() },
           { name: "android-chrome-192x192.png", data: icon192, mtime: new Date() },
           { name: "android-chrome-512x512.png", data: icon512, mtime: new Date() },
-          { name: "site.webmanifest", data: Buffer.from(manifestContent, "utf8"), mtime: new Date() },
+          {
+            name: "site.webmanifest",
+            data: Buffer.from(manifestContent, "utf8"),
+            mtime: new Date(),
+          },
           { name: "html-snippet.html", data: Buffer.from(htmlSnippet, "utf8"), mtime: new Date() },
           { name: "README.md", data: Buffer.from(readme, "utf8"), mtime: new Date() },
         ];
@@ -2292,10 +2315,12 @@ export function serveStudio(api: StudioApi, port = 4321): Promise<string> {
   const locales = localesHandler(api);
   const aiCopy = aiCopyHandler(api);
   const icon = iconHandler(api);
+  const health = healthHandler(api);
 
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
     const path = url.pathname;
+    if (path === "/api/health" || path === "/health") return health(req, res);
     if (path === "/api/icon") return icon(req, res);
     if (path === "/api/design") return design(req, res);
     if (path === "/api/locales") return locales(req, res);

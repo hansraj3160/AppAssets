@@ -287,9 +287,14 @@ export async function loadConfig(path = defaultConfigPath()): Promise<LoadedConf
     ...cfg,
     root,
     configPath: path,
-    flowsDir: cfg.flowsDir ? resolve(root, cfg.flowsDir) : resolve(cfg.appRoot, ".argent/flows"),
+    flowsDir: cfg.flowsDir
+      ? resolve(root, cfg.flowsDir)
+      : resolve(cfg.appRoot || root, ".argent/flows"),
     outDir: resolve(root, "out"),
   };
+  if (!loaded.frame) {
+    loaded.frame = { variant: "17-pro-blue" };
+  }
   applyDesign(loaded, readDesign(path));
   framePath(loaded); // fail at load time on a bad variant or missing bezel PNG
   validateLayouts(loaded);

@@ -1,0 +1,22 @@
+services:
+  appassets-studio:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: appassets-studio:latest
+    container_name: appassets-studio
+    restart: unless-stopped
+    ports:
+      - "4321:4321"
+    environment:
+      - NODE_ENV=production
+      - PORT=4321
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    volumes:
+      - ./out:/app/out
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4321/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

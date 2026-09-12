@@ -36,22 +36,12 @@ export function AdBanner({
       : import.meta.env.VITE_ADSENSE_BOTTOM_SLOT) ||
     "";
 
-  // If the user is a Pro subscriber, completely suppress all ads & tracking scripts
-  if (isPro) {
-    return null;
-  }
-
-  // If user temporarily dismissed this slot in the current session
-  if (adDismissed) {
-    return null;
-  }
-
   const isConfiguredAdSense =
     Boolean(clientId) && clientId.startsWith("ca-pub-") && !clientId.includes("xxxxxxxx");
 
-  // Load Google AdSense script only once when valid credentials exist
+  // Load Google AdSense script only once when valid credentials exist and user is not Pro/dismissed
   useEffect(() => {
-    if (!isConfiguredAdSense) return;
+    if (isPro || adDismissed || !isConfiguredAdSense) return;
 
     const existingScript = document.querySelector(`script[src*="pagead2.googlesyndication.com"]`);
     if (!existingScript) {
@@ -71,7 +61,7 @@ export function AdBanner({
       console.warn("AdSense push error or ad blocker detected:", e);
       setIsAdBlockActive(true);
     }
-  }, [isConfiguredAdSense, clientId]);
+  }, [isConfiguredAdSense, isPro, adDismissed]);
 
   const handleGoPro = () => {
     if (!user) {
@@ -80,6 +70,11 @@ export function AdBanner({
       openUpgradeModal();
     }
   };
+
+  // If the user is a Pro subscriber or temporarily dismissed this slot in the current session, suppress
+  if (isPro || adDismissed) {
+    return null;
+  }
 
   // 1. If Google AdSense is fully configured and ad blocker isn't active, render official AdSense tag
   if (isConfiguredAdSense && !isAdBlockActive) {
@@ -90,6 +85,7 @@ export function AdBanner({
         <div className="flex w-full items-center justify-between px-1 pb-1 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/80">
           <span>Sponsored</span>
           <button
+            type="button"
             onClick={handleGoPro}
             className="text-primary hover:underline flex items-center gap-1 cursor-pointer lowercase first-letter:uppercase"
           >

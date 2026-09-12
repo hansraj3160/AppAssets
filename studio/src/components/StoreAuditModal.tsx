@@ -11,11 +11,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import type {
-  AuditAction,
-  AuditCheckItem,
-  StoreAuditResult,
-} from "../lib/storeAudit";
+import type { AuditAction, AuditCheckItem, StoreAuditResult } from "../lib/storeAudit";
 import { Button } from "./ui/button";
 
 export interface StoreAuditModalProps {
@@ -182,7 +178,9 @@ export function StoreAuditModal({
           <div className="text-[11px] font-mono text-muted-foreground hidden sm:flex items-center gap-2">
             <span className="text-emerald-500 font-semibold">{auditResult.passedCount} Passed</span>
             <span>•</span>
-            <span className="text-amber-500 font-semibold">{auditResult.warningCount} Warnings</span>
+            <span className="text-amber-500 font-semibold">
+              {auditResult.warningCount} Warnings
+            </span>
             <span>•</span>
             <span className="text-red-500 font-semibold">{auditResult.errorCount} Errors</span>
           </div>
@@ -289,6 +287,6 @@ export function StoreAuditModal({
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

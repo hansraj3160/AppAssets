@@ -1,0 +1,12 @@
+node_modules
+studio/node_modules
+dist
+studio/dist
+out
+.git
+.github
+.agents
+.gemini
+*.tmp
+*.zip
+coverage

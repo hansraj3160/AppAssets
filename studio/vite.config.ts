@@ -11,6 +11,7 @@ import {
   designHandler,
   exportHandler,
   faviconExportHandler,
+  healthHandler,
   iconHandler,
   importHandler,
   localesHandler,
@@ -67,9 +68,12 @@ function goldieApi(): Plugin {
   const delAll = deleteAllHandler(api);
   const locales = localesHandler(api);
   const aiCopy = aiCopyHandler(api);
+  const health = healthHandler(api);
   return {
     name: "goldie-api",
     configureServer(server: ViteDevServer) {
+      server.middlewares.use("/api/health", health);
+      server.middlewares.use("/health", health);
       server.middlewares.use("/api/ai/generate-copy", aiCopy);
       server.middlewares.use("/api/design", design);
       server.middlewares.use("/api/locales", locales);

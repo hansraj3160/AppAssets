@@ -109,9 +109,7 @@ export function runStoreAudit({
     policyRef: "Google Play Metadata Policy §2.1",
     severity: hasIcon ? "pass" : "error",
     passed: hasIcon,
-    action: hasIcon
-      ? undefined
-      : { label: "Create in Icon Studio", actionType: "icon-studio" },
+    action: hasIcon ? undefined : { label: "Create in Icon Studio", actionType: "icon-studio" },
   });
 
   // Check 2: Google Play Icon Non-Transparency Rule
@@ -196,9 +194,7 @@ export function runStoreAudit({
     policyRef: "App Store Review Guidelines §2.3",
     severity: hasIcon ? "pass" : "error",
     passed: hasIcon,
-    action: hasIcon
-      ? undefined
-      : { label: "Create in Icon Studio", actionType: "icon-studio" },
+    action: hasIcon ? undefined : { label: "Create in Icon Studio", actionType: "icon-studio" },
   });
 
   // Check 7: iPhone 6.9" / 6.5" Captures
@@ -206,31 +202,28 @@ export function runStoreAudit({
   checks.push({
     id: "appstore-iphone-captures",
     category: "app-store",
-    title: "iPhone 6.9\" / 6.5\" Screenshots",
+    title: 'iPhone 6.9" / 6.5" Screenshots',
     description: hasPhoneCaptures
       ? "iPhone screenshots configured for primary App Store display."
       : "iPhone screenshots are mandatory for all iOS app submissions on App Store Connect.",
     policyRef: "App Store Connect Screenshot Specifications",
     severity: hasPhoneCaptures ? "pass" : "error",
     passed: hasPhoneCaptures,
-    action: hasPhoneCaptures
-      ? undefined
-      : { label: "Import Captures", actionType: "app-details" },
+    action: hasPhoneCaptures ? undefined : { label: "Import Captures", actionType: "app-details" },
   });
 
   // Check 8: iPad 13" Captures
   const hasIpadConfigured = (manifest?.devices || []).some(
-    // biome-ignore lint/suspicious/noExplicitAny: device type flexibility
-    (d: any) => (typeof d === "string" ? d : d?.key) === "ipad-13",
+    (d: unknown) => (typeof d === "string" ? d : (d as { key?: string })?.key) === "ipad-13",
   );
   const ipadPassed = hasScreenshots && hasIpadConfigured;
   checks.push({
     id: "appstore-ipad-captures",
     category: "app-store",
-    title: "iPad 13\" Screenshots",
+    title: 'iPad 13" Screenshots',
     description: ipadPassed
       ? "iPad screenshots configured for tablet App Store display."
-      : "iPad 13\" screenshots recommended if your app targets iPadOS devices.",
+      : 'iPad 13" screenshots recommended if your app targets iPadOS devices.',
     policyRef: "iPad App Store Guidelines",
     severity: ipadPassed ? "pass" : "warning",
     passed: ipadPassed,
@@ -289,9 +282,7 @@ export function runStoreAudit({
       : "App name is empty or default. Set an app name in App Details.",
     severity: hasAppName ? "pass" : "warning",
     passed: hasAppName,
-    action: hasAppName
-      ? undefined
-      : { label: "Set App Name", actionType: "app-details" },
+    action: hasAppName ? undefined : { label: "Set App Name", actionType: "app-details" },
   });
 
   // Scoring Calculations
@@ -317,9 +308,7 @@ export function runStoreAudit({
 
   const isStoreReady = errorCount === 0 && score >= 80;
 
-  const playChecks = checks.filter(
-    (c) => c.category === "google-play" || c.category === "general",
-  );
+  const playChecks = checks.filter((c) => c.category === "google-play" || c.category === "general");
   const appStoreChecks = checks.filter(
     (c) => c.category === "app-store" || c.category === "general",
   );

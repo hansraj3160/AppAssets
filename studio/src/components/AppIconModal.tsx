@@ -565,7 +565,9 @@ export function AppIconModal({
 
                   {/* Date Header */}
                   <div className="relative z-10 px-2 pt-1 text-center">
-                    <div className="text-[10px] font-medium text-white/70">Tuesday, September 15</div>
+                    <div className="text-[10px] font-medium text-white/70">
+                      Tuesday, September 15
+                    </div>
                   </div>
 
                   {/* App Grid */}
@@ -575,7 +577,9 @@ export function AppIconModal({
                       <div className="size-10 rounded-[10px] bg-white flex items-center justify-center shadow-xs">
                         <div className="size-6 rounded-full bg-gradient-to-tr from-amber-400 via-rose-500 to-sky-400 opacity-90" />
                       </div>
-                      <span className="text-[8px] text-white/80 font-medium truncate max-w-[42px]">Photos</span>
+                      <span className="text-[8px] text-white/80 font-medium truncate max-w-[42px]">
+                        Photos
+                      </span>
                     </div>
 
                     {/* Camera */}
@@ -583,7 +587,9 @@ export function AppIconModal({
                       <div className="size-10 rounded-[10px] bg-neutral-800 flex items-center justify-center shadow-xs border border-neutral-700">
                         <div className="size-5 rounded-full border-2 border-neutral-400 bg-neutral-900" />
                       </div>
-                      <span className="text-[8px] text-white/80 font-medium truncate max-w-[42px]">Camera</span>
+                      <span className="text-[8px] text-white/80 font-medium truncate max-w-[42px]">
+                        Camera
+                      </span>
                     </div>
 
                     {/* Maps */}
@@ -591,7 +597,9 @@ export function AppIconModal({
                       <div className="size-10 rounded-[10px] bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center shadow-xs">
                         <div className="size-4 rotate-45 border-2 border-white rounded-xs" />
                       </div>
-                      <span className="text-[8px] text-white/80 font-medium truncate max-w-[42px]">Maps</span>
+                      <span className="text-[8px] text-white/80 font-medium truncate max-w-[42px]">
+                        Maps
+                      </span>
                     </div>
 
                     {/* Clock */}
@@ -599,15 +607,21 @@ export function AppIconModal({
                       <div className="size-10 rounded-[10px] bg-black flex items-center justify-center shadow-xs border border-neutral-800 text-white text-[9px] font-mono font-bold">
                         9:41
                       </div>
-                      <span className="text-[8px] text-white/80 font-medium truncate max-w-[42px]">Clock</span>
+                      <span className="text-[8px] text-white/80 font-medium truncate max-w-[42px]">
+                        Clock
+                      </span>
                     </div>
 
                     {/* Mail */}
                     <div className="flex flex-col items-center gap-1">
                       <div className="size-10 rounded-[10px] bg-blue-500 flex items-center justify-center shadow-xs">
-                        <div className="w-5 h-3.5 border border-white rounded-2xs flex items-center justify-center text-white text-[8px]">✉</div>
+                        <div className="w-5 h-3.5 border border-white rounded-2xs flex items-center justify-center text-white text-[8px]">
+                          ✉
+                        </div>
                       </div>
-                      <span className="text-[8px] text-white/80 font-medium truncate max-w-[42px]">Mail</span>
+                      <span className="text-[8px] text-white/80 font-medium truncate max-w-[42px]">
+                        Mail
+                      </span>
                     </div>
 
                     {/* Weather */}
@@ -615,7 +629,9 @@ export function AppIconModal({
                       <div className="size-10 rounded-[10px] bg-gradient-to-br from-sky-400 to-blue-600 flex items-center justify-center shadow-xs text-white text-xs">
                         ☀️
                       </div>
-                      <span className="text-[8px] text-white/80 font-medium truncate max-w-[42px]">Weather</span>
+                      <span className="text-[8px] text-white/80 font-medium truncate max-w-[42px]">
+                        Weather
+                      </span>
                     </div>
 
                     {/* Notes */}
@@ -625,16 +641,24 @@ export function AppIconModal({
                         <div className="w-3/4 h-0.5 bg-neutral-400 rounded-full" />
                         <div className="w-1/2 h-0.5 bg-neutral-400 rounded-full" />
                       </div>
-                      <span className="text-[8px] text-white/80 font-medium truncate max-w-[42px]">Notes</span>
+                      <span className="text-[8px] text-white/80 font-medium truncate max-w-[42px]">
+                        Notes
+                      </span>
                     </div>
 
                     {/* Calendar */}
                     <div className="flex flex-col items-center gap-1">
                       <div className="size-10 rounded-[10px] bg-white flex flex-col items-center justify-center shadow-xs border border-neutral-200">
-                        <span className="text-[6px] font-bold text-red-500 uppercase leading-none">TUE</span>
-                        <span className="text-[11px] font-bold text-neutral-900 leading-none">15</span>
+                        <span className="text-[6px] font-bold text-red-500 uppercase leading-none">
+                          TUE
+                        </span>
+                        <span className="text-[11px] font-bold text-neutral-900 leading-none">
+                          15
+                        </span>
                       </div>
-                      <span className="text-[8px] text-white/80 font-medium truncate max-w-[42px]">Calendar</span>
+                      <span className="text-[8px] text-white/80 font-medium truncate max-w-[42px]">
+                        Calendar
+                      </span>
                     </div>
 
                     {/* Settings */}
@@ -642,7 +666,9 @@ export function AppIconModal({
                       <div className="size-10 rounded-[10px] bg-neutral-600 flex items-center justify-center shadow-xs border border-neutral-500 text-white text-[11px]">
                         ⚙️
                       </div>
-                      <span className="text-[8px] text-white/80 font-medium truncate max-w-[42px]">Settings</span>
+                      <span className="text-[8px] text-white/80 font-medium truncate max-w-[42px]">
+                        Settings
+                      </span>
                     </div>
 
                     {/* App Store */}
@@ -650,11 +676,16 @@ export function AppIconModal({
                       <div className="size-10 rounded-[10px] bg-blue-600 flex items-center justify-center shadow-xs text-white text-[10px] font-bold">
                         A
                       </div>
-                      <span className="text-[8px] text-white/80 font-medium truncate max-w-[42px]">App Store</span>
+                      <span className="text-[8px] text-white/80 font-medium truncate max-w-[42px]">
+                        App Store
+                      </span>
                     </div>
 
                     {/* TARGET APP: User's App with Live Rendered Logo! */}
-                    <div className="flex flex-col items-center gap-1 relative group cursor-pointer" title="Your App Icon">
+                    <div
+                      className="flex flex-col items-center gap-1 relative group cursor-pointer"
+                      title="Your App Icon"
+                    >
                       <div
                         className="size-10 flex items-center justify-center shadow-md relative overflow-hidden ring-2 ring-[#007aff] ring-offset-1 ring-offset-black/60 transition-transform group-hover:scale-105"
                         style={{
@@ -689,7 +720,9 @@ export function AppIconModal({
                       <div className="size-10 rounded-[10px] bg-white flex items-center justify-center shadow-xs text-rose-500 text-[10px]">
                         ❤️
                       </div>
-                      <span className="text-[8px] text-white/80 font-medium truncate max-w-[42px]">Health</span>
+                      <span className="text-[8px] text-white/80 font-medium truncate max-w-[42px]">
+                        Health
+                      </span>
                     </div>
                   </div>
 
@@ -729,9 +762,7 @@ export function AppIconModal({
                     cornerRadius > 0
                       ? "shadow-2xl shadow-black/35 ring-1 ring-black/10"
                       : "shadow-xl shadow-black/20 border border-border"
-                  } ${
-                    iconSrc ? (isDragging ? "cursor-grabbing" : "cursor-grab") : ""
-                  } ${
+                  } ${iconSrc ? (isDragging ? "cursor-grabbing" : "cursor-grab") : ""} ${
                     bgType === "transparent"
                       ? "bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] dark:bg-[radial-gradient(#374151_1px,transparent_1px)] [background-size:12px_12px]"
                       : ""
@@ -759,7 +790,9 @@ export function AppIconModal({
                     <div className="flex flex-col items-center justify-center text-center p-4 text-white/90 pointer-events-none">
                       <ImageIcon className="size-12 stroke-1 mb-2 opacity-80" />
                       <span className="text-xs font-bold">No Logo Uploaded</span>
-                      <span className="text-[10px] opacity-75 mt-0.5">Upload a PNG or SVG logo</span>
+                      <span className="text-[10px] opacity-75 mt-0.5">
+                        Upload a PNG or SVG logo
+                      </span>
                     </div>
                   )}
 
@@ -781,7 +814,8 @@ export function AppIconModal({
                         <span>Drag to reposition</span>
                         {(offsetX !== 0 || offsetY !== 0) && (
                           <span className="font-mono text-primary font-bold">
-                            ({offsetX > 0 ? `+${offsetX}` : offsetX}%, {offsetY > 0 ? `+${offsetY}` : offsetY}%)
+                            ({offsetX > 0 ? `+${offsetX}` : offsetX}%,{" "}
+                            {offsetY > 0 ? `+${offsetY}` : offsetY}%)
                           </span>
                         )}
                       </div>
@@ -795,7 +829,9 @@ export function AppIconModal({
             <div className="w-full flex items-center justify-between text-xs text-muted-foreground border-t border-border/60 pt-3">
               <span className="flex items-center gap-1.5 font-medium">
                 {previewMode === "home-screen" ? (
-                  <span>Simulated Mobile Home Screen Mockup • Live preview alongside native apps</span>
+                  <span>
+                    Simulated Mobile Home Screen Mockup • Live preview alongside native apps
+                  </span>
                 ) : cornerRadius === 0 ? (
                   <span>Master Square (Raw 1:1 format required by console validators)</span>
                 ) : cornerRadius === 20 ? (
@@ -992,8 +1028,14 @@ export function AppIconModal({
 
                   <div className="flex items-center gap-2">
                     <span className="text-[11px] font-mono text-muted-foreground bg-background px-2 py-0.5 rounded border border-border">
-                      X: <strong className="text-foreground">{offsetX > 0 ? `+${offsetX}` : offsetX}%</strong>{" "}
-                      Y: <strong className="text-foreground">{offsetY > 0 ? `+${offsetY}` : offsetY}%</strong>
+                      X:{" "}
+                      <strong className="text-foreground">
+                        {offsetX > 0 ? `+${offsetX}` : offsetX}%
+                      </strong>{" "}
+                      Y:{" "}
+                      <strong className="text-foreground">
+                        {offsetY > 0 ? `+${offsetY}` : offsetY}%
+                      </strong>
                     </span>
                   </div>
                 </div>
@@ -1268,6 +1310,6 @@ export function AppIconModal({
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

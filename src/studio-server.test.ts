@@ -215,7 +215,7 @@ describe("importHandler", () => {
       set statusCode(code: number) {
         statusCode = code;
       },
-      setHeader: () => { },
+      setHeader: () => {},
       end(body: string) {
         endedWith = body;
       },
@@ -295,7 +295,7 @@ describe("locales helpers and handler", () => {
       set statusCode(code: number) {
         statusCode = code;
       },
-      end() { },
+      end() {},
     } as any;
 
     handler(req, res);
@@ -477,7 +477,7 @@ describe("aiCopyHandler", () => {
       set statusCode(code: number) {
         statusCode = code;
       },
-      setHeader: () => { },
+      setHeader: () => {},
       end(body: string) {
         endedWith = body;
       },
@@ -522,7 +522,7 @@ describe("aiCopyHandler", () => {
       set statusCode(code: number) {
         statusCode = code;
       },
-      setHeader: () => { },
+      setHeader: () => {},
       end(body: string) {
         endedWith = body;
       },
@@ -570,7 +570,7 @@ describe("aiCopyHandler", () => {
       set statusCode(code: number) {
         statusCode = code;
       },
-      setHeader: () => { },
+      setHeader: () => {},
       end(body: string) {
         endedWith = body;
       },
@@ -851,11 +851,11 @@ describe("exportHandler", () => {
       },
     } as any;
     const res = {
-      writeHead: () => { },
+      writeHead: () => {},
       write: (chunk: string) => {
         output += chunk;
       },
-      end: () => { },
+      end: () => {},
     } as any;
 
     handler("")(req, res);
@@ -912,7 +912,7 @@ describe("iconHandler", () => {
       let responseBody = "";
       const req = { method: "GET" } as any;
       const res = {
-        writeHead: () => { },
+        writeHead: () => {},
         end: (body: string) => {
           responseBody = body;
         },
@@ -937,7 +937,7 @@ describe("iconHandler", () => {
         },
       } as any;
       const res = {
-        writeHead: () => { },
+        writeHead: () => {},
         end: (body: string) => {
           responseBody = body;
         },
@@ -965,7 +965,7 @@ describe("iconHandler", () => {
       let responseBody = "";
       const req = { method: "GET" } as any;
       const res = {
-        writeHead: () => { },
+        writeHead: () => {},
         end: (body: string) => {
           responseBody = body;
         },
@@ -982,7 +982,7 @@ describe("iconHandler", () => {
       let responseBody = "";
       const req = { method: "DELETE" } as any;
       const res = {
-        writeHead: () => { },
+        writeHead: () => {},
         end: (body: string) => {
           responseBody = body;
         },
@@ -1040,7 +1040,7 @@ describe("iconHandler", () => {
           listeners[event] = cb;
         },
       } as any;
-      const res = { writeHead: () => { }, end: () => { } } as any;
+      const res = { writeHead: () => {}, end: () => {} } as any;
 
       handler(req, res);
       listeners.data?.(JSON.stringify({ dataUrl: fakePngDataUrl }));
@@ -1057,7 +1057,7 @@ describe("iconHandler", () => {
     // 2. Delete icon
     {
       const req = { method: "DELETE" } as any;
-      const res = { writeHead: () => { }, end: () => { } } as any;
+      const res = { writeHead: () => {}, end: () => {} } as any;
 
       handler(req, res);
       await new Promise((r) => setTimeout(r, 30));
@@ -1240,7 +1240,11 @@ describe("bannerExportHandler", () => {
       );
 
       // Render 512x512 with scaling, corner radius, and background
-      const icon512 = await renderAppIconCanvas(testPng, 512, { scale: 0.8, bg: "#007AFF", cornerRadius: 20 });
+      const icon512 = await renderAppIconCanvas(testPng, 512, {
+        scale: 0.8,
+        bg: "#007AFF",
+        cornerRadius: 20,
+      });
       expect(Buffer.isBuffer(icon512)).toBe(true);
       const dims512 = getDimensionsFromBuffer(icon512);
       expect(dims512).not.toBeNull();
@@ -1248,7 +1252,12 @@ describe("bannerExportHandler", () => {
       expect(dims512!.height).toBe(512);
 
       // Render 1024x1024 with zoom 1.25, offset pan, and cornerRadius
-      const icon1024 = await renderAppIconCanvas(testPng, 1024, { scale: 1.25, offsetX: 10, offsetY: -5, cornerRadius: 22.5 });
+      const icon1024 = await renderAppIconCanvas(testPng, 1024, {
+        scale: 1.25,
+        offsetX: 10,
+        offsetY: -5,
+        cornerRadius: 22.5,
+      });
       expect(Buffer.isBuffer(icon1024)).toBe(true);
       const dims1024 = getDimensionsFromBuffer(icon1024);
       expect(dims1024).not.toBeNull();
@@ -1342,6 +1351,31 @@ describe("bannerExportHandler", () => {
       expect(postWrittenData!.length).toBeGreaterThan(100);
 
       await rm(tmp, { recursive: true, force: true });
+    });
+
+    test("healthHandler responds with 200 OK and service status", async () => {
+      const { healthHandler } = await import("./studio-server.ts");
+      const handler = healthHandler({ paths: {} as any, cli: {} as any });
+      let statusCode = 0;
+      let headers: any = {};
+      let body = "";
+      const res: any = {
+        writeHead(code: number, h: any) {
+          statusCode = code;
+          headers = h;
+        },
+        end(data: string) {
+          body = data;
+        },
+      };
+      handler({ method: "GET", url: "/api/health" } as any, res);
+      expect(statusCode).toBe(200);
+      expect(headers["Content-Type"]).toBe("application/json");
+      const parsed = JSON.parse(body);
+      expect(parsed.status).toBe("ok");
+      expect(parsed.service).toBe("appassets-studio");
+      expect(typeof parsed.uptimeSeconds).toBe("number");
+      expect(typeof parsed.timestamp).toBe("string");
     });
   });
 });
