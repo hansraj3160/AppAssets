@@ -16,8 +16,13 @@ import {
   Wand2,
 } from "lucide-react";
 import { useState } from "react";
+import duoOverlapImg from "@/assets/duo_overlap.png";
 import heroImage from "@/assets/hero_section.png";
 import appLogo from "@/assets/logo.png";
+import panoramicImg from "@/assets/panoromic_multi_span.png";
+import showcaseImg from "@/assets/show_case_img.png";
+import singleFocusHeroImg from "@/assets/single_focus_hero.png";
+import trioStoryImg from "@/assets/trio_story.png";
 import { Button } from "./ui/button";
 
 interface LandingPageProps {
@@ -60,37 +65,42 @@ export function LandingPage({
 
   const templatePreviews: Record<
     string,
-    { title: string; desc: string; badge: string; accent: string }
+    { title: string; desc: string; badge: string; accent: string; image?: string }
   > = {
     single: {
       title: "Single Focus Hero",
       desc: "Clean centered device mockup with bold top caption for maximum visual clarity on store search results.",
       badge: "High Conversion",
       accent: "bg-[#FF6B00]",
+      image: singleFocusHeroImg,
     },
     duo: {
       title: "Duo Overlap Spread",
       desc: "Two angled, layered phone chassis showing complementary views (e.g. Dashboard + Details).",
       badge: "Feature Pair",
       accent: "bg-[#FF8A00]",
+      image: duoOverlapImg,
     },
     trio: {
       title: "Trio Storyline Flow",
       desc: "Three stepped devices demonstrating an end-to-end user journey or multi-screen workflow.",
       badge: "Storytelling",
       accent: "bg-[#FFB21A]",
+      image: trioStoryImg,
     },
     showcase: {
       title: "Showcase Pro Angle",
       desc: "Dynamic tilted isometric perspective highlighting app depth and modern glassmorphism aesthetics.",
       badge: "Visual Punch",
       accent: "bg-[#FF6B00]",
+      image: showcaseImg,
     },
     panorama: {
       title: "Panoramic Multi-Span",
       desc: "A continuous graphic background that flows seamlessly across adjacent store listing screenshots.",
       badge: "Trending",
       accent: "bg-[#FF8A00]",
+      image: panoramicImg,
     },
   };
 
@@ -614,18 +624,34 @@ export function LandingPage({
               </div>
             </div>
 
-            {/* Visual Mini Mockup in Selected Layout */}
-            <div className="w-72 h-56 rounded-2xl bg-white dark:bg-zinc-900 p-5 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center relative overflow-hidden shadow-sm">
-              <div className="w-36 h-48 rounded-2xl bg-gradient-to-b from-zinc-900 to-black border border-zinc-700 shadow-xl p-3 flex flex-col justify-between text-white text-[9px] font-bold">
-                <div className="w-10 h-2 bg-zinc-800 rounded-full mx-auto" />
-                <div className="text-center font-bold leading-tight text-white">
-                  {templatePreviews[selectedTemplateTab]?.title}
-                </div>
-                <div className="bg-[#FF6B00]/20 text-[#FF8A00] rounded-lg p-2 text-[8px] text-center font-bold border border-[#FF6B00]/30">
-                  AppAssets Layout
+            {/* Visual Mockup in Selected Layout */}
+            {templatePreviews[selectedTemplateTab]?.image ? (
+              <button
+                type="button"
+                onClick={onStartDesigning}
+                aria-label={`Open ${templatePreviews[selectedTemplateTab]?.title} template in Studio`}
+                className="w-full md:w-1/2 max-w-[420px] h-64 sm:h-72 md:h-80 rounded-2xl bg-white border border-zinc-200 dark:border-zinc-700/60 p-3 shadow-md flex items-center justify-center relative overflow-hidden group cursor-pointer transition-all hover:border-[#FF6B00]/50 hover:shadow-lg focus:outline-hidden focus-visible:ring-2 focus-visible:ring-[#FF6B00]"
+              >
+                <img
+                  src={templatePreviews[selectedTemplateTab]?.image}
+                  alt={templatePreviews[selectedTemplateTab]?.title}
+                  className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105 drop-shadow-sm"
+                  loading="lazy"
+                />
+              </button>
+            ) : (
+              <div className="w-72 h-56 sm:w-80 sm:h-72 rounded-2xl bg-white dark:bg-zinc-900 p-5 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center relative overflow-hidden shadow-sm">
+                <div className="w-36 h-48 rounded-2xl bg-gradient-to-b from-zinc-900 to-black border border-zinc-700 shadow-xl p-3 flex flex-col justify-between text-white text-[9px] font-bold">
+                  <div className="w-10 h-2 bg-zinc-800 rounded-full mx-auto" />
+                  <div className="text-center font-bold leading-tight text-white">
+                    {templatePreviews[selectedTemplateTab]?.title}
+                  </div>
+                  <div className="bg-[#FF6B00]/20 text-[#FF8A00] rounded-lg p-2 text-[8px] text-center font-bold border border-[#FF6B00]/30">
+                    AppAssets Layout
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </section>

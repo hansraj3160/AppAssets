@@ -184,18 +184,22 @@ export async function writeManifest(cfg: LoadedConfig): Promise<string> {
   const decorDir = join(webDir, "decor");
   await mkdir(decorDir, { recursive: true });
 
-  // Brand Logo & Favicon
-  const logoPath = join(cfg.root, "assets", "logo.png");
-  if (existsSync(logoPath)) {
-    await copyFile(logoPath, join(webDir, "logo.png"));
-  }
-  const faviconPath = join(cfg.root, "assets", "favicon.png");
-  if (existsSync(faviconPath)) {
-    await copyFile(faviconPath, join(webDir, "favicon.png"));
-  }
-  const heroPath = join(cfg.root, "assets", "hero_section.png");
-  if (existsSync(heroPath)) {
-    await copyFile(heroPath, join(webDir, "hero_section.png"));
+  // Brand Assets & Showcase Images
+  const brandAssets = [
+    "logo.png",
+    "favicon.png",
+    "hero_section.png",
+    "single_focus_hero.png",
+    "duo_overlap.png",
+    "trio_story.png",
+    "show_case_img.png",
+    "panoromic_multi_span.png",
+  ];
+  for (const asset of brandAssets) {
+    const assetPath = join(cfg.root, "assets", asset);
+    if (existsSync(assetPath)) {
+      await copyFile(assetPath, join(webDir, asset));
+    }
   }
   const webDecorations = async (list: Decoration[] | undefined) =>
     Promise.all(
