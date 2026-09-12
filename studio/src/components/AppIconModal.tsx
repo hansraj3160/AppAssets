@@ -395,8 +395,15 @@ export function AppIconModal({
         }),
       });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to generate Favicon Kit");
+        const text = await res.text().catch(() => "");
+        let errorMsg = `Server error (${res.status})`;
+        try {
+          const data = JSON.parse(text);
+          if (data.error) errorMsg = data.error;
+        } catch {
+          if (text) errorMsg = text.slice(0, 120);
+        }
+        throw new Error(errorMsg);
       }
       const blob = await res.blob();
       const downloadUrl = URL.createObjectURL(blob);
@@ -409,6 +416,7 @@ export function AppIconModal({
       a.remove();
       URL.revokeObjectURL(downloadUrl);
     } catch (err) {
+      console.error("Failed to generate Favicon Kit:", err);
       alert(err instanceof Error ? err.message : "Failed to generate Favicon Kit");
     } finally {
       setDownloadingFavicon(false);

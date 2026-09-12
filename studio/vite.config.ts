@@ -5,10 +5,13 @@ import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin, type ViteDevServer } from "vite";
 import {
   aiCopyHandler,
+  bannerExportHandler,
   deleteAllHandler,
   deleteHandler,
   designHandler,
   exportHandler,
+  faviconExportHandler,
+  iconHandler,
   importHandler,
   localesHandler,
   replaceCaptureHandler,
@@ -55,6 +58,9 @@ function goldieApi(): Plugin {
   const design = designHandler(api);
   const exp = exportHandler(api);
   const expSingle = singleExportHandler(api);
+  const expBanner = bannerExportHandler(api);
+  const expFavicon = faviconExportHandler(api);
+  const icon = iconHandler(api);
   const imp = importHandler(api);
   const repCapture = replaceCaptureHandler(api);
   const del = deleteHandler(api);
@@ -67,7 +73,10 @@ function goldieApi(): Plugin {
       server.middlewares.use("/api/ai/generate-copy", aiCopy);
       server.middlewares.use("/api/design", design);
       server.middlewares.use("/api/locales", locales);
+      server.middlewares.use("/api/icon", icon);
       server.middlewares.use("/api/export-single", expSingle);
+      server.middlewares.use("/api/export-banner", expBanner);
+      server.middlewares.use("/api/export-favicon", expFavicon);
       server.middlewares.use("/api/export", (req, res) => exp(req.url ?? "")(req, res));
       server.middlewares.use("/api/import", imp);
       server.middlewares.use("/api/replace-capture", repCapture);

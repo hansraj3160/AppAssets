@@ -1476,7 +1476,9 @@ export function faviconExportHandler({ paths }: StudioApi): Handler {
         }
 
         if (customDataUrl?.startsWith("data:image/")) {
-          const base64Data = customDataUrl.replace(/^data:image\/\w+;base64,/, "");
+          const base64Data = customDataUrl.includes(";base64,")
+            ? customDataUrl.split(";base64,")[1]!
+            : customDataUrl.replace(/^data:[^;]+;base64,/, "");
           iconSource = Buffer.from(base64Data, "base64");
         } else {
           // Resolve from existing project icons

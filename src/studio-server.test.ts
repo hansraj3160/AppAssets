@@ -1306,6 +1306,41 @@ describe("bannerExportHandler", () => {
       expect(Buffer.isBuffer(writtenData)).toBe(true);
       expect(writtenData!.length).toBeGreaterThan(100);
 
+      // 4. Request favicon export via POST with customDataUrl
+      let postStatusCode = 0;
+      let postResHeaders: any = {};
+      let postWrittenData: Buffer | null = null;
+      const mockPostRes: any = {
+        writeHead(code: number, headers: any) {
+          postStatusCode = code;
+          postResHeaders = headers;
+        },
+        end(data: any) {
+          postWrittenData = data;
+        },
+      };
+      const postBody = JSON.stringify({
+        appName: "CustomFavApp",
+        themeColor: "#ff0055",
+        iconDataUrl: `data:image/png;base64,${testPng.toString("base64")}`,
+      });
+      const { EventEmitter } = await import("node:events");
+      const mockPostReq: any = new EventEmitter();
+      mockPostReq.method = "POST";
+      mockPostReq.url = "/api/export-favicon";
+
+      handler(mockPostReq, mockPostRes);
+      mockPostReq.emit("data", Buffer.from(postBody));
+      mockPostReq.emit("end");
+
+      await new Promise((r) => setTimeout(r, 150));
+
+      expect(postStatusCode).toBe(200);
+      expect(postResHeaders["Content-Type"]).toBe("application/zip");
+      expect(postResHeaders["Content-Disposition"]).toContain("CustomFavApp-favicon-web-kit.zip");
+      expect(Buffer.isBuffer(postWrittenData)).toBe(true);
+      expect(postWrittenData!.length).toBeGreaterThan(100);
+
       await rm(tmp, { recursive: true, force: true });
     });
   });

@@ -4,15 +4,11 @@ import {
   ChevronUp,
   FileText,
   FolderArchive,
-  Layers,
   Loader2Icon,
   LogOut,
   MoonIcon,
   Package,
   Settings2,
-  ShieldAlert,
-  ShieldCheck,
-  Smartphone,
   Sparkles,
   SunIcon,
   Trash2,
@@ -257,7 +253,7 @@ export function Header({
 
             <div className="flex flex-col text-left min-w-0">
               <span className="text-xs font-semibold text-foreground leading-tight group-hover:text-primary transition-colors flex items-center gap-1 truncate">
-                <span className="truncate">{appInfo?.name || "Set App Name"}</span>
+                <span className="truncate">{appInfo?.name || "App logo"}</span>
                 <Settings2 className="size-3 text-muted-foreground opacity-60 group-hover:opacity-100 shrink-0" />
               </span>
               <span className="text-[10px] text-muted-foreground font-normal leading-tight truncate">
@@ -268,103 +264,63 @@ export function Header({
         ) : null}
       </div>
 
-      {/* Center: View Switcher (Studio Canvas vs Store Preview) */}
-      <div className="flex items-center gap-1 rounded-xl bg-muted/60 dark:bg-muted/40 p-1 border border-border/60 shadow-2xs">
+      {/* Center: View Switcher (Studio Canvas -> Promo Banner -> Store Preview) */}
+      <div className="flex items-center gap-1 rounded-xl bg-muted/60 dark:bg-muted/40 p-1 border border-border/60 shadow-2xs shrink-0">
         <button
           type="button"
           onClick={() => onViewModeChange?.("editor")}
-          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${viewMode === "editor"
+          className={`flex items-center whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${viewMode === "editor"
             ? "bg-background text-foreground shadow-xs"
             : "text-muted-foreground hover:text-foreground hover:bg-background/40"
             }`}
         >
-          <Layers className="size-3.5" />
-          <span className="hidden sm:inline">Studio Canvas</span>
-          <span className="sm:hidden">Canvas</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onViewModeChange?.("store")}
-          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${viewMode === "store"
-            ? "bg-background text-foreground shadow-xs"
-            : "text-muted-foreground hover:text-foreground hover:bg-background/40"
-            }`}
-        >
-          <Smartphone className="size-3.5 text-blue-500" />
-          <span className="hidden sm:inline">Store Preview</span>
-          <span className="sm:hidden">Store</span>
-          <span className="ml-0.5 rounded-full bg-blue-500/15 px-1.5 py-0.2 text-[9px] font-bold text-blue-600 dark:text-blue-400">
-            Live
-          </span>
+          <span>Studio Canvas</span>
         </button>
 
         <button
           type="button"
           onClick={() => onViewModeChange?.("promo")}
-          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${viewMode === "promo"
+          className={`flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${viewMode === "promo"
             ? "bg-background text-foreground shadow-xs"
             : "text-muted-foreground hover:text-foreground hover:bg-background/40"
             }`}
         >
-          <Sparkles className="size-3.5 text-amber-500" />
-          <span className="hidden sm:inline">Promo Banners</span>
-          <span className="sm:hidden">Banners</span>
-          <span className="ml-0.5 rounded-full bg-amber-500/15 px-1.5 py-0.2 text-[9px] font-bold text-amber-600 dark:text-amber-400">
+          <span>Promo Banner</span>
+          <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-bold text-amber-600 dark:text-amber-400 leading-none">
             1024×500
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onViewModeChange?.("store")}
+          className={`flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${viewMode === "store"
+            ? "bg-background text-foreground shadow-xs"
+            : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+            }`}
+        >
+          <span>Store Preview</span>
+          <span className="rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[9px] font-bold text-blue-600 dark:text-blue-400 leading-none">
+            Live
           </span>
         </button>
       </div>
 
-      {/* Action Buttons: Import, Remove All, Export Screenshots */}
-      <div className="flex items-center gap-2">
-        {/* 1. Import screenshots */}
-        <ImportButton
-          wrapperClassName="shrink-0"
-          className="h-8 px-2.5 sm:px-3 gap-1.5 text-xs font-medium rounded-lg border border-border/80 bg-background hover:bg-muted text-foreground shadow-2xs cursor-pointer transition-colors [&_svg]:size-3.5"
-          label="Import"
-        />
-
-        {/* 2. Remove all */}
-        {(() => {
-          const canClear = hasScreenshots || Boolean(appInfo?.name) || Boolean(appInfo?.icon);
-          return (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleClearAll}
-              disabled={clearing || !canClear}
-              title={canClear ? "Remove all screenshots & reset app details" : "Nothing to remove"}
-              className="h-8 px-2.5 sm:px-3 gap-1.5 text-xs font-medium rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 hover:bg-red-100/80 dark:bg-red-950/25 dark:hover:bg-red-950/45 text-red-600 dark:text-red-400 shadow-2xs cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {clearing ? (
-                <Loader2Icon className="size-3.5 animate-spin text-red-600 dark:text-red-400" />
-              ) : (
-                <Trash2 className="size-3.5 text-red-600 dark:text-red-400" />
-              )}
-              <span>{clearing ? "Removing all..." : "Remove all"}</span>
-            </Button>
-          );
-        })()}
-
-        {/* 2.5 Store Pre-Flight Audit Badge */}
+      {/* Action Buttons: Audit | Remove | Import | Export */}
+      <div className="flex items-center gap-2 shrink-0">
+        {/* 1. Store Pre-Flight Audit Badge */}
         <button
           type="button"
           onClick={() => setIsAuditModalOpen(true)}
           title={`Store Pre-Flight Audit Score: ${auditResult.score}%\n${auditResult.passedCount}/${auditResult.totalChecks} checks passed.\nClick to view recommendations for Google Play & App Store approval.`}
-          className={`h-8 px-2.5 sm:px-3 gap-1.5 text-xs font-semibold rounded-lg border shadow-2xs cursor-pointer transition-all flex items-center ${auditResult.score >= 90
+          className={`h-8 px-2.5 sm:px-3 gap-1.5 text-xs font-semibold rounded-lg border shadow-2xs cursor-pointer transition-all flex items-center whitespace-nowrap shrink-0 ${auditResult.score >= 90
             ? "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
             : auditResult.score >= 70
               ? "bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-500/30"
               : "bg-red-500/10 hover:bg-red-500/20 text-red-700 dark:text-red-400 border-red-500/30"
             }`}
         >
-          {auditResult.score >= 90 ? (
-            <ShieldCheck className="size-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-          ) : (
-            <ShieldAlert className="size-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
-          )}
-          <span className="hidden sm:inline">Store Audit</span>
+          <span>Store Audit</span>
           <span className="font-mono text-[11px] font-bold">
             {auditResult.score}%
           </span>
@@ -376,7 +332,45 @@ export function Header({
           )}
         </button>
 
-        {/* 3. Export Store Package (.ZIP) */}
+        {/* Divider */}
+        <div className="h-4 w-px bg-border/60 shrink-0 hidden sm:block" />
+
+        {/* 2. Remove all */}
+        {(() => {
+          const canClear = hasScreenshots || Boolean(appInfo?.name) || Boolean(appInfo?.icon);
+          return (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleClearAll}
+              disabled={clearing || !canClear}
+              title={canClear ? "Remove all screenshots & reset app details" : "Nothing to remove"}
+              className="h-8 px-2.5 sm:px-3 gap-1.5 text-xs font-medium rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 hover:bg-red-100/80 dark:bg-red-950/25 dark:hover:bg-red-950/45 text-red-600 dark:text-red-400 shadow-2xs cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shrink-0"
+            >
+              {clearing ? (
+                <Loader2Icon className="size-3.5 animate-spin text-red-600 dark:text-red-400" />
+              ) : (
+                <Trash2 className="size-3.5 text-red-600 dark:text-red-400" />
+              )}
+              <span>{clearing ? "Removing..." : "Remove all"}</span>
+            </Button>
+          );
+        })()}
+
+        {/* Divider */}
+        <div className="h-4 w-px bg-border/60 shrink-0 hidden sm:block" />
+
+        {/* 3. Import screenshots */}
+        <ImportButton
+          wrapperClassName="shrink-0"
+          className="h-8 px-2.5 sm:px-3 gap-1.5 text-xs font-medium rounded-lg border border-border/80 bg-background hover:bg-muted text-foreground shadow-2xs cursor-pointer transition-colors [&_svg]:size-3.5 whitespace-nowrap shrink-0"
+          label="Import"
+        />
+
+        {/* Divider */}
+        <div className="h-4 w-px bg-border/60 shrink-0 hidden sm:block" />
+
+        {/* 4. Export Store Package (.ZIP) */}
         <Popover
           open={popoverOpen}
           onOpenChange={(open) => {
@@ -393,7 +387,7 @@ export function Header({
                   ? "Upload screenshots first to export"
                   : "Export store-ready package (.ZIP)"
               }
-              className="h-8 px-3 gap-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white shadow-xs shadow-blue-500/15 cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-auto disabled:shadow-none"
+              className="h-8 px-3 gap-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white shadow-xs shadow-blue-500/15 cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-auto disabled:shadow-none whitespace-nowrap shrink-0"
               onClick={() => {
                 if (!hasScreenshots && !exportBusy) return;
                 if (!exportBusy) {
@@ -629,8 +623,8 @@ export function Header({
                       size="sm"
                       onClick={openUpgradeModal}
                       className={`w-full justify-center text-xs font-bold rounded-xl cursor-pointer h-8.5 px-2.5 gap-1.5 ${isPro
-                          ? "variant-outline border-border hover:bg-muted text-foreground"
-                          : "bg-[#007aff] hover:bg-[#006ee6] active:bg-[#0062cc] text-white shadow-xs"
+                        ? "variant-outline border-border hover:bg-muted text-foreground"
+                        : "bg-[#007aff] hover:bg-[#006ee6] active:bg-[#0062cc] text-white shadow-xs"
                         }`}
                     >
                       <Sparkles className="size-3.5 fill-current text-amber-300" />

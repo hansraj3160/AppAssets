@@ -15,7 +15,7 @@ describe("runStoreAudit Engine", () => {
     expect(res.totalChecks).toBeGreaterThan(0);
     expect(res.isStoreReady).toBe(false);
     expect(res.errorCount).toBeGreaterThan(0);
-    expect(res.score).toBeLessThan(70);
+    expect(res.score).toBe(0);
 
     const iconCheck = res.checks.find((c) => c.id === "play-icon-present");
     expect(iconCheck?.passed).toBe(false);

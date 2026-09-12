@@ -119,12 +119,13 @@ export function runStoreAudit({
     id: "play-icon-opaque",
     category: "google-play",
     title: "Icon Background Opaque (No Alpha)",
-    description:
-      "Play Store strictly prohibits transparent backgrounds on listing icons to avoid dark theme washout.",
+    description: hasIcon
+      ? "App icon is configured with an opaque background complying with Play Store standards."
+      : "Play Store strictly prohibits transparent backgrounds on listing icons. Upload or configure an opaque icon.",
     policyRef: "Google Play Icon Design Specifications",
-    severity: "pass",
-    passed: true,
-    action: { label: "Check in Icon Studio", actionType: "icon-studio" },
+    severity: hasIcon ? "pass" : "error",
+    passed: hasIcon,
+    action: hasIcon ? undefined : { label: "Create in Icon Studio", actionType: "icon-studio" },
   });
 
   // Check 3: Minimum 2 Screenshots Required
@@ -146,32 +147,37 @@ export function runStoreAudit({
   });
 
   // Check 4: Google Play Feature Graphic (1024x500)
+  const hasFeatureGraphic = hasScreenshots && totalScreenshotCount >= 1;
   checks.push({
     id: "play-feature-graphic",
     category: "google-play",
     title: "Feature Graphic (1024×500)",
-    description:
-      "Mandatory for your Google Play store listing to be displayed on search, promo banners, and category pages.",
+    description: hasFeatureGraphic
+      ? "1024×500 feature graphic banner is ready to export for Google Play."
+      : "Mandatory for Google Play. Upload screenshots to automatically generate your 1024×500 feature graphic.",
     policyRef: "Google Play Graphic Assets Guidelines",
-    severity: "pass",
-    passed: true,
+    severity: hasFeatureGraphic ? "pass" : "error",
+    passed: hasFeatureGraphic,
     action: { label: "Promo Studio", actionType: "promo-studio" },
   });
 
   // Check 5: Headline Length Truncation Check
+  const hasScenes = hasScreenshots && activeScenes.length > 0;
   const longHeadlines = activeScenes.filter((s) => {
     const text = Object.values(s.headline || {})[0] || "";
     return text.trim().length > 45;
   });
-  const headlinesConcise = longHeadlines.length === 0;
+  const headlinesConcise = hasScenes && longHeadlines.length === 0;
   checks.push({
     id: "play-headline-length",
     category: "google-play",
     title: "Headline Length for Mobile Screens",
-    description: headlinesConcise
-      ? "All scene headlines are concise (< 45 chars) and will not get truncated on smaller screens."
-      : `${longHeadlines.length} scene(s) have headlines over 45 characters which may wrap excessively on phone viewports.`,
-    severity: headlinesConcise ? "pass" : "warning",
+    description: !hasScenes
+      ? "Upload screenshots to inspect headline lengths."
+      : headlinesConcise
+        ? "All scene headlines are concise (< 45 chars) and will not get truncated on smaller screens."
+        : `${longHeadlines.length} scene(s) have headlines over 45 characters which may wrap excessively on phone viewports.`,
+    severity: !hasScenes ? "warning" : headlinesConcise ? "pass" : "warning",
     passed: headlinesConcise,
   });
 
@@ -196,7 +202,7 @@ export function runStoreAudit({
   });
 
   // Check 7: iPhone 6.9" / 6.5" Captures
-  const hasPhoneCaptures = hasScreenshots;
+  const hasPhoneCaptures = hasScreenshots && totalScreenshotCount >= 1;
   checks.push({
     id: "appstore-iphone-captures",
     category: "app-store",
@@ -213,15 +219,21 @@ export function runStoreAudit({
   });
 
   // Check 8: iPad 13" Captures
+  const hasIpadConfigured = (manifest?.devices || []).some(
+    // biome-ignore lint/suspicious/noExplicitAny: device type flexibility
+    (d: any) => (typeof d === "string" ? d : d?.key) === "ipad-13",
+  );
+  const ipadPassed = hasScreenshots && hasIpadConfigured;
   checks.push({
     id: "appstore-ipad-captures",
     category: "app-store",
     title: "iPad 13\" Screenshots",
-    description:
-      "Recommended if your app supports iPadOS to be featured across tablet categories.",
+    description: ipadPassed
+      ? "iPad screenshots configured for tablet App Store display."
+      : "iPad 13\" screenshots recommended if your app targets iPadOS devices.",
     policyRef: "iPad App Store Guidelines",
-    severity: "pass",
-    passed: true,
+    severity: ipadPassed ? "pass" : "warning",
+    passed: ipadPassed,
   });
 
   // Check 9: Non-Empty Scene Copy
@@ -229,46 +241,52 @@ export function runStoreAudit({
     const h = Object.values(s.headline || {})[0] || "";
     return h.trim().length === 0;
   });
-  const copyComplete = activeScenes.length > 0 && emptyScenes.length === 0;
+  const copyComplete = hasScenes && emptyScenes.length === 0;
   checks.push({
     id: "appstore-headlines-present",
     category: "app-store",
     title: "Clear Marketing Copy & Headlines",
-    description: copyComplete
-      ? `All ${activeScenes.length} scenes have descriptive marketing headlines.`
-      : `${emptyScenes.length} scene(s) have empty headlines. Clear copy improves conversion.`,
+    description: !hasScenes
+      ? "Upload screenshots to configure scene marketing headlines."
+      : copyComplete
+        ? `All ${activeScenes.length} scenes have descriptive marketing headlines.`
+        : `${emptyScenes.length} scene(s) have empty headlines. Clear copy improves conversion.`,
     severity: copyComplete ? "pass" : "warning",
     passed: copyComplete,
   });
 
   // Check 10: Contrast & Readability
-  let hasGoodContrast = true;
-  if (theme?.background && theme?.headlineColor) {
+  let hasGoodContrast = false;
+  if (hasScenes && theme?.background && theme?.headlineColor) {
     if (theme.background.startsWith("#") && theme.headlineColor.startsWith("#")) {
       const ratio = getContrastRatio(theme.background, theme.headlineColor);
       hasGoodContrast = ratio >= 3.0;
+    } else {
+      hasGoodContrast = true;
     }
   }
   checks.push({
     id: "appstore-contrast",
     category: "app-store",
     title: "Text Contrast & Readability (WCAG)",
-    description: hasGoodContrast
-      ? "Headline text contrast meets store readability standards."
-      : "Low contrast detected between headlines and background. Consider adjusting text color for clarity.",
+    description: !hasScenes
+      ? "Upload screenshots to evaluate text contrast."
+      : hasGoodContrast
+        ? "Headline text contrast meets store readability standards."
+        : "Low contrast detected between headlines and background. Consider adjusting text color for clarity.",
     severity: hasGoodContrast ? "pass" : "warning",
     passed: hasGoodContrast,
   });
 
   // Check 11: App Name Defined
-  const hasAppName = Boolean(appName.trim());
+  const hasAppName = Boolean(appName.trim()) && appName.trim().toLowerCase() !== "app";
   checks.push({
     id: "general-app-name",
     category: "general",
     title: "App Title & Identity",
     description: hasAppName
       ? `App name is set to "${appName}".`
-      : "App name is empty. Set an app name in App Details.",
+      : "App name is empty or default. Set an app name in App Details.",
     severity: hasAppName ? "pass" : "warning",
     passed: hasAppName,
     action: hasAppName
@@ -282,9 +300,20 @@ export function runStoreAudit({
   const warningCount = checks.filter((c) => c.severity === "warning").length;
   const errorCount = checks.filter((c) => c.severity === "error").length;
 
-  const score = Math.round(
-    ((passedCount * 1.0 + warningCount * 0.5) / totalChecks) * 100,
-  );
+  // If user hasn't uploaded screenshots and hasn't uploaded an icon, readiness is 0%
+  let score = 0;
+  if (!hasScreenshots && !hasIcon) {
+    score = 0;
+  } else {
+    // Weighted scoring based on core assets:
+    // Screenshots: 50%
+    // Icon: 35%
+    // Copy & App Name: 15%
+    const screenshotScore = hasMinTwoScreenshots ? 50 : hasPhoneCaptures ? 30 : 0;
+    const iconScore = hasIcon ? 35 : 0;
+    const copyScore = (copyComplete ? 5 : 0) + (hasGoodContrast ? 5 : 0) + (hasAppName ? 5 : 0);
+    score = Math.min(100, screenshotScore + iconScore + copyScore);
+  }
 
   const isStoreReady = errorCount === 0 && score >= 80;
 
