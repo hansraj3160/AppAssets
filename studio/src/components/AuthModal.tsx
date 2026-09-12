@@ -105,8 +105,8 @@ export function AuthModal() {
 
         {/* Header Icon & Title */}
         <div className="flex flex-col items-center text-center mb-6">
-          <div className="size-12 rounded-2xl bg-blue-500/10 text-[#007aff] border border-blue-500/20 shadow-xs flex items-center justify-center mb-3">
-            <Sparkles className="size-6" />
+          <div className="size-12 rounded-2xl bg-[#FF6B00]/10 text-[#FF6B00] border border-[#FF6B00]/20 shadow-xs flex items-center justify-center mb-3">
+            <Sparkles className="size-6 text-[#FFB21A]" />
           </div>
           <h2 className="text-xl font-bold text-foreground">
             {mode === "signin" ? "Sign in to AppAssets" : "Create your account"}
@@ -210,7 +210,7 @@ export function AuthModal() {
                   type="button"
                   onClick={handleForgotPassword}
                   disabled={loadingReset}
-                  className="text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:underline cursor-pointer disabled:opacity-50"
+                  className="text-[11px] font-medium text-[#FF6B00] hover:text-[#FF8A00] hover:underline cursor-pointer disabled:opacity-50"
                 >
                   {loadingReset ? "Sending reset link..." : "Forgot password?"}
                 </button>
@@ -233,7 +233,7 @@ export function AuthModal() {
           <Button
             type="submit"
             disabled={loadingGoogle || loadingEmail}
-            className="w-full h-9.5 text-sm font-semibold rounded-xl bg-[#007aff] hover:bg-[#006ee6] active:bg-[#0062cc] text-white shadow-xs cursor-pointer transition-colors"
+            className="w-full h-9.5 text-sm font-semibold rounded-xl bg-[#FF6B00] hover:bg-[#FF8A00] active:bg-[#e05f00] text-white shadow-xs shadow-[#FF6B00]/20 cursor-pointer transition-colors"
           >
             {loadingEmail ? (
               <Loader2 className="size-4 animate-spin" />
@@ -256,7 +256,7 @@ export function AuthModal() {
                   setError(null);
                   setMode("signup");
                 }}
-                className="text-blue-600 dark:text-blue-400 font-semibold hover:underline cursor-pointer"
+                className="text-[#FF6B00] hover:text-[#FF8A00] font-semibold hover:underline cursor-pointer"
               >
                 Sign up free
               </button>
@@ -270,7 +270,7 @@ export function AuthModal() {
                   setError(null);
                   setMode("signin");
                 }}
-                className="text-blue-600 dark:text-blue-400 font-semibold hover:underline cursor-pointer"
+                className="text-[#FF6B00] hover:text-[#FF8A00] font-semibold hover:underline cursor-pointer"
               >
                 Sign in
               </button>

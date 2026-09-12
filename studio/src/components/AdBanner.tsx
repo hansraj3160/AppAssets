@@ -147,9 +147,9 @@ export function AdBanner({
           <Button
             size="sm"
             onClick={handleGoPro}
-            className="h-7 text-xs px-2.5 gap-1.5 bg-[#007aff] hover:bg-[#006ee6] active:bg-[#0062cc] text-white cursor-pointer shadow-2xs rounded-lg font-medium"
+            className="h-7 text-xs px-2.5 gap-1.5 bg-[#FF6B00] hover:bg-[#FF8A00] active:bg-[#e05f00] text-white cursor-pointer shadow-2xs shadow-[#FF6B00]/20 rounded-lg font-medium"
           >
-            <Sparkles className="size-3" />
+            <Sparkles className="size-3 text-[#FFB21A]" />
             <span>Go Ad-Free</span>
           </Button>
         </div>
@@ -168,7 +168,7 @@ export function AdBanner({
         </span>
         <div className="flex items-center gap-2">
           <div className="size-6 rounded-lg bg-muted border border-border flex items-center justify-center text-foreground shrink-0">
-            <Sparkles className="size-3" />
+            <Sparkles className="size-3 text-[#FFB21A]" />
           </div>
           <p className="text-xs text-muted-foreground">
             <span className="font-semibold text-foreground">Tired of ads?</span> Upgrade to Pro for
@@ -181,9 +181,9 @@ export function AdBanner({
         <Button
           size="sm"
           onClick={handleGoPro}
-          className="h-7 text-xs px-3 gap-1.5 bg-[#007aff] hover:bg-[#006ee6] active:bg-[#0062cc] text-white cursor-pointer shadow-2xs rounded-lg font-medium"
+          className="h-7 text-xs px-3 gap-1.5 bg-[#FF6B00] hover:bg-[#FF8A00] active:bg-[#e05f00] text-white cursor-pointer shadow-2xs shadow-[#FF6B00]/20 rounded-lg font-medium"
         >
-          <Sparkles className="size-3" />
+          <Sparkles className="size-3 text-[#FFB21A]" />
           <span>Upgrade to Pro</span>
         </Button>
         <button

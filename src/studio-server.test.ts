@@ -800,11 +800,13 @@ describe("exportHandler", () => {
       Object.assign(headers, h);
     };
 
+    const finishPromise = new Promise((resolve) => res.on("finish", resolve));
     handler("/download")(req, res);
     expect(writtenCode).toBe(200);
     expect(headers["Content-Type"]).toBe("application/zip");
     expect(headers["Content-Disposition"]).toBe('attachment; filename="MyApp-assets.zip"');
 
+    await finishPromise;
     await rm(tmp, { recursive: true, force: true });
   });
 

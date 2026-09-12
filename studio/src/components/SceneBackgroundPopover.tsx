@@ -151,7 +151,7 @@ export function SceneBackgroundPopover({
             size="sm"
             className={`h-7 px-2 gap-1.5 rounded-lg text-[11px] font-medium border shadow-2xs cursor-pointer transition-all ${
               isOverridden
-                ? "border-blue-500/50 bg-blue-50/50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300"
+                ? "border-[#FF6B00]/40 bg-[#FF6B00]/10 text-[#FF6B00]"
                 : "border-border/80 bg-background/90 text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -174,7 +174,7 @@ export function SceneBackgroundPopover({
           {/* Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
-              <Paintbrush className="size-3.5 text-blue-500" />
+              <Paintbrush className="size-3.5 text-[#FF6B00]" />
               <span className="text-xs font-bold text-foreground">
                 {sceneName ? `${sceneName} Background` : "Scene Background"}
               </span>
@@ -184,7 +184,7 @@ export function SceneBackgroundPopover({
               <button
                 type="button"
                 onClick={handleReset}
-                className="flex items-center gap-1 text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                className="flex items-center gap-1 text-[11px] font-medium text-[#FF6B00] hover:text-[#FF8A00] hover:underline cursor-pointer"
               >
                 <RotateCcw className="size-2.5" />
                 <span>Reset</span>

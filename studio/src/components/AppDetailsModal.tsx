@@ -195,7 +195,7 @@ export function AppDetailsModal({ isOpen, onClose, appInfo, onSaveAppInfo }: App
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/40">
           <div className="flex items-center gap-2.5">
-            <div className="flex size-9 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+            <div className="flex size-9 items-center justify-center rounded-xl bg-[#FF6B00]/10 text-[#FF6B00]">
               <Package className="size-5" />
             </div>
             <div>
@@ -226,7 +226,7 @@ export function AppDetailsModal({ isOpen, onClose, appInfo, onSaveAppInfo }: App
             <button
               type="button"
               onClick={() => setIsIconModalOpen(true)}
-              className="relative size-16 shrink-0 rounded-2xl overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 shadow-md flex items-center justify-center text-white font-bold text-2xl border border-white/20 hover:ring-2 hover:ring-[#007aff]/50 transition-all cursor-pointer group"
+              className="relative size-16 shrink-0 rounded-2xl overflow-hidden bg-gradient-to-br from-[#FF6B00] to-[#FF8A00] shadow-md flex items-center justify-center text-white font-bold text-2xl border border-white/20 hover:ring-2 hover:ring-[#FF6B00]/50 transition-all cursor-pointer group"
               title="Click to open Icon Studio & Resizer"
             >
               {icon ? (
@@ -235,14 +235,14 @@ export function AppDetailsModal({ isOpen, onClose, appInfo, onSaveAppInfo }: App
                 <span>{initial}</span>
               )}
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                <Sparkles className="size-5 text-white" />
+                <Sparkles className="size-5 text-[#FFB21A]" />
               </div>
             </button>
 
             <div className="flex-1 min-w-0 space-y-1">
               <div className="flex items-center justify-between gap-2">
                 <h4 className="text-sm font-semibold text-foreground">App Logo / Icon</h4>
-                <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-md bg-blue-500/10 text-[#007aff] border border-blue-500/20">
+                <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-md bg-[#FF6B00]/10 text-[#FF6B00] border border-[#FF6B00]/25">
                   512×512 & 1024×1024
                 </span>
               </div>
@@ -254,9 +254,9 @@ export function AppDetailsModal({ isOpen, onClose, appInfo, onSaveAppInfo }: App
                   type="button"
                   size="sm"
                   onClick={() => setIsIconModalOpen(true)}
-                  className="h-8 px-2.5 gap-1.5 text-xs font-semibold rounded-lg bg-[#007aff] hover:bg-[#006ee6] active:bg-[#0062cc] text-white cursor-pointer shadow-2xs"
+                  className="h-8 px-2.5 gap-1.5 text-xs font-semibold rounded-lg bg-[#FF6B00] hover:bg-[#FF8A00] active:bg-[#e05f00] text-white cursor-pointer shadow-2xs shadow-[#FF6B00]/20"
                 >
-                  <Sparkles className="size-3.5" />
+                  <Sparkles className="size-3.5 text-[#FFB21A]" />
                   <span>Icon Studio & Resizer</span>
                 </Button>
 
@@ -300,7 +300,7 @@ export function AppDetailsModal({ isOpen, onClose, appInfo, onSaveAppInfo }: App
                 className="text-xs font-semibold text-foreground flex items-center justify-between"
               >
                 <span className="flex items-center gap-1.5">
-                  <Type className="size-3.5 text-blue-500" />
+                  <Type className="size-3.5 text-[#FF6B00]" />
                   App Name
                 </span>
                 <span className="text-[11px] text-muted-foreground font-normal">
@@ -323,7 +323,7 @@ export function AppDetailsModal({ isOpen, onClose, appInfo, onSaveAppInfo }: App
                 className="text-xs font-semibold text-foreground flex items-center justify-between"
               >
                 <span className="flex items-center gap-1.5">
-                  <Tag className="size-3.5 text-blue-500" />
+                  <Tag className="size-3.5 text-[#FF6B00]" />
                   Category
                 </span>
                 <span className="text-[11px] text-muted-foreground font-normal">
@@ -367,7 +367,7 @@ export function AppDetailsModal({ isOpen, onClose, appInfo, onSaveAppInfo }: App
                 className="text-xs font-semibold text-foreground flex items-center justify-between"
               >
                 <span className="flex items-center gap-1.5">
-                  <Sparkles className="size-3.5 text-blue-500" />
+                  <Sparkles className="size-3.5 text-[#FFB21A]" />
                   Subtitle / Marketing Tagline
                 </span>
                 <span className="text-[11px] text-muted-foreground font-normal">
@@ -390,7 +390,7 @@ export function AppDetailsModal({ isOpen, onClose, appInfo, onSaveAppInfo }: App
                 className="text-xs font-semibold text-foreground flex items-center justify-between"
               >
                 <span className="flex items-center gap-1.5">
-                  <Building2 className="size-3.5 text-blue-500" />
+                  <Building2 className="size-3.5 text-[#FF6B00]" />
                   Developer / Company Name
                 </span>
                 <span className="text-[11px] text-muted-foreground font-normal">
@@ -413,7 +413,7 @@ export function AppDetailsModal({ isOpen, onClose, appInfo, onSaveAppInfo }: App
                 className="text-xs font-semibold text-foreground flex items-center justify-between"
               >
                 <span className="flex items-center gap-1.5">
-                  <FolderOpen className="size-3.5 text-blue-500" />
+                  <FolderOpen className="size-3.5 text-[#FF6B00]" />
                   App Description / Summary
                 </span>
                 <span className="text-[11px] text-muted-foreground font-normal">
@@ -458,7 +458,7 @@ export function AppDetailsModal({ isOpen, onClose, appInfo, onSaveAppInfo }: App
               type="button"
               size="sm"
               onClick={handleSave}
-              className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-xs"
+              className="gap-1.5 bg-[#FF6B00] hover:bg-[#FF8A00] active:bg-[#e05f00] text-white font-semibold shadow-xs"
             >
               {savedSuccess ? (
                 <>

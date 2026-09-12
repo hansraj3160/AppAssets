@@ -130,7 +130,7 @@ export function AppIconModal({
   const [iconSrc, setIconSrc] = useState<string | null>(currentIcon || null);
   const [bgType, setBgType] = useState<"preset" | "custom" | "transparent">("preset");
   const [selectedPreset, setSelectedPreset] = useState<string>("store-blue");
-  const [customColor, setCustomColor] = useState<string>("#007aff");
+  const [customColor, setCustomColor] = useState<string>("#FF6B00");
   const [scale, setScale] = useState<number>(72); // 72% default safe area, up to 125%
   const [offsetX, setOffsetX] = useState<number>(0); // Relative percentage offset (-100 to 100)
   const [offsetY, setOffsetY] = useState<number>(0);
@@ -458,13 +458,13 @@ export function AppIconModal({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-6 py-4 bg-muted/30 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="size-10 rounded-xl bg-[#007aff]/10 text-[#007aff] border border-[#007aff]/20 flex items-center justify-center shadow-xs">
-              <Sparkles className="size-5" />
+            <div className="size-10 rounded-xl bg-[#FF6B00]/10 text-[#FF6B00] border border-[#FF6B00]/25 flex items-center justify-center shadow-xs">
+              <Sparkles className="size-5 text-[#FFB21A]" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-bold tracking-tight">App Icon Studio & Resizer</h2>
-                <span className="rounded-md bg-blue-500/15 text-[#007aff] dark:text-[#0a84ff] border border-blue-500/30 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                <span className="rounded-md bg-[#FF6B00]/15 text-[#FF6B00] dark:text-[#FF8A00] border border-[#FF6B00]/30 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
                   512×512 & 1024×1024
                 </span>
               </div>
@@ -533,7 +533,7 @@ export function AppIconModal({
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                <Smartphone className="size-3.5 text-[#007aff]" />
+                <Smartphone className="size-3.5 text-[#FF6B00]" />
                 <span>Home Screen</span>
               </button>
             </div>
@@ -687,7 +687,7 @@ export function AppIconModal({
                       title="Your App Icon"
                     >
                       <div
-                        className="size-10 flex items-center justify-center shadow-md relative overflow-hidden ring-2 ring-[#007aff] ring-offset-1 ring-offset-black/60 transition-transform group-hover:scale-105"
+                        className="size-10 flex items-center justify-center shadow-md relative overflow-hidden ring-2 ring-[#FF6B00] ring-offset-1 ring-offset-black/60 transition-transform group-hover:scale-105"
                         style={{
                           borderRadius: `${Math.max(18, cornerRadius)}%`,
                           background: activeBackground,
@@ -712,7 +712,7 @@ export function AppIconModal({
                         {appName}
                       </span>
                       {/* Subtle indicator badge */}
-                      <span className="absolute -top-1 -right-1 size-2 rounded-full bg-[#007aff] border border-white animate-pulse" />
+                      <span className="absolute -top-1 -right-1 size-2 rounded-full bg-[#FF6B00] border border-white animate-pulse" />
                     </div>
 
                     {/* Health */}
@@ -869,7 +869,7 @@ export function AppIconModal({
               {/* 1. Upload Logo Mark */}
               <div className="space-y-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                  <Upload className="size-3.5 text-blue-500" />
+                  <Upload className="size-3.5 text-[#FF6B00]" />
                   <span>Logo Mark Image</span>
                 </span>
 
@@ -889,8 +889,8 @@ export function AppIconModal({
                   onClick={() => fileInputRef.current?.click()}
                   className={`w-full flex items-center justify-between p-3 rounded-2xl border-2 border-dashed cursor-pointer transition-all ${
                     isDragOver
-                      ? "border-primary bg-primary/10"
-                      : "border-border/80 hover:border-primary/50 hover:bg-muted/40"
+                      ? "border-[#FF6B00] bg-[#FF6B00]/10"
+                      : "border-border/80 hover:border-[#FF6B00]/50 hover:bg-muted/40"
                   }`}
                 >
                   <div className="flex items-center gap-3">
@@ -910,7 +910,7 @@ export function AppIconModal({
                       </span>
                     </div>
                   </div>
-                  <span className="text-xs font-semibold text-primary px-2.5 py-1 rounded-lg bg-primary/10">
+                  <span className="text-xs font-semibold text-[#FF6B00] px-2.5 py-1 rounded-lg bg-[#FF6B00]/10">
                     Browse
                   </span>
                   <input
@@ -930,7 +930,7 @@ export function AppIconModal({
               <div className="space-y-2 pt-1 border-t border-border/60">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    <ZoomIn className="size-3.5 text-blue-500" />
+                    <ZoomIn className="size-3.5 text-[#FF6B00]" />
                     <span>Logo Scale & Zoom</span>
                   </span>
                   <span className="font-mono text-xs font-semibold text-foreground bg-muted px-2 py-0.5 rounded">
@@ -943,7 +943,7 @@ export function AppIconModal({
                   max={125}
                   value={scale}
                   onChange={(e) => setScale(Number(e.target.value))}
-                  className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-[#007aff]"
+                  className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-[#FF6B00]"
                 />
                 <div className="flex items-center justify-between text-[10px] text-muted-foreground">
                   <span>25% (Compact)</span>
@@ -956,7 +956,7 @@ export function AppIconModal({
               <div className="space-y-2 pt-1 border-t border-border/60">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    <Move className="size-3.5 text-blue-500" />
+                    <Move className="size-3.5 text-[#FF6B00]" />
                     <span>Logo Position & Pan</span>
                   </span>
                   {(offsetX !== 0 || offsetY !== 0) && (
@@ -969,12 +969,12 @@ export function AppIconModal({
                       className="text-[11px] font-semibold text-primary hover:underline cursor-pointer flex items-center gap-1"
                     >
                       <RotateCcw className="size-3" />
-                      <span>Reset Center</span>
+                      <span>Reset (0,0)</span>
                     </button>
                   )}
                 </div>
 
-                <div className="flex items-center justify-between gap-3 bg-muted/40 p-2.5 rounded-2xl border border-border/60">
+                <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-1">
                     <Button
                       type="button"
@@ -1025,7 +1025,6 @@ export function AppIconModal({
                       <ArrowDown className="size-3.5" />
                     </Button>
                   </div>
-
                   <div className="flex items-center gap-2">
                     <span className="text-[11px] font-mono text-muted-foreground bg-background px-2 py-0.5 rounded border border-border">
                       X:{" "}
@@ -1045,7 +1044,7 @@ export function AppIconModal({
               <div className="space-y-2 pt-1 border-t border-border/60">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    <Square className="size-3.5 text-blue-500" />
+                    <Square className="size-3.5 text-[#FF6B00]" />
                     <span>Corner Radius & Shape</span>
                   </span>
                   <span className="font-mono text-xs font-semibold text-foreground bg-muted px-2 py-0.5 rounded">
@@ -1060,7 +1059,7 @@ export function AppIconModal({
                     onClick={() => handleSetCornerRadius(0)}
                     className={`px-2 py-1 rounded-lg text-xs font-semibold cursor-pointer border transition-all ${
                       cornerRadius === 0
-                        ? "bg-primary/10 border-primary text-primary font-bold shadow-2xs"
+                        ? "bg-[#FF6B00]/10 border-[#FF6B00] text-[#FF6B00] font-bold shadow-2xs"
                         : "border-border/80 text-muted-foreground hover:text-foreground hover:bg-muted/40"
                     }`}
                   >
@@ -1071,7 +1070,7 @@ export function AppIconModal({
                     onClick={() => handleSetCornerRadius(20)}
                     className={`px-2 py-1 rounded-lg text-xs font-semibold cursor-pointer border transition-all ${
                       cornerRadius === 20
-                        ? "bg-primary/10 border-primary text-primary font-bold shadow-2xs"
+                        ? "bg-[#FF6B00]/10 border-[#FF6B00] text-[#FF6B00] font-bold shadow-2xs"
                         : "border-border/80 text-muted-foreground hover:text-foreground hover:bg-muted/40"
                     }`}
                   >
@@ -1082,7 +1081,7 @@ export function AppIconModal({
                     onClick={() => handleSetCornerRadius(22.5)}
                     className={`px-2 py-1 rounded-lg text-xs font-semibold cursor-pointer border transition-all ${
                       cornerRadius === 22.5
-                        ? "bg-primary/10 border-primary text-primary font-bold shadow-2xs"
+                        ? "bg-[#FF6B00]/10 border-[#FF6B00] text-[#FF6B00] font-bold shadow-2xs"
                         : "border-border/80 text-muted-foreground hover:text-foreground hover:bg-muted/40"
                     }`}
                   >
@@ -1093,7 +1092,7 @@ export function AppIconModal({
                     onClick={() => handleSetCornerRadius(50)}
                     className={`px-2 py-1 rounded-lg text-xs font-semibold cursor-pointer border transition-all ${
                       cornerRadius === 50
-                        ? "bg-primary/10 border-primary text-primary font-bold shadow-2xs"
+                        ? "bg-[#FF6B00]/10 border-[#FF6B00] text-[#FF6B00] font-bold shadow-2xs"
                         : "border-border/80 text-muted-foreground hover:text-foreground hover:bg-muted/40"
                     }`}
                   >
@@ -1109,7 +1108,7 @@ export function AppIconModal({
                   step={0.5}
                   value={cornerRadius}
                   onChange={(e) => handleSetCornerRadius(Number(e.target.value))}
-                  className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-[#007aff]"
+                  className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-[#FF6B00]"
                 />
                 <div className="flex items-center justify-between text-[10px] text-muted-foreground">
                   <span>0% (Flat Square)</span>
@@ -1122,7 +1121,7 @@ export function AppIconModal({
               <div className="space-y-2.5 pt-1 border-t border-border/60">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    <Palette className="size-3.5 text-blue-500" />
+                    <Palette className="size-3.5 text-[#FF6B00]" />
                     <span>Background Style</span>
                   </span>
 
@@ -1178,7 +1177,7 @@ export function AppIconModal({
                           }}
                           className={`group relative size-11 rounded-xl cursor-pointer transition-all border overflow-hidden ${
                             isSelected
-                              ? "ring-2 ring-[#007aff] ring-offset-2 scale-105 border-white/40"
+                              ? "ring-2 ring-[#FF6B00] ring-offset-2 scale-105 border-white/40"
                               : "border-border/80 hover:scale-105"
                           }`}
                           style={{ background: preset.value }}
@@ -1203,7 +1202,7 @@ export function AppIconModal({
                       type="text"
                       value={customColor}
                       onChange={(e) => setCustomColor(e.target.value)}
-                      placeholder="#007AFF"
+                      placeholder="#FF6B00"
                       className="h-9 text-xs font-mono uppercase flex-1"
                     />
                   </div>
@@ -1225,14 +1224,14 @@ export function AppIconModal({
                     type="checkbox"
                     checked={clipCornersOnExport}
                     onChange={(e) => setClipCornersOnExport(e.target.checked)}
-                    className="rounded text-[#007aff] focus:ring-[#007aff] size-3.5 cursor-pointer accent-[#007aff]"
+                    className="rounded text-[#FF6B00] focus:ring-[#FF6B00] size-3.5 cursor-pointer accent-[#FF6B00]"
                   />
                   <span className="text-[11px] font-medium text-foreground">
                     Apply corner radius to downloaded PNG ({cornerRadius}%)
                   </span>
                 </label>
                 {clipCornersOnExport && cornerRadius > 0 && (
-                  <span className="text-[10px] text-[#007aff] font-bold bg-[#007aff]/10 border border-[#007aff]/20 px-2 py-0.5 rounded-md">
+                  <span className="text-[10px] text-[#FF6B00] font-bold bg-[#FF6B00]/10 border border-[#FF6B00]/20 px-2 py-0.5 rounded-md">
                     Rounded PNG
                   </span>
                 )}
@@ -1251,7 +1250,7 @@ export function AppIconModal({
                   {downloadingFormat === "GooglePlay" ? (
                     <Loader2 className="size-3.5 animate-spin" />
                   ) : (
-                    <Download className="size-3.5 text-[#007aff]" />
+                    <Download className="size-3.5 text-[#FF6B00]" />
                   )}
                   <span className="truncate">Google Play (512px)</span>
                 </Button>
@@ -1267,7 +1266,7 @@ export function AppIconModal({
                   {downloadingFormat === "AppStore" ? (
                     <Loader2 className="size-3.5 animate-spin" />
                   ) : (
-                    <Download className="size-3.5 text-[#007aff]" />
+                    <Download className="size-3.5 text-[#FF6B00]" />
                   )}
                   <span className="truncate">App Store (1024px)</span>
                 </Button>
@@ -1296,7 +1295,7 @@ export function AppIconModal({
                 size="lg"
                 onClick={handleSaveAndApply}
                 disabled={isApplying || !iconSrc}
-                className="w-full h-10.5 gap-2 text-xs font-bold rounded-xl bg-[#007aff] hover:bg-[#006ee6] active:bg-[#0062cc] text-white shadow-xs cursor-pointer transition-colors"
+                className="w-full h-10.5 gap-2 text-xs font-bold rounded-xl bg-[#FF6B00] hover:bg-[#FF8A00] active:bg-[#e05f00] text-white shadow-xs cursor-pointer transition-colors"
               >
                 {isApplying ? (
                   <Loader2 className="size-4 animate-spin" />

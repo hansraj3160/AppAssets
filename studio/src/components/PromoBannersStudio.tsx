@@ -1216,7 +1216,7 @@ export function PromoBannersStudio({
             size="sm"
             onClick={handleDownload}
             disabled={isDownloading}
-            className="h-7.5 gap-1.3 px-1 rounded-lg text-xs font-semibold cursor-pointer bg-blue-600 hover:bg-blue-700 text-white shadow-xs whitespace-nowrap shrink-0"
+            className="h-7.5 gap-1.3 px-1 rounded-lg text-xs font-semibold cursor-pointer bg-[#FF6B00] hover:bg-[#FF8A00] active:bg-[#e05f00] text-white shadow-xs shadow-[#FF6B00]/20 whitespace-nowrap shrink-0"
           >
             {isDownloading ? (
               <Loader2 className="size-3.5 animate-spin" />
@@ -1619,7 +1619,7 @@ export function PromoBannersStudio({
                   <PopoverContent className="w-72 p-3 space-y-2.5" side="bottom" align="end">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5">
-                        <ImageIcon className="size-3.5 text-blue-500" />
+                        <ImageIcon className="size-3.5 text-[#FF6B00]" />
                         <span className="text-xs font-bold text-foreground">
                           Logo Background & Fit
                         </span>
@@ -2266,7 +2266,7 @@ export function PromoBannersStudio({
           {/* 2. Multi-Phone Showcase & Screens Setup */}
           <div className="flex flex-col gap-2.5 pt-2 border-t border-border/60">
             <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-              <Smartphone className="size-3.5 text-blue-500" />
+              <Smartphone className="size-3.5 text-[#FF6B00]" />
               <span>Phone Mockups Arrangement</span>
             </span>
 
@@ -2383,7 +2383,7 @@ export function PromoBannersStudio({
             <div className="flex flex-col gap-2 p-2.5 rounded-xl border border-border/80 bg-muted/20">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-semibold text-foreground flex items-center gap-1.5">
-                  <ImageIcon className="size-3.5 text-blue-500" />
+                  <ImageIcon className="size-3.5 text-[#FF6B00]" />
                   <span>App Icon / Logo</span>
                 </span>
                 {appIconUrl ? (

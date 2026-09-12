@@ -237,17 +237,17 @@ body,
   box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.12);
 }
 
-/* shadcn's primary is the App Store blue so Button and Slider pick up the accent. */
+/* shadcn's primary is AppAssets Brand Orange so Button and Slider pick up the accent. */
 :root {
-  --primary: #007aff;
+  --primary: #FF6B00;
   --primary-foreground: #ffffff;
-  --ring: #007aff;
+  --ring: #FF6B00;
 }
 
 .dark {
-  --primary: #0a84ff;
+  --primary: #FF6B00;
   --primary-foreground: #ffffff;
-  --ring: #0a84ff;
+  --ring: #FF8A00;
 }
 
 /* Tile -> lightbox shared-element morph (Strip.tsx): only the scene animates,

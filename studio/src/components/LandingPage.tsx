@@ -20,6 +20,7 @@ import {
   Wand2,
 } from "lucide-react";
 import { useState } from "react";
+import appLogo from "@/assets/logo.png";
 import { Button } from "./ui/button";
 
 interface LandingPageProps {
@@ -151,7 +152,7 @@ export function LandingPage({
             className="flex items-center gap-2.5 cursor-pointer group text-left border-none bg-transparent p-0"
           >
             <img
-              src="/logo.png"
+              src={appLogo}
               alt="AppAssets Logo"
               className="size-8 rounded-lg shadow-xs group-hover:scale-105 transition-transform object-cover"
             />
@@ -414,7 +415,7 @@ export function LandingPage({
                   {/* App Icon Card */}
                   <div className="my-auto bg-zinc-800/80 rounded-2xl p-2.5 border border-zinc-700/80 text-center space-y-1.5 shadow-md">
                     <img
-                      src="/logo.png"
+                      src={appLogo}
                       alt="AppAssets"
                       className="size-10 rounded-xl mx-auto shadow-md object-cover ring-2 ring-[#FF6B00]/40"
                     />
@@ -683,7 +684,7 @@ export function LandingPage({
             {/* Feature 3: Automated Copywriter */}
             <div className="rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/80 p-8 shadow-xs hover:shadow-md transition-all flex flex-col justify-between">
               <div>
-                <div className="size-10 rounded-xl bg-blue-500/10 dark:bg-blue-500/15 border border-blue-500/25 flex items-center justify-center text-blue-600 dark:text-blue-400 mb-4">
+                <div className="size-10 rounded-xl bg-[#FFB21A]/10 dark:bg-[#FFB21A]/15 border border-[#FFB21A]/25 flex items-center justify-center text-[#FFB21A] mb-4">
                   <Wand2 className="size-5" />
                 </div>
                 <h3 className="text-xl font-bold text-zinc-900 dark:text-white">
@@ -948,7 +949,7 @@ export function LandingPage({
       <footer className="border-t border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-black py-10 px-6 mt-auto text-xs text-zinc-500">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
-            <img src="/logo.png" alt="" className="size-5 rounded-md object-cover" />
+            <img src={appLogo} alt="" className="size-5 rounded-md object-cover" />
             <span className="font-bold text-zinc-900 dark:text-white">
               App<span className="text-[#FF6B00]">Assets</span> Studio
             </span>

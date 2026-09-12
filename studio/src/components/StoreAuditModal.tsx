@@ -240,7 +240,7 @@ export function StoreAuditModal({
                       onClose();
                       onAction?.(item.action!);
                     }}
-                    className="shrink-0 h-7 px-2.5 text-xs font-semibold rounded-lg text-[#007aff] hover:text-[#006ee6] hover:bg-[#007aff]/10 border-[#007aff]/30 cursor-pointer gap-1"
+                    className="shrink-0 h-7 px-2.5 text-xs font-semibold rounded-lg text-[#FF6B00] hover:text-[#FF8A00] hover:bg-[#FF6B00]/10 border-[#FF6B00]/30 cursor-pointer gap-1"
                   >
                     <span>{item.action.label}</span>
                     <ArrowRight className="size-3" />
@@ -254,7 +254,7 @@ export function StoreAuditModal({
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-border px-6 py-4 bg-muted/20 shrink-0">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Shield className="size-3.5 text-[#007aff]" />
+            <Shield className="size-3.5 text-[#FF6B00]" />
             <span>Pre-flight audit updates automatically as you edit</span>
           </div>
 
@@ -277,7 +277,7 @@ export function StoreAuditModal({
                   onClose();
                   onExportZip();
                 }}
-                className="h-9 px-4 gap-1.5 text-xs font-bold rounded-xl bg-[#007aff] hover:bg-[#006ee6] active:bg-[#0062cc] text-white shadow-xs cursor-pointer"
+                className="h-9 px-4 gap-1.5 text-xs font-bold rounded-xl bg-[#FF6B00] hover:bg-[#FF8A00] active:bg-[#e05f00] text-white shadow-xs shadow-[#FF6B00]/20 cursor-pointer"
               >
                 <FolderArchive className="size-3.5" />
                 <span>Export Store Package (.ZIP)</span>

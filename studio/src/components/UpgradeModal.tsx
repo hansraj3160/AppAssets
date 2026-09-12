@@ -51,8 +51,8 @@ export function UpgradeModal() {
 
         {/* Modal Header */}
         <div className="flex flex-col items-center text-center mb-6">
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 px-3 py-1 text-xs font-semibold text-[#007aff] dark:text-[#0a84ff] mb-3">
-            <Sparkles className="size-3 fill-current" />
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-[#FF6B00]/10 border border-[#FF6B00]/20 px-3 py-1 text-xs font-semibold text-[#FF6B00] mb-3">
+            <Sparkles className="size-3 fill-current text-[#FFB21A]" />
             <span>AppAssets Studio Pro</span>
           </div>
           <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
@@ -105,18 +105,18 @@ export function UpgradeModal() {
 
           {/* Pro Plan */}
           <div
-            className={`relative rounded-2xl border-2 p-4.5 flex flex-col justify-between overflow-hidden ${isPro ? "border-[#007aff] bg-blue-500/5 shadow-xs" : "border-[#007aff]/80 bg-blue-500/5 shadow-xs"}`}
+            className={`relative rounded-2xl border-2 p-4.5 flex flex-col justify-between overflow-hidden ${isPro ? "border-[#FF6B00] bg-[#FF6B00]/5 shadow-xs" : "border-[#FF6B00]/80 bg-[#FF6B00]/5 shadow-xs"}`}
           >
-            <div className="absolute top-0 right-0 bg-[#007aff] text-white px-2.5 py-0.5 rounded-bl-lg text-[10px] font-bold uppercase tracking-wider">
+            <div className="absolute top-0 right-0 bg-[#FF6B00] text-white px-2.5 py-0.5 rounded-bl-lg text-[10px] font-bold uppercase tracking-wider">
               Popular
             </div>
             <div>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#007aff] dark:text-[#0a84ff]">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#FF6B00]">
                   Pro Member
                 </span>
                 {isPro && (
-                  <span className="rounded-md bg-[#007aff] text-white px-2 py-0.5 text-[10px] font-semibold">
+                  <span className="rounded-md bg-[#FF6B00] text-white px-2 py-0.5 text-[10px] font-semibold">
                     Active
                   </span>
                 )}
@@ -160,13 +160,13 @@ export function UpgradeModal() {
             className={`w-full gap-2 text-sm font-semibold shadow-xs cursor-pointer h-11 rounded-xl transition-all ${
               isPro
                 ? "bg-muted hover:bg-muted/80 text-foreground border border-border"
-                : "bg-[#007aff] hover:bg-[#006ee6] active:bg-[#0062cc] text-white"
+                : "bg-[#FF6B00] hover:bg-[#FF8A00] active:bg-[#e05f00] text-white shadow-xs shadow-[#FF6B00]/20"
             }`}
           >
             {loading ? (
               <Loader2 className="size-4 animate-spin" />
             ) : (
-              <Sparkles className="size-4 fill-current" />
+              <Sparkles className="size-4 fill-current text-[#FFB21A]" />
             )}
             <span>
               {isPro ? "Downgrade to Free Plan (Test Ads)" : "Upgrade to Pro (Instant Ad-Free)"}

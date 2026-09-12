@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { createReadStream, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
@@ -23,6 +23,7 @@ import {
 
 const SRC_DIR = resolve(import.meta.dirname, "src");
 const APPASSETS_ROOT = resolve(import.meta.dirname, "..");
+const STUDIO_PUBLIC = resolve(import.meta.dirname, "public");
 
 // APPASSETS_CONFIG / GOLDIE_CONFIG points at a config outside this repo; out/ and the design
 // sidecar live next to it.
@@ -86,6 +87,17 @@ function appassetsApi(): Plugin {
       server.middlewares.use("/api/replace-capture", repCapture);
       server.middlewares.use("/api/delete-all", delAll);
       server.middlewares.use("/api/delete", del);
+      server.middlewares.use((req, res, next) => {
+        if (req.url && (req.url === "/logo.png" || req.url === "/favicon.png")) {
+          const filePath = join(STUDIO_PUBLIC, req.url.slice(1));
+          if (existsSync(filePath)) {
+            res.setHeader("Content-Type", "image/png");
+            createReadStream(filePath).pipe(res);
+            return;
+          }
+        }
+        next();
+      });
     },
   };
 }

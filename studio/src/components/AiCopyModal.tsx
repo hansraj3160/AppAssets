@@ -258,8 +258,8 @@ export function AiCopyModal({
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-4 bg-muted/30">
           <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-xl bg-blue-500/10 text-[#007aff] border border-blue-500/20 shadow-xs">
-              <Sparkles className="size-5" />
+            <div className="flex size-10 items-center justify-center rounded-xl bg-[#FF6B00]/10 text-[#FF6B00] border border-[#FF6B00]/25 shadow-xs">
+              <Sparkles className="size-5 text-[#FFB21A]" />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -371,7 +371,7 @@ export function AiCopyModal({
                   (!isPro && aiCreditsRemaining <= 0)
                 }
                 onClick={() => fetchAiSuggestions()}
-                className="gap-1.5 cursor-pointer bg-[#007aff] hover:bg-[#006ee6] active:bg-[#0062cc] text-white shadow-xs disabled:opacity-50 font-medium"
+                className="gap-1.5 cursor-pointer bg-[#FF6B00] hover:bg-[#FF8A00] active:bg-[#e05f00] text-white shadow-xs shadow-[#FF6B00]/20 disabled:opacity-50 font-medium"
               >
                 {loading ? (
                   <Loader2 className="size-3.5 animate-spin" />
@@ -431,8 +431,8 @@ export function AiCopyModal({
         <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-4">
           {!user ? (
             <div className="flex flex-col items-center justify-center my-auto py-10 px-4 text-center max-w-md mx-auto animate-in fade-in">
-              <div className="relative flex size-14 items-center justify-center rounded-2xl bg-blue-500/10 text-[#007aff] border border-blue-500/20 shadow-sm mb-4">
-                <Sparkles className="size-7" />
+              <div className="relative flex size-14 items-center justify-center rounded-2xl bg-[#FF6B00]/10 text-[#FF6B00] border border-[#FF6B00]/25 shadow-sm mb-4">
+                <Sparkles className="size-7 text-[#FFB21A]" />
               </div>
               <h3 className="text-xl font-bold tracking-tight text-foreground">
                 Sign In to Unlock AI Copywriter
@@ -445,7 +445,7 @@ export function AiCopyModal({
               <div className="mt-6 w-full rounded-xl border border-border/80 bg-muted/40 p-3.5 text-left text-xs space-y-2.5">
                 <div className="flex items-center gap-2.5 text-foreground font-semibold">
                   <div className="size-6 rounded-md bg-muted border border-border/60 flex items-center justify-center shrink-0">
-                    <Sparkles className="size-3.5" />
+                    <Sparkles className="size-3.5 text-[#FFB21A]" />
                   </div>
                   <span>10 Free AI Copy Generations on Sign Up</span>
                 </div>
@@ -466,9 +466,9 @@ export function AiCopyModal({
               <Button
                 onClick={openAuthModal}
                 size="lg"
-                className="mt-6 w-full gap-2 bg-[#007aff] hover:bg-[#006ee6] active:bg-[#0062cc] text-white font-semibold shadow-xs cursor-pointer text-sm h-11 rounded-xl transition-colors"
+                className="mt-6 w-full gap-2 bg-[#FF6B00] hover:bg-[#FF8A00] active:bg-[#e05f00] text-white font-semibold shadow-xs cursor-pointer text-sm h-11 rounded-xl transition-colors"
               >
-                <Sparkles className="size-4" />
+                <Sparkles className="size-4 text-[#FFB21A]" />
                 Sign In to Get 10 Free Credits
               </Button>
               <p className="mt-3 text-[11px] text-muted-foreground">

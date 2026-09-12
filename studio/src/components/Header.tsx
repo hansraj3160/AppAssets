@@ -15,6 +15,7 @@ import {
   User as UserIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import appLogo from "@/assets/logo.png";
 import { useAuth } from "@/context/AuthContext";
 import { CUSTOM_TEMPLATE } from "../App";
 import { runStoreAudit } from "../lib/storeAudit";
@@ -225,7 +226,7 @@ export function Header({
           title={onNavigateToLanding ? "Return to Landing Page" : undefined}
         >
           <img
-            src="/logo.png"
+            src={appLogo}
             alt="AppAssets Logo"
             className="size-7.5 rounded-lg shadow-xs object-cover"
           />
@@ -323,7 +324,7 @@ export function Header({
             }`}
         >
           <span>Store Preview</span>
-          <span className="rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[9px] font-bold text-blue-600 dark:text-blue-400 leading-none">
+          <span className="rounded-full bg-[#FF6B00]/15 px-1.5 py-0.5 text-[9px] font-bold text-[#FF6B00] leading-none">
             Live
           </span>
         </button>
@@ -408,7 +409,7 @@ export function Header({
                   ? "Upload screenshots first to export"
                   : "Export store-ready package (.ZIP)"
               }
-              className="h-8 px-3 gap-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white shadow-xs shadow-blue-500/15 cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-auto disabled:shadow-none whitespace-nowrap shrink-0"
+              className="h-8 px-3 gap-1.5 text-xs font-semibold rounded-lg bg-[#FF6B00] hover:bg-[#FF8A00] active:bg-[#e05f00] text-white shadow-xs shadow-[#FF6B00]/20 cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-auto disabled:shadow-none whitespace-nowrap shrink-0"
               onClick={() => {
                 if (!hasScreenshots && !exportBusy) return;
                 if (!exportBusy) {
@@ -448,9 +449,9 @@ export function Header({
                   {exportCompleted ? (
                     <CheckCircle2 className="size-4 text-emerald-500" />
                   ) : exportBusy ? (
-                    <Loader2Icon className="size-3.5 animate-spin text-blue-500" />
+                    <Loader2Icon className="size-3.5 animate-spin text-[#FF6B00]" />
                   ) : (
-                    <Package className="size-4 text-blue-500" />
+                    <Package className="size-4 text-[#FF6B00]" />
                   )}
                   {exportCompleted
                     ? "Store Package Ready!"
@@ -492,7 +493,7 @@ export function Header({
               {/* Progress Bar */}
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
                 <div
-                  className="h-full bg-blue-600 transition-all duration-300 ease-out"
+                  className="h-full bg-gradient-to-r from-[#FF6B00] via-[#FF8A00] to-[#FFB21A] transition-all duration-300 ease-out"
                   style={{ width: `${exportProgress}%` }}
                 />
               </div>
@@ -538,7 +539,7 @@ export function Header({
                       type="button"
                       size="sm"
                       onClick={() => void exportZip()}
-                      className="h-8.5 text-xs font-semibold gap-2 w-full bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs cursor-pointer"
+                      className="h-8.5 text-xs font-semibold gap-2 w-full bg-[#FF6B00] hover:bg-[#FF8A00] active:bg-[#e05f00] text-white rounded-xl shadow-xs shadow-[#FF6B00]/20 cursor-pointer"
                     >
                       <Package className="size-3.5" />
                       <span>Generate Store Package</span>
@@ -586,7 +587,7 @@ export function Header({
                   type="button"
                   className={`size-8 rounded-full border font-bold text-xs flex items-center justify-center cursor-pointer shadow-2xs hover:ring-2 hover:ring-foreground/20 transition-all overflow-hidden shrink-0 ${isPro
                       ? "border-emerald-500 bg-emerald-600 text-white"
-                      : "border-blue-200 dark:border-blue-900/50 bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400"
+                      : "border-[#FF6B00]/30 bg-[#FF6B00]/10 text-[#FF6B00]"
                     }`}
                   title={user.displayName || user.email || "Account"}
                 >
@@ -614,7 +615,7 @@ export function Header({
                   <div className="flex flex-col gap-2 rounded-xl bg-muted/50 p-2.5 border border-border/50 text-xs">
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground flex items-center gap-1">
-                        <Sparkles className="size-3 text-blue-500" />
+                        <Sparkles className="size-3 text-[#FFB21A]" />
                         Plan Status
                       </span>
                       <span className="font-semibold text-foreground">
@@ -632,23 +633,24 @@ export function Header({
                             Unlimited
                           </span>
                         ) : (
-                          <span className="text-[#007aff]">{aiCreditsRemaining} remaining</span>
+                          <span className="text-[#FF6B00]">{aiCreditsRemaining} remaining</span>
                         )}
                       </span>
                     </div>
                   </div>
 
-                  <div className="border-t border-border/60 pt-2 flex flex-col gap-1.5">
+                  {/* Pro Plan CTA & Signout */}
+                  <div className="flex flex-col gap-1 pt-1 border-t border-border/40">
                     <Button
                       type="button"
                       size="sm"
                       onClick={openUpgradeModal}
                       className={`w-full justify-center text-xs font-bold rounded-xl cursor-pointer h-8.5 px-2.5 gap-1.5 ${isPro
                           ? "variant-outline border-border hover:bg-muted text-foreground"
-                          : "bg-[#007aff] hover:bg-[#006ee6] active:bg-[#0062cc] text-white shadow-xs"
+                          : "bg-[#FF6B00] hover:bg-[#FF8A00] active:bg-[#e05f00] text-white shadow-xs"
                         }`}
                     >
-                      <Sparkles className="size-3.5 fill-current text-amber-300" />
+                      <Sparkles className="size-3.5 fill-current text-[#FFB21A]" />
                       <span>{isPro ? "Manage Pro Plan" : "Upgrade to Pro"}</span>
                     </Button>
 
@@ -673,7 +675,7 @@ export function Header({
             variant="outline"
             size="sm"
             onClick={openAuthModal}
-            className="h-8 px-3 gap-1.5 text-xs font-semibold rounded-lg border-blue-200 dark:border-blue-900/50 bg-blue-50/70 hover:bg-blue-100/80 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 shadow-2xs cursor-pointer transition-colors"
+            className="h-8 px-3 gap-1.5 text-xs font-semibold rounded-lg border-[#FF6B00]/30 dark:border-[#FF6B00]/40 bg-[#FF6B00]/10 hover:bg-[#FF6B00]/20 text-[#FF6B00] dark:text-[#FF8A00] shadow-2xs cursor-pointer transition-colors"
           >
             <UserIcon className="size-3.5" />
             <span>Sign In</span>
@@ -684,7 +686,7 @@ export function Header({
       {/* Thin animated progress indicator under the header when exporting */}
       {exportBusy && (
         <div
-          className="absolute bottom-0 left-0 h-[2px] bg-blue-500 transition-all duration-300"
+          className="absolute bottom-0 left-0 h-[2px] bg-gradient-to-r from-[#FF6B00] via-[#FF8A00] to-[#FFB21A] transition-all duration-300"
           style={{ width: `${exportProgress}%` }}
         />
       )}
