@@ -1,18 +1,14 @@
 import {
-  Activity,
   ArrowRight,
   Check,
   CheckCircle2,
   ChevronDown,
   ExternalLink,
-  Flame,
   Gift,
   Globe,
-  Heart,
   Image as ImageIcon,
   Layers,
   MoonIcon,
-  Play,
   ShieldCheck,
   Smartphone,
   Star,
@@ -20,6 +16,7 @@ import {
   Wand2,
 } from "lucide-react";
 import { useState } from "react";
+import heroImage from "@/assets/hero_section.png";
 import appLogo from "@/assets/logo.png";
 import { Button } from "./ui/button";
 
@@ -302,209 +299,28 @@ export function LandingPage({
               </div>
             </div>
 
-            {/* Right Column: 3D Floating Screenshots Fan (Rich Colorful Mockups) */}
-            <div className="relative h-[440px] sm:h-[480px] lg:h-[520px] flex items-center justify-center [perspective:1000px]">
-              {/* Phone 1 (Left -8deg: Fitness App) */}
+            {/* Right Column: 3D Floating Screenshots Graphic */}
+            <div className="relative flex items-center justify-center lg:justify-end">
               <button
                 type="button"
+                className="relative w-full max-w-2xl group cursor-pointer border-none bg-transparent p-0 text-left"
                 onClick={onStartDesigning}
-                aria-label="Fitness app template"
-                className="absolute w-[140px] sm:w-[165px] lg:w-[185px] aspect-[9/19.5] rounded-[28px] p-1.5 bg-zinc-900 border-2 border-zinc-700/80 shadow-2xl transition-transform duration-300 hover:scale-105 hover:z-30 cursor-pointer text-left overflow-hidden group"
-                style={{
-                  left: "2%",
-                  transform: "rotate(-8deg) translateY(18px)",
-                  zIndex: 10,
-                }}
+                title="Click to start designing in AppAssets Studio"
+                aria-label="Start designing in AppAssets Studio"
               >
-                <div className="size-full rounded-[22px] bg-gradient-to-b from-[#FF6B00] via-[#FF8A00] to-rose-600 p-2.5 text-white flex flex-col justify-between overflow-hidden relative">
-                  <div className="w-10 h-2 mx-auto bg-black/50 rounded-full mb-1" />
-                  <div>
-                    <div className="text-[9px] uppercase font-bold tracking-wider opacity-90">
-                      Activity
-                    </div>
-                    <div className="text-xs font-extrabold leading-tight mt-0.5">
-                      Daily Goals
-                    </div>
-                  </div>
-                  <div className="my-auto space-y-1.5 bg-black/25 backdrop-blur-xs rounded-xl p-2 border border-white/20">
-                    <div className="flex items-center justify-between text-[9px] font-bold">
-                      <span className="flex items-center gap-1">
-                        <Flame className="size-3 text-[#FFB21A]" />
-                        Move
-                      </span>
-                      <span>540 kcal</span>
-                    </div>
-                    <div className="w-full h-1.5 bg-white/20 rounded-full overflow-hidden">
-                      <div className="w-3/4 h-full bg-[#FFB21A] rounded-full" />
-                    </div>
-                    <div className="flex items-center justify-between text-[9px] font-bold pt-1">
-                      <span className="flex items-center gap-1">
-                        <Activity className="size-3 text-emerald-300" />
-                        Exercise
-                      </span>
-                      <span>42 min</span>
-                    </div>
-                    <div className="w-full h-1.5 bg-white/20 rounded-full overflow-hidden">
-                      <div className="w-4/5 h-full bg-emerald-300 rounded-full" />
-                    </div>
-                  </div>
-                  <div className="text-[8px] font-bold text-center bg-white text-zinc-950 py-1 rounded-lg shadow-xs">
-                    Log Workout
-                  </div>
-                </div>
-              </button>
+                {/* Ambient glow effect behind the phones */}
+                <div
+                  className="absolute -inset-4 rounded-3xl bg-gradient-to-tr from-[#FF6B00]/20 via-[#FF8A00]/15 to-transparent blur-2xl opacity-60 group-hover:opacity-90 transition-opacity duration-500 pointer-events-none"
+                  aria-hidden="true"
+                />
 
-              {/* Phone 2 (Mid-Left -4deg: Sports / Running App) */}
-              <button
-                type="button"
-                onClick={onStartDesigning}
-                aria-label="Sports app template"
-                className="absolute w-[145px] sm:w-[170px] lg:w-[190px] aspect-[9/19.5] rounded-[28px] p-1.5 bg-zinc-900 border-2 border-zinc-700/80 shadow-2xl transition-transform duration-300 hover:scale-105 hover:z-30 cursor-pointer text-left overflow-hidden group"
-                style={{
-                  left: "17%",
-                  transform: "rotate(-4deg) translateY(8px)",
-                  zIndex: 15,
-                }}
-              >
-                <div className="size-full rounded-[22px] bg-gradient-to-b from-blue-600 via-indigo-600 to-violet-700 p-2.5 text-white flex flex-col justify-between overflow-hidden relative">
-                  <div className="w-10 h-2 mx-auto bg-black/50 rounded-full mb-1" />
-                  <div>
-                    <div className="text-[9px] uppercase font-bold tracking-wider opacity-90">
-                      Running
-                    </div>
-                    <div className="text-xs font-extrabold leading-tight mt-0.5">
-                      GPS Tracking
-                    </div>
-                  </div>
-                  <div className="my-auto bg-black/30 backdrop-blur-xs rounded-xl p-2 border border-white/20 text-center space-y-1">
-                    <div className="text-[10px] opacity-80">Total Distance</div>
-                    <div className="text-base font-extrabold leading-none">6.84 km</div>
-                    <div className="text-[9px] text-cyan-300 font-semibold">Pace 5'18" /km</div>
-                  </div>
-                  <div className="flex justify-between items-center text-[8px] bg-white/15 rounded-lg p-1 px-2 border border-white/20">
-                    <span>Elevation</span>
-                    <span className="font-bold">+184 m</span>
-                  </div>
-                </div>
-              </button>
-
-              {/* Phone 3 (Center Hero 0deg: AppAssets Pro Studio with brand colors) */}
-              <button
-                type="button"
-                onClick={onStartDesigning}
-                aria-label="AppAssets Studio featured template"
-                className="absolute w-[160px] sm:w-[190px] lg:w-[210px] aspect-[9/19.5] rounded-[32px] p-2 bg-zinc-950 border-2 border-zinc-600 shadow-2xl transition-transform duration-300 hover:scale-105 cursor-pointer text-left overflow-hidden group ring-2 ring-[#FF6B00]/20"
-                style={{
-                  left: "50%",
-                  transform: "translateX(-50%) translateY(-10px)",
-                  zIndex: 25,
-                }}
-              >
-                <div className="size-full rounded-[24px] bg-gradient-to-b from-zinc-900 via-zinc-950 to-black p-3 text-white flex flex-col justify-between overflow-hidden relative">
-                  {/* Top Bar with Island */}
-                  <div className="w-12 h-2.5 mx-auto bg-zinc-800 rounded-full mb-1" />
-                  <div className="text-center">
-                    <span className="text-[8px] font-bold uppercase tracking-wider bg-[#FF6B00]/20 text-[#FF8A00] border border-[#FF6B00]/30 px-2 py-0.5 rounded-full inline-block">
-                      Featured App
-                    </span>
-                    <div className="text-sm font-extrabold text-white mt-1">
-                      AppAssets Pro
-                    </div>
-                  </div>
-
-                  {/* App Icon Card */}
-                  <div className="my-auto bg-zinc-800/80 rounded-2xl p-2.5 border border-zinc-700/80 text-center space-y-1.5 shadow-md">
-                    <img
-                      src={appLogo}
-                      alt="AppAssets"
-                      className="size-10 rounded-xl mx-auto shadow-md object-cover ring-2 ring-[#FF6B00]/40"
-                    />
-                    <div className="text-[11px] font-bold text-white">App Store Ready</div>
-                    <div className="text-[8px] text-zinc-400 flex items-center justify-center gap-1">
-                      <Star className="size-2.5 text-[#FFB21A] fill-[#FFB21A]" />
-                      <span>4.9 • 100% Audit Pass</span>
-                    </div>
-                  </div>
-
-                  <div className="h-7 text-[9px] rounded-xl bg-[#FF6B00] hover:bg-[#FF8A00] text-white font-bold flex items-center justify-center transition-colors shadow-xs">
-                    Start Designing
-                  </div>
-                </div>
-              </button>
-
-              {/* Phone 4 (Mid-Right 4deg: Fintech / Wealth App) */}
-              <button
-                type="button"
-                onClick={onStartDesigning}
-                aria-label="Fintech app template"
-                className="absolute w-[145px] sm:w-[170px] lg:w-[190px] aspect-[9/19.5] rounded-[28px] p-1.5 bg-zinc-900 border-2 border-zinc-700/80 shadow-2xl transition-transform duration-300 hover:scale-105 hover:z-30 cursor-pointer text-left overflow-hidden group"
-                style={{
-                  right: "17%",
-                  transform: "rotate(4deg) translateY(8px)",
-                  zIndex: 15,
-                }}
-              >
-                <div className="size-full rounded-[22px] bg-gradient-to-b from-emerald-600 via-teal-700 to-cyan-800 p-2.5 text-white flex flex-col justify-between overflow-hidden relative">
-                  <div className="w-10 h-2 mx-auto bg-black/50 rounded-full mb-1" />
-                  <div>
-                    <div className="text-[9px] uppercase font-bold tracking-wider opacity-90">
-                      Fintech
-                    </div>
-                    <div className="text-xs font-extrabold leading-tight mt-0.5">
-                      Smart Wallet
-                    </div>
-                  </div>
-                  <div className="my-auto bg-black/30 backdrop-blur-xs rounded-xl p-2 border border-white/20 space-y-1">
-                    <div className="text-[8px] opacity-80">Total Balance</div>
-                    <div className="text-xs font-extrabold text-white leading-tight">
-                      $48,920.00
-                    </div>
-                    <div className="text-[8px] text-emerald-300 font-bold">
-                      +14.2% this month
-                    </div>
-                  </div>
-                  <div className="text-[8px] bg-white/15 rounded-lg py-1 text-center font-semibold border border-white/20">
-                    Instant Transfer
-                  </div>
-                </div>
-              </button>
-
-              {/* Phone 5 (Right 8deg: Music Streaming App) */}
-              <button
-                type="button"
-                onClick={onStartDesigning}
-                aria-label="Music app template"
-                className="absolute w-[140px] sm:w-[165px] lg:w-[185px] aspect-[9/19.5] rounded-[28px] p-1.5 bg-zinc-900 border-2 border-zinc-700/80 shadow-2xl transition-transform duration-300 hover:scale-105 hover:z-30 cursor-pointer text-left overflow-hidden group"
-                style={{
-                  right: "2%",
-                  transform: "rotate(8deg) translateY(18px)",
-                  zIndex: 10,
-                }}
-              >
-                <div className="size-full rounded-[22px] bg-gradient-to-b from-purple-600 via-fuchsia-600 to-pink-600 p-2.5 text-white flex flex-col justify-between overflow-hidden relative">
-                  <div className="w-10 h-2 mx-auto bg-black/50 rounded-full mb-1" />
-                  <div>
-                    <div className="text-[9px] uppercase font-bold tracking-wider opacity-90">
-                      Now Playing
-                    </div>
-                    <div className="text-xs font-extrabold leading-tight mt-0.5">
-                      Neon Beats
-                    </div>
-                  </div>
-                  <div className="my-auto bg-black/30 backdrop-blur-xs rounded-xl p-2 border border-white/20 space-y-1.5">
-                    <div className="size-9 rounded-lg bg-white/20 mx-auto flex items-center justify-center">
-                      <Play className="size-4 text-white fill-white" />
-                    </div>
-                    <div className="text-center">
-                      <div className="text-[9px] font-bold">Midnight Echo</div>
-                      <div className="text-[7px] opacity-75">Solaris • Album</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between text-[8px] bg-white/15 rounded-lg p-1 px-2 border border-white/20">
-                    <Heart className="size-2.5 text-pink-300 fill-pink-300" />
-                    <span className="font-bold">Lossless HD</span>
-                  </div>
-                </div>
+                <img
+                  src={heroImage}
+                  alt="AppAssets Studio - Professional App Store and Google Play Screenshots"
+                  className="relative w-full h-auto object-contain transition-transform duration-500 group-hover:scale-[1.02] drop-shadow-2xl select-none"
+                  loading="eager"
+                  decoding="async"
+                />
               </button>
             </div>
           </div>

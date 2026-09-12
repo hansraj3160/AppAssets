@@ -193,6 +193,10 @@ export async function writeManifest(cfg: LoadedConfig): Promise<string> {
   if (existsSync(faviconPath)) {
     await copyFile(faviconPath, join(webDir, "favicon.png"));
   }
+  const heroPath = join(cfg.root, "assets", "hero_section.png");
+  if (existsSync(heroPath)) {
+    await copyFile(heroPath, join(webDir, "hero_section.png"));
+  }
   const webDecorations = async (list: Decoration[] | undefined) =>
     Promise.all(
       (list ?? []).map(async (d) => {

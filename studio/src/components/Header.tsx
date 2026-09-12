@@ -262,25 +262,25 @@ export function Header({
           <button
             type="button"
             onClick={onOpenAppDetails}
-            className="flex items-center gap-2 rounded-xl border border-border/80 bg-background/80 hover:bg-muted/70 px-2.5 py-1.5 transition-all cursor-pointer shadow-2xs group max-w-[200px]"
+            className="flex items-center gap-2 rounded-xl border border-[#FF6B00]/25 hover:border-[#FF6B00]/50 bg-background/90 hover:bg-[#FF6B00]/5 px-2.5 py-1.5 transition-all cursor-pointer shadow-2xs group max-w-[200px]"
             title="Click to edit App Name, Category, Description, and Logo"
           >
-            <div className="relative size-6 shrink-0 rounded-lg overflow-hidden bg-neutral-900 text-white dark:bg-white dark:text-neutral-950 shadow-2xs flex items-center justify-center font-semibold text-xs border border-border">
+            <div className="relative size-7 shrink-0 rounded-lg overflow-hidden bg-gradient-to-br from-[#FF6B00] via-[#FF8A00] to-[#FFB21A] text-white shadow-xs shadow-[#FF6B00]/25 flex items-center justify-center font-bold text-xs border border-white/20">
               {appInfo?.icon ? (
                 <img src={appInfo.icon} alt="" className="size-full object-cover" />
               ) : appInfo?.name ? (
-                <span>{appInfo.name.charAt(0).toUpperCase()}</span>
+                <span className="drop-shadow-xs">{appInfo.name.charAt(0).toUpperCase()}</span>
               ) : (
-                <Sparkles className="size-3.5" />
+                <Sparkles className="size-3.5 text-white fill-white/30 drop-shadow-xs" />
               )}
             </div>
 
             <div className="flex flex-col text-left min-w-0">
-              <span className="text-xs font-semibold text-foreground leading-tight group-hover:text-primary transition-colors flex items-center gap-1 truncate">
+              <span className="text-xs font-bold text-foreground leading-tight group-hover:text-[#FF6B00] transition-colors flex items-center gap-1 truncate">
                 <span className="truncate">{appInfo?.name || "App logo"}</span>
-                <Settings2 className="size-3 text-muted-foreground opacity-60 group-hover:opacity-100 shrink-0" />
+                <Settings2 className="size-3 text-[#FF6B00]/70 group-hover:text-[#FF6B00] group-hover:rotate-45 transition-all shrink-0" />
               </span>
-              <span className="text-[10px] text-muted-foreground font-normal leading-tight truncate">
+              <span className="text-[10px] text-[#FF6B00] dark:text-[#FF8A00] font-medium leading-tight truncate">
                 {appInfo?.category || (appInfo?.name ? "App Details" : "Tap to configure")}
               </span>
             </div>
