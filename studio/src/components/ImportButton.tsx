@@ -92,7 +92,7 @@ export function ImportButton({
         targetDevice?: string;
       };
       sessionStorage.setItem(
-        "goldie_toast",
+        "appassets_toast",
         `✨ Successfully imported ${resData.imported || filePayloads.length} screenshot(s)!`,
       );
       window.location.reload();

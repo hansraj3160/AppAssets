@@ -547,7 +547,7 @@ export function LocaleManagerModal({
                 <div className="bg-muted/40 px-5 py-3 border-b border-border flex items-center justify-between">
                   <h3 className="font-semibold text-sm">Configured Locales ({locales.length})</h3>
                   <span className="text-xs text-muted-foreground">
-                    Active in goldie.config.ts & manifest
+                    Active in appassets.config.ts & manifest
                   </span>
                 </div>
 
@@ -626,7 +626,7 @@ export function LocaleManagerModal({
         <div className="flex shrink-0 items-center justify-between border-t border-border px-6 py-3.5 bg-muted/20">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Sparkles className="size-3.5 text-primary" />
-            <span>Translations auto-save to goldie.design.json and render in live preview.</span>
+            <span>Translations auto-save to appassets.design.json and render in live preview.</span>
           </div>
           <Button type="button" onClick={onClose} className="text-xs px-4 h-8">
             Done

@@ -14,6 +14,7 @@ import { AppDetailsModal } from "./components/AppDetailsModal";
 import { AuthModal } from "./components/AuthModal";
 import { EmptyState } from "./components/EmptyState";
 import { Header } from "./components/Header";
+import { LandingPage } from "./components/LandingPage";
 import { LocaleManagerModal } from "./components/LocaleManagerModal";
 import { PromoBannersStudio } from "./components/PromoBannersStudio";
 import { Sidebar } from "./components/Sidebar";
@@ -44,7 +45,7 @@ export type Platform = "ios" | "ipad" | "android";
 /**
  * Shown when a store's tab is selected but its device is not in the config.
  * The chip holds the ask to hand a coding agent, which knows the config
- * changes and capture steps from the goldie skill.
+ * changes and capture steps from the appassets skill.
  */
 const ENABLE_PLATFORM: Record<
   Platform,
@@ -54,19 +55,19 @@ const ENABLE_PLATFORM: Record<
     icon: SmartphoneIcon,
     title: "No App Store screenshots yet",
     body: "Ask your coding agent to set them up:",
-    command: "create App Store screenshots using goldie",
+    command: "create App Store screenshots using appassets",
   },
   ipad: {
     icon: TabletIcon,
     title: "No iPad screenshots yet",
     body: "Ask your coding agent to set them up:",
-    command: "create iPad screenshots using goldie",
+    command: "create iPad screenshots using appassets",
   },
   android: {
     icon: SmartphoneIcon,
     title: "No Google Play screenshots yet",
     body: "Ask your coding agent to set them up:",
-    command: "create Google Play screenshots using goldie",
+    command: "create Google Play screenshots using appassets",
   },
 };
 
@@ -78,6 +79,27 @@ export function App() {
     null,
   );
   const [error, setError] = useState<Error | null>(null);
+  const [screen, setScreen] = useState<"landing" | "studio">(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("view") === "studio" || window.location.hash === "#studio") {
+      return "studio";
+    }
+    return "landing";
+  });
+  const [dark, setDark] = useState(() => {
+    const param = new URLSearchParams(window.location.search).get("dark");
+    if (param === "1") return true;
+    if (param === "0") return false;
+    const stored = localStorage.getItem("appassets_theme");
+    if (stored) return stored === "dark";
+    // Default to clean, bright light mode matching appscreenshots.net
+    return false;
+  });
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", dark);
+    localStorage.setItem("appassets_theme", dark ? "dark" : "light");
+  }, [dark]);
 
   const refresh = useCallback(() => {
     Promise.all([loadManifest(), loadDesign()])
@@ -89,6 +111,25 @@ export function App() {
     refresh();
   }, [refresh]);
 
+  if (screen === "landing") {
+    return (
+      <AuthProvider>
+        <LandingPage
+          onStartDesigning={() => {
+            setScreen("studio");
+            const url = new URL(window.location.href);
+            url.searchParams.set("view", "studio");
+            window.history.pushState({}, "", url.toString());
+          }}
+          dark={dark}
+          onToggleDark={() => setDark((prev) => !prev)}
+        />
+        <AuthModal />
+        <UpgradeModal />
+      </AuthProvider>
+    );
+  }
+
   if (error)
     return (
       <EmptyState
@@ -98,10 +139,34 @@ export function App() {
         command={error instanceof ManifestError ? error.command : undefined}
       />
     );
-  if (!loaded) return null;
+  if (!loaded)
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground gap-3">
+        <Loader2Icon className="size-7 animate-spin text-primary" />
+        <span className="text-xs font-semibold text-muted-foreground">
+          Loading AppAssets Studio...
+        </span>
+      </div>
+    );
   return (
     <AuthProvider>
-      <Loaded manifest={loaded.manifest} saved={loaded.design} onRefresh={refresh} />
+      <Loaded
+        manifest={loaded.manifest}
+        saved={loaded.design}
+        onRefresh={refresh}
+        dark={dark}
+        setDark={setDark}
+        onNavigateToLanding={() => {
+          setScreen("landing");
+          const url = new URL(window.location.href);
+          url.searchParams.delete("view");
+          window.history.pushState(
+            {},
+            "",
+            url.pathname + (url.search ? url.search : ""),
+          );
+        }}
+      />
       <AuthModal />
       <UpgradeModal />
     </AuthProvider>
@@ -126,10 +191,16 @@ function Loaded({
   manifest,
   saved,
   onRefresh,
+  dark,
+  setDark,
+  onNavigateToLanding,
 }: {
   manifest: StoreManifest;
   saved: SavedDesign;
   onRefresh: () => void;
+  dark: boolean;
+  setDark: (v: boolean | ((prev: boolean) => boolean)) => void;
+  onNavigateToLanding?: () => void;
 }) {
   const design = manifest.design;
   const view = loadView(manifest.app.name);
@@ -158,9 +229,6 @@ function Loaded({
     view.locale && manifest.locales.includes(view.locale)
       ? view.locale
       : (manifest.locales[0] ?? ""),
-  );
-  const [dark, setDark] = useState(
-    new URLSearchParams(window.location.search).get("dark") === "1" || view.dark === true,
   );
   const [canvasView, setCanvasView] = useState<"editor" | "store" | "promo">("editor");
   const knownLayout = (key: string | undefined) =>
@@ -488,8 +556,9 @@ function Loaded({
 
   // Display persistent session toast across page reloads
   useEffect(() => {
-    const savedToast = sessionStorage.getItem("goldie_toast");
+    const savedToast = sessionStorage.getItem("appassets_toast") || sessionStorage.getItem("goldie_toast");
     if (savedToast) {
+      sessionStorage.removeItem("appassets_toast");
       sessionStorage.removeItem("goldie_toast");
       setToastMessage(savedToast);
     }
@@ -594,7 +663,7 @@ function Loaded({
         });
       }
       sessionStorage.setItem(
-        "goldie_toast",
+        "appassets_toast",
         `✨ Successfully imported ${data.imported || files.length} screenshot(s) into ${data.targetDevice || device}!`,
       );
       window.location.reload();
@@ -623,6 +692,7 @@ function Loaded({
         onSaveDesign={flushDesign}
         appInfo={appInfo}
         onOpenAppDetails={() => setIsAppDetailsModalOpen(true)}
+        onNavigateToLanding={onNavigateToLanding}
       />
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -981,11 +1051,14 @@ function Toast({
 
 type SavedView = { platform?: string; device?: string; locale?: string; dark?: boolean };
 
-const storageKey = (appName: string) => `goldie-studio:${appName}`;
+const storageKey = (appName: string) => `appassets-studio:${appName}`;
+const legacyStorageKey = (appName: string) => `goldie-studio:${appName}`;
 
 function loadView(appName: string): SavedView {
   try {
-    const raw = localStorage.getItem(storageKey(appName));
+    const raw =
+      localStorage.getItem(storageKey(appName)) ||
+      localStorage.getItem(legacyStorageKey(appName));
     const parsed = raw ? JSON.parse(raw) : null;
     return parsed && typeof parsed === "object" ? (parsed as SavedView) : {};
   } catch {

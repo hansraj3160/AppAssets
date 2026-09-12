@@ -19,10 +19,12 @@ export function SidebarSection({
   children: ReactNode;
   className?: string;
 }) {
-  const storageKey = `goldie_sidebar_section_${id}`;
+  const storageKey = `appassets_sidebar_section_${id}`;
   const [isOpen, setIsOpen] = useState(() => {
     try {
-      const saved = localStorage.getItem(storageKey);
+      const saved =
+        localStorage.getItem(storageKey) ??
+        localStorage.getItem(`goldie_sidebar_section_${id}`);
       return saved !== null ? saved === "true" : defaultOpen;
     } catch {
       return defaultOpen;

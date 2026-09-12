@@ -32,7 +32,7 @@ export async function doctor(cfg: LoadedConfig): Promise<boolean> {
       detail: mac
         ? process.platform
         : `${process.platform}: iOS and iPad simulators run only on macOS`,
-      fix: "Run goldie on a Mac, or keep only android devices (pixel-10-pro) in `devices`",
+      fix: "Run appassets on a Mac, or keep only android devices (pixel-10-pro) in `devices`",
     });
     checks.push({
       name: "xcrun",
@@ -65,7 +65,7 @@ export async function doctor(cfg: LoadedConfig): Promise<boolean> {
     name: "argent",
     ok: await argent.available(),
     detail: "device driver",
-    fix: "npm i -g @swmansion/argent   (or set GOLDIE_ARGENT_BIN)",
+    fix: "npm i -g @swmansion/argent   (or set APPASSETS_ARGENT_BIN)",
   });
 
   // The watermark flag is ON by default and would brand every preview.
@@ -164,7 +164,7 @@ export async function doctor(cfg: LoadedConfig): Promise<boolean> {
     name: "flows dir",
     ok: existsSync(cfg.flowsDir),
     detail: cfg.flowsDir,
-    fix: `Create ${cfg.flowsDir}   (or set flowsDir in goldie.config.ts)`,
+    fix: `Create ${cfg.flowsDir}   (or set flowsDir in appassets.config.ts)`,
   });
 
   for (const scene of cfg.scenes) {
@@ -175,7 +175,7 @@ export async function doctor(cfg: LoadedConfig): Promise<boolean> {
         name: `flow ${f}`,
         ok: existsSync(path),
         detail: path,
-        fix: "Record or author it under the flows dir, or fix the name in goldie.config.ts",
+        fix: "Record or author it under the flows dir, or fix the name in appassets.config.ts",
       });
     }
   }

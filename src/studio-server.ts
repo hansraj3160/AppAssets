@@ -56,7 +56,9 @@ export function studioPaths(configPath: string): StudioPaths {
     webDir: join(outDir, "web"),
     designFile: existsSync(join(configDir, "appassets.design.json"))
       ? join(configDir, "appassets.design.json")
-      : join(configDir, "goldie.design.json"), // mirrors designPath() in config.ts
+      : existsSync(join(configDir, "goldie.design.json"))
+        ? join(configDir, "goldie.design.json")
+        : join(configDir, "appassets.design.json"), // mirrors designPath() in config.ts
     exportZip: join(outDir, "export.zip"),
   };
 }

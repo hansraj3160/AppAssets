@@ -25,7 +25,7 @@ export const FRAME = {
  * from the punched alpha. A config's `android.frame` overrides it.
  */
 export const ANDROID_FRAME = {
-  /** The art's file name in goldie's own assets/. */
+  /** The art's file name in appassets' own assets/. */
   file: "pixel-10-pro.webp",
   geom: {
     width: 1410,
@@ -40,7 +40,7 @@ export const ANDROID_FRAME = {
  * Uniform slim bezels around the 2064x2752 screen cutout with rounded corners.
  */
 export const IPAD_FRAME = {
-  /** The art's file name in goldie's own assets/. */
+  /** The art's file name in appassets' own assets/. */
   file: "ipad-13.png",
   geom: {
     width: 2184,

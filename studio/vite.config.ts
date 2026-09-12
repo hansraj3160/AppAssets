@@ -22,40 +22,40 @@ import {
 } from "../src/studio-server.ts";
 
 const SRC_DIR = resolve(import.meta.dirname, "src");
-const GOLDIE_ROOT = resolve(import.meta.dirname, "..");
+const APPASSETS_ROOT = resolve(import.meta.dirname, "..");
 
 // APPASSETS_CONFIG / GOLDIE_CONFIG points at a config outside this repo; out/ and the design
 // sidecar live next to it.
 const CONFIG =
   process.env.APPASSETS_CONFIG || process.env.GOLDIE_CONFIG
     ? resolve((process.env.APPASSETS_CONFIG || process.env.GOLDIE_CONFIG)!)
-    : existsSync(join(GOLDIE_ROOT, "appassets.config.ts"))
-      ? join(GOLDIE_ROOT, "appassets.config.ts")
-      : join(GOLDIE_ROOT, "goldie.config.ts");
+    : existsSync(join(APPASSETS_ROOT, "appassets.config.ts"))
+      ? join(APPASSETS_ROOT, "appassets.config.ts")
+      : join(APPASSETS_ROOT, "goldie.config.ts");
 const PATHS = studioPaths(CONFIG);
 
 /**
  * Dev server: `out/web` is the static root - the manifest, the bezel art and
  * symlinks to the raw captures and finished assets, all served from `/`.
- * Nothing is copied into the studio, so a re-run of `goldie capture` shows
- * up on reload. Run `goldie manifest` first; the directory does not exist
- * before that. `fs.allow` covers the goldie root because the studio imports
+ * Nothing is copied into the studio, so a re-run of `appassets capture` shows
+ * up on reload. Run `appassets manifest` first; the directory does not exist
+ * before that. `fs.allow` covers the root because the studio imports
  * src/layouts.ts for the shared geometry.
  *
- * Build: no publicDir, so studio/dist is just the app shell. `goldie studio`
+ * Build: no publicDir, so studio/dist is just the app shell. `appassets studio`
  * serves it together with the app's out/web and the same API (see
  * src/studio-server.ts); that is what the npm package ships.
  */
 export default defineConfig(({ command }) => ({
-  plugins: [react(), tailwindcss(), goldieApi()],
+  plugins: [react(), tailwindcss(), appassetsApi()],
   resolve: { alias: { "@": SRC_DIR } },
   publicDir: command === "build" ? resolve(import.meta.dirname, "public") : PATHS.webDir,
-  server: { port: 4321, open: true, fs: { allow: [GOLDIE_ROOT, PATHS.outDir] } },
+  server: { port: 4321, open: true, fs: { allow: [APPASSETS_ROOT, PATHS.outDir] } },
 }));
 
 /** Mounts the shared /api handlers on the dev server, running the CLI from source. */
-function goldieApi(): Plugin {
-  const api: StudioApi = { paths: PATHS, cli: ["bun", join(GOLDIE_ROOT, "src", "cli.ts")] };
+function appassetsApi(): Plugin {
+  const api: StudioApi = { paths: PATHS, cli: ["bun", join(APPASSETS_ROOT, "src", "cli.ts")] };
   const design = designHandler(api);
   const exp = exportHandler(api);
   const expSingle = singleExportHandler(api);
@@ -70,7 +70,7 @@ function goldieApi(): Plugin {
   const aiCopy = aiCopyHandler(api);
   const health = healthHandler(api);
   return {
-    name: "goldie-api",
+    name: "appassets-api",
     configureServer(server: ViteDevServer) {
       server.middlewares.use("/api/health", health);
       server.middlewares.use("/health", health);

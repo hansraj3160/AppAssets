@@ -41,6 +41,7 @@ export function Header({
   onSaveDesign,
   appInfo,
   onOpenAppDetails,
+  onNavigateToLanding,
 }: {
   manifest: StoreManifest;
   dark: boolean;
@@ -58,6 +59,7 @@ export function Header({
   onSaveDesign?: () => Promise<void>;
   appInfo?: AppInfo;
   onOpenAppDetails?: () => void;
+  onNavigateToLanding?: () => void;
 }) {
   const { user, isPro, aiCreditsRemaining, signOutUser, openAuthModal, openUpgradeModal } =
     useAuth();
@@ -155,7 +157,7 @@ export function Header({
 
     try {
       if (onSaveDesign) {
-        await onSaveDesign().catch(() => {});
+        await onSaveDesign().catch(() => { });
       }
       setExportProgress(12);
       setExportStage("Starting store export engine...");
@@ -183,7 +185,7 @@ export function Header({
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
-      for (;;) {
+      for (; ;) {
         const { done, value } = await reader.read();
         if (done) break;
         text += decoder.decode(value, { stream: true });
@@ -212,15 +214,36 @@ export function Header({
     <header className="relative flex h-16 shrink-0 items-center justify-between border-b border-border bg-card/85 px-6 backdrop-blur-md select-none text-foreground z-30">
       {/* Brand & Theme Toggle */}
       <div className="flex items-center gap-4">
-        <div className="flex flex-col">
-          <div className="flex items-center text-lg font-bold tracking-tight leading-tight">
-            <span className="text-foreground">App</span>
-            <span className="text-amber-500">Assets</span>
+        <button
+          type="button"
+          onClick={onNavigateToLanding}
+          className={`flex items-center gap-2.5 text-left transition-all ${
+            onNavigateToLanding
+              ? "cursor-pointer hover:opacity-85 group rounded-lg focus-visible:ring-2 focus-visible:ring-primary p-0.5"
+              : "cursor-default"
+          }`}
+          title={onNavigateToLanding ? "Return to Landing Page" : undefined}
+        >
+          <img
+            src="/logo.png"
+            alt="AppAssets Logo"
+            className="size-7.5 rounded-lg shadow-xs object-cover"
+          />
+          <div className="flex flex-col">
+            <div className="flex items-center text-lg font-bold tracking-tight leading-tight">
+              <span className="text-foreground">App</span>
+              <span className="text-[#FF6B00]">Assets</span>
+              {onNavigateToLanding ? (
+                <span className="ml-2 text-[10px] font-semibold bg-muted/80 text-muted-foreground px-1.5 py-0.5 rounded-md group-hover:bg-[#FF6B00]/10 group-hover:text-[#FF6B00] transition-colors border border-border/50">
+                  Home
+                </span>
+              ) : null}
+            </div>
+            <span className="text-[11px] text-muted-foreground font-normal leading-tight mt-0.5">
+              Beautiful screenshots for the App Store
+            </span>
           </div>
-          <span className="text-[11px] text-muted-foreground font-normal leading-tight mt-0.5">
-            Beautiful screenshots for the App Store
-          </span>
-        </div>
+        </button>
 
         <Button
           type="button"
@@ -241,13 +264,13 @@ export function Header({
             className="flex items-center gap-2 rounded-xl border border-border/80 bg-background/80 hover:bg-muted/70 px-2.5 py-1.5 transition-all cursor-pointer shadow-2xs group max-w-[200px]"
             title="Click to edit App Name, Category, Description, and Logo"
           >
-            <div className="relative size-6 shrink-0 rounded-lg overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 shadow-2xs flex items-center justify-center text-white font-bold text-xs border border-white/20">
+            <div className="relative size-6 shrink-0 rounded-lg overflow-hidden bg-neutral-900 text-white dark:bg-white dark:text-neutral-950 shadow-2xs flex items-center justify-center font-semibold text-xs border border-border">
               {appInfo?.icon ? (
                 <img src={appInfo.icon} alt="" className="size-full object-cover" />
               ) : appInfo?.name ? (
                 <span>{appInfo.name.charAt(0).toUpperCase()}</span>
               ) : (
-                <Sparkles className="size-3.5 text-white" />
+                <Sparkles className="size-3.5" />
               )}
             </div>
 
@@ -269,11 +292,10 @@ export function Header({
         <button
           type="button"
           onClick={() => onViewModeChange?.("editor")}
-          className={`flex items-center whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
-            viewMode === "editor"
+          className={`flex items-center whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${viewMode === "editor"
               ? "bg-background text-foreground shadow-xs"
               : "text-muted-foreground hover:text-foreground hover:bg-background/40"
-          }`}
+            }`}
         >
           <span>Studio Canvas</span>
         </button>
@@ -281,14 +303,13 @@ export function Header({
         <button
           type="button"
           onClick={() => onViewModeChange?.("promo")}
-          className={`flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
-            viewMode === "promo"
+          className={`flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${viewMode === "promo"
               ? "bg-background text-foreground shadow-xs"
               : "text-muted-foreground hover:text-foreground hover:bg-background/40"
-          }`}
+            }`}
         >
           <span>Promo Banner</span>
-          <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-bold text-amber-600 dark:text-amber-400 leading-none">
+          <span className="rounded-full bg-[#FF6B00]/15 px-1.5 py-0.5 text-[9px] font-bold text-[#FF6B00] dark:text-[#FF8A00] leading-none">
             1024×500
           </span>
         </button>
@@ -296,11 +317,10 @@ export function Header({
         <button
           type="button"
           onClick={() => onViewModeChange?.("store")}
-          className={`flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
-            viewMode === "store"
+          className={`flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${viewMode === "store"
               ? "bg-background text-foreground shadow-xs"
               : "text-muted-foreground hover:text-foreground hover:bg-background/40"
-          }`}
+            }`}
         >
           <span>Store Preview</span>
           <span className="rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[9px] font-bold text-blue-600 dark:text-blue-400 leading-none">
@@ -316,13 +336,12 @@ export function Header({
           type="button"
           onClick={() => setIsAuditModalOpen(true)}
           title={`Store Pre-Flight Audit Score: ${auditResult.score}%\n${auditResult.passedCount}/${auditResult.totalChecks} checks passed.\nClick to view recommendations for Google Play & App Store approval.`}
-          className={`h-8 px-2.5 sm:px-3 gap-1.5 text-xs font-semibold rounded-lg border shadow-2xs cursor-pointer transition-all flex items-center whitespace-nowrap shrink-0 ${
-            auditResult.score >= 90
+          className={`h-8 px-2.5 sm:px-3 gap-1.5 text-xs font-semibold rounded-lg border shadow-2xs cursor-pointer transition-all flex items-center whitespace-nowrap shrink-0 ${auditResult.score >= 90
               ? "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
               : auditResult.score >= 70
-                ? "bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-500/30"
+                ? "bg-[#FF6B00]/10 hover:bg-[#FF6B00]/20 text-[#FF6B00] dark:text-[#FF8A00] border-[#FF6B00]/30"
                 : "bg-red-500/10 hover:bg-red-500/20 text-red-700 dark:text-red-400 border-red-500/30"
-          }`}
+            }`}
         >
           <span>Store Audit</span>
           <span className="font-mono text-[11px] font-bold">{auditResult.score}%</span>
@@ -565,11 +584,10 @@ export function Header({
               <PopoverTrigger asChild>
                 <button
                   type="button"
-                  className={`size-8 rounded-full border font-bold text-xs flex items-center justify-center cursor-pointer shadow-2xs hover:ring-2 hover:ring-foreground/20 transition-all overflow-hidden shrink-0 ${
-                    isPro
+                  className={`size-8 rounded-full border font-bold text-xs flex items-center justify-center cursor-pointer shadow-2xs hover:ring-2 hover:ring-foreground/20 transition-all overflow-hidden shrink-0 ${isPro
                       ? "border-emerald-500 bg-emerald-600 text-white"
                       : "border-blue-200 dark:border-blue-900/50 bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400"
-                  }`}
+                    }`}
                   title={user.displayName || user.email || "Account"}
                 >
                   {user.photoURL ? (
@@ -625,11 +643,10 @@ export function Header({
                       type="button"
                       size="sm"
                       onClick={openUpgradeModal}
-                      className={`w-full justify-center text-xs font-bold rounded-xl cursor-pointer h-8.5 px-2.5 gap-1.5 ${
-                        isPro
+                      className={`w-full justify-center text-xs font-bold rounded-xl cursor-pointer h-8.5 px-2.5 gap-1.5 ${isPro
                           ? "variant-outline border-border hover:bg-muted text-foreground"
                           : "bg-[#007aff] hover:bg-[#006ee6] active:bg-[#0062cc] text-white shadow-xs"
-                      }`}
+                        }`}
                     >
                       <Sparkles className="size-3.5 fill-current text-amber-300" />
                       <span>{isPro ? "Manage Pro Plan" : "Upgrade to Pro"}</span>

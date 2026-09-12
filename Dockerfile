@@ -59,7 +59,8 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 
 # Copy default/example configuration if not provided via volume mount
-COPY --from=builder /app/goldie.config.example.ts ./goldie.config.ts
+COPY --from=builder /app/appassets.config.example.ts ./appassets.config.ts
+COPY --from=builder /app/appassets.config.example.ts ./goldie.config.ts
 
 # Set up volume for persistent project output (screenshots, designs, exports)
 VOLUME ["/app/out"]

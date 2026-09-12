@@ -1,24 +1,24 @@
 ---
-name: goldie
+name: appassets
 description: >-
   Create App Store and Play Store screenshots and preview videos for an iOS
-  or Android app. goldie explores the app on a simulator or emulator, writes
+  or Android app. appassets explores the app on a simulator or emulator, writes
   argent flows, renders framed screenshots and a preview video, and opens a
   local studio with the finished store page. Use this skill when the user
   asks for store screenshots, store assets, a preview video, or mentions
-  goldie. Also use it to change assets goldie made before: new headlines, a
+  appassets or goldie. Also use it to change assets appassets made before: new headlines, a
   different background or bezel, or a new screenshot order. Run it from the
   mobile app's repo.
 ---
 
-# goldie: App Store assets for the app in this repo
+# appassets: App Store assets for the app in this repo
 
-goldie replays argent YAML flows on an iOS simulator, captures raw screenshots
+appassets (also callable as goldie) replays argent YAML flows on an iOS simulator, captures raw screenshots
 and recordings, and turns them into upload-ready assets: screenshots get a
 device bezel, a background, and marketing copy; the preview video is the raw
 recordings joined as-is, since Apple requires app previews to be a plain
 screen recording with no framing or captions. A React studio shows the
-result as the real store page. Your job is everything goldie cannot do alone:
+result as the real store page. Your job is everything appassets cannot do alone:
 pick the screens worth marketing, author the flows that reach them, write the
 copy, and drive the pipeline.
 
@@ -26,17 +26,17 @@ The end state: 4 or 5 framed screenshots and the raw clips for a preview video,
 visible in the studio at http://localhost:4321, with the video rendering in
 the background.
 
-## Before anything: check for an existing goldie setup
+## Before anything: check for an existing appassets setup
 
-goldie keeps the whole outcome in files the user can re-prompt against. If
+appassets keeps the whole outcome in files the user can re-prompt against. If
 the app repo already has a config, this is a follow-up, so read it first and
 skip to "Iterating on an existing setup" below rather than starting over:
 
 ```bash
-ls goldie/goldie.config.ts .argent/flows/ 2>/dev/null; echo "GOLDIE_CONFIG=$GOLDIE_CONFIG"
+ls appassets/appassets.config.ts goldie/goldie.config.ts .argent/flows/ 2>/dev/null; echo "APPASSETS_CONFIG=$APPASSETS_CONFIG"
 ```
 
-Read `goldie/goldie.config.ts` in full and the flows it names. Together they
+Read `appassets/appassets.config.ts` (or `goldie/goldie.config.ts`) in full and the flows it names. Together they
 are the source of truth for every visible choice: which screens, in what
 order, the headlines and subheads, the background and copy colors, the bezel,
 the store listing, and the preview story. Nothing lives only in your head or
@@ -77,22 +77,22 @@ decides which device keys go in the config, which builds Step 1 must find
 section below applies. On a follow-up to an existing setup, the config's
 devices already answer this, so do not ask again.
 
-## Step 0.5: Make sure goldie runs
+## Step 0.5: Make sure appassets runs
 
-goldie is an npm package that bundles the CLI, the studio and a pinned argent
+appassets is an npm package that bundles the CLI, the studio and a pinned argent
 driver. Nothing needs cloning; `npx` fetches it on first use:
 
 ```bash
-npx -y goldie@0 help
+npx -y appassets@0 help
 ```
 
-Every command below is `npx -y goldie@0 <cmd>`, referred to as `goldie`.
+Every command below is `npx -y appassets@0 <cmd>`, referred to as `appassets` (the legacy `goldie` command is also supported as an alias).
 It needs Node 20+ and `ffmpeg` on the PATH (`brew install ffmpeg` on macOS,
 `winget install ffmpeg` on Windows, `apt install ffmpeg` on Linux). iOS
 devices need a macOS host; on Linux and Windows only the Android device
 (`pixel-10-pro`) can run, so leave the iOS keys out of `devices` there. If
-`$GOLDIE_ROOT` is set, the user is working from a source checkout; run
-`bun $GOLDIE_ROOT/src/cli.ts <cmd>` instead. All app-specific files live in
+`$APPASSETS_ROOT` (or `$GOLDIE_ROOT`) is set, the user is working from a source checkout; run
+`bun $APPASSETS_ROOT/src/cli.ts <cmd>` instead. All app-specific files live in
 the app repo.
 
 ## Step 1: Gather app facts
@@ -146,14 +146,14 @@ will need as selectors, and normalized coordinates for anything with no label
 ## Step 3: Author the config and flows
 
 The flows are argent flows and belong in the app's own flow store, next to any
-flow already recorded there. The config sits in a `goldie/` directory:
+flow already recorded there. The config sits in an `appassets/` directory (or legacy `goldie/`):
 
 ```
 <app-repo>/
 ├── .argent/flows/
 │   ├── store-01-<scene>.yaml ...        one per screenshot scene
 │   └── store-preview-01-<segment>.yaml  one per preview segment
-└── goldie/goldie.config.ts
+└── appassets/appassets.config.ts
 ```
 
 A scene names its flow the way `argent flow run <name>` does: `flow:
@@ -169,8 +169,8 @@ subheads yourself in the app's voice; they are the marketing layer, so make
 them benefit-led and short.
 
 Everything renders relative to the config file: output lands in
-`<app-repo>/goldie/out/`. Add `goldie/out/` to the app's `.gitignore`, and
-commit `goldie.config.ts` and the flows.
+`<app-repo>/appassets/out/` (or `goldie/out/`). Add `appassets/out/` to the app's `.gitignore`, and
+commit `appassets.config.ts` and the flows.
 
 Because they are plain argent flows, each one is runnable on its own with
 `argent flow run store-01-home` from the app repo, which is the fastest way to
@@ -178,24 +178,24 @@ check a flow before a full capture.
 
 ## Step 4: Doctor, then capture
 
-Every goldie command reads the config path from the `GOLDIE_CONFIG` env var.
-Shell state does not persist between your Bash calls, so prefix every goldie
+Every appassets command reads the config path from the `APPASSETS_CONFIG` (or `GOLDIE_CONFIG`) env var.
+Shell state does not persist between your Bash calls, so prefix every appassets
 command with it:
 
 ```bash
-GOLDIE_CONFIG=<app-repo>/goldie/goldie.config.ts npx -y goldie@0 doctor
+APPASSETS_CONFIG=<app-repo>/appassets/appassets.config.ts npx -y appassets@0 doctor
 ```
 
 Fix everything doctor flags before capturing. The usual findings and their
-fixes are in the Gotchas section of goldie's README; the common ones are the
+fixes are in the Gotchas section of appassets' README; the common ones are the
 argent video watermark flag, a screenshot scale override, and a Debug build.
 
 Then capture and render the stills (skip the video for now, it takes minutes):
 
 ```bash
-GOLDIE_CONFIG=... npx -y goldie@0 capture
-GOLDIE_CONFIG=... npx -y goldie@0 frame
-GOLDIE_CONFIG=... npx -y goldie@0 manifest
+APPASSETS_CONFIG=... npx -y appassets@0 capture
+APPASSETS_CONFIG=... npx -y appassets@0 frame
+APPASSETS_CONFIG=... npx -y appassets@0 manifest
 ```
 
 `capture` replays every flow, including the preview segments, so the raw clips
@@ -203,7 +203,7 @@ exist for the lazy video render later.
 
 ### When a flow breaks
 
-Flows replay with no LLM, so a wrong selector fails loudly. goldie prints the
+Flows replay with no LLM, so a wrong selector fails loudly. appassets prints the
 failed step and argent's reason. Fix it over argent MCP: `describe` the live
 screen to find the real label or id, correct the YAML, and re-run capture.
 Prefer `text:` and `id:` selectors; when only a coordinate works, add an
@@ -212,25 +212,25 @@ what to re-resolve.
 
 ## Step 5: Open the studio, render the video lazily
 
-Start the studio in the background. It needs `GOLDIE_CONFIG` too, so it
+Start the studio in the background. It needs `APPASSETS_CONFIG` too, so it
 serves the app repo's `out/`:
 
 ```bash
-GOLDIE_CONFIG=... npx -y goldie@0 studio --no-open   # background task; serves http://localhost:4321
+APPASSETS_CONFIG=... npx -y appassets@0 studio --no-open   # background task; serves http://localhost:4321
 ```
 
 Tell the user it is up at http://localhost:4321. Then, also in the background,
 render the preview video so it appears on reload once done:
 
 ```bash
-GOLDIE_CONFIG=... npx -y goldie@0 preview && GOLDIE_CONFIG=... npx -y goldie@0 manifest
+APPASSETS_CONFIG=... npx -y appassets@0 preview && APPASSETS_CONFIG=... npx -y appassets@0 manifest
 ```
 
 If `preview` refuses because the total is outside 15 to 30 seconds, adjust
 segment pacing (`wait:` steps and `holdSeconds`) and re-capture only what
 changed.
 
-Finish with `GOLDIE_CONFIG=... npx -y goldie@0 verify` and report the result: which
+Finish with `APPASSETS_CONFIG=... npx -y appassets@0 verify` and report the result: which
 assets exist, where they are, and whether they pass Apple's rules. The
 studio's sidebar shows the same checks; a red row is a rule violation. The
 Design panel lets the user restyle backgrounds, layouts, bezels and fonts
@@ -277,15 +277,15 @@ the next prompt can build on it.
 other scenes as they are and accept the extra minute, or delete only the
 stale files under `out/raw/` before running it. `frame` and `manifest` take
 seconds, so run them freely. The studio at http://localhost:4321 picks up
-changes on reload; start it again with `GOLDIE_CONFIG` if it is not running.
+changes on reload; start it again with `APPASSETS_CONFIG` (or `GOLDIE_CONFIG`) if it is not running.
 
-The studio's Design panel writes to `goldie.design.json` next to the config,
+The studio's Design panel writes to `appassets.design.json` (or legacy `goldie.design.json`) next to the config,
 and the CLI's `--background` / `--frame` / `--font` / `--template` /
 `--layout` / `--screen-only` flags are one-run overrides; neither touches the
 config. If the user tried something there and wants to keep it, copy the
 value into `theme.background`, `frame.variant`, `theme.fontFamily`,
 `theme.template`, `theme.layout` or `scenes[].layout` so the next re-prompt
 starts from what they see. The
-current on-disk values are also in `goldie/out/web/store.json` under `design`,
+current on-disk values are also in `out/web/store.json` under `design`,
 which is the fastest way to confirm what the studio is showing right now.
 

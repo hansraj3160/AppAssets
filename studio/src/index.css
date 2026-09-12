@@ -11,6 +11,9 @@
   /* App Store blue, the accent on every Get button and link. */
   --color-store-blue: #007aff;
   --color-store-blue-dark: #0a84ff;
+  --color-brand-orange: #FF6B00;
+  --color-brand-golden: #FFB21A;
+  --color-brand-bright: #FF8A00;
 }
 
 html,
@@ -19,35 +22,47 @@ body,
   height: 100%;
 }
 
-/* Wordmark: golden text with a shine that sweeps across every so often.
-   The sweep itself takes ~1s of a 9s cycle; the rest of the time the
-   highlight sits parked off to the left so the text reads as plain gold. */
+/* Wordmark: Brand orange/golden text with a subtle shine sweep */
+.appassets-wordmark,
 .goldie-wordmark {
   background-image: linear-gradient(
     105deg,
-    #b8860b 0%,
-    #b8860b 40%,
-    #ffe9a3 50%,
-    #b8860b 60%,
-    #b8860b 100%
+    #FF6B00 0%,
+    #FF8A00 40%,
+    #FFB21A 50%,
+    #FF8A00 60%,
+    #FF6B00 100%
   );
   background-size: 300% 100%;
   background-position: 100% 0;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  animation: goldie-shine 9s ease-in-out infinite;
+  animation: appassets-shine 9s ease-in-out infinite;
 }
 
+.dark .appassets-wordmark,
 .dark .goldie-wordmark {
   background-image: linear-gradient(
     105deg,
-    #d4a017 0%,
-    #d4a017 40%,
-    #fff3c4 50%,
-    #d4a017 60%,
-    #d4a017 100%
+    #FF8A00 0%,
+    #FF9B1A 40%,
+    #FFB21A 50%,
+    #FF8A00 60%,
+    #FF6B00 100%
   );
+}
+
+@keyframes appassets-shine {
+  0% {
+    background-position: 100% 0;
+  }
+  12% {
+    background-position: 0% 0;
+  }
+  100% {
+    background-position: 0% 0;
+  }
 }
 
 @keyframes goldie-shine {

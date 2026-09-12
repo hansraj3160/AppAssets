@@ -156,12 +156,12 @@ export type StoreListing = {
   icon?: string;
 };
 
-export type GoldieConfig = {
+export type AppAssetsConfig = {
   /** Absolute path to the app repo. Holds `.argent/flows`; also used for messages and for locating the build. */
   appRoot: string;
   /**
    * Where the scene flows live. Defaults to `.argent/flows` inside `appRoot`,
-   * so goldie and argent share one flow store: anything recorded with
+   * so appassets and argent share one flow store: anything recorded with
    * `argent flow record` is replayable here by name, and vice versa. An
    * absolute path or a path relative to the config file overrides it.
    */
@@ -206,7 +206,10 @@ export type GoldieConfig = {
   scenes: Scene[];
 };
 
-export type LoadedConfig = GoldieConfig & {
+/** Backward-compatible alias for AppAssetsConfig */
+export type GoldieConfig = AppAssetsConfig;
+
+export type LoadedConfig = AppAssetsConfig & {
   /** Directory the config file lives in; every relative path resolves against it. */
   root: string;
   /** Absolute path of the config file itself. */
@@ -215,7 +218,7 @@ export type LoadedConfig = GoldieConfig & {
   flowsDir: string;
   outDir: string;
   /**
-   * The studio's per-scene layout overrides (goldie.design.json). Kept apart
+   * The studio's per-scene layout overrides (appassets.design.json or goldie.design.json). Kept apart
    * from the scenes so the manifest reports only the config's own layouts;
    * baked into `scene.layout` they would outrank every later template choice.
    */
@@ -223,9 +226,8 @@ export type LoadedConfig = GoldieConfig & {
 };
 
 /**
- * Default config path: the GOLDIE_CONFIG env var when set, else
- * ./goldie.config.ts. The env var lets a config live in the app's own repo
- * while goldie and its studio run from this checkout.
+ * Default config path: the APPASSETS_CONFIG / GOLDIE_CONFIG env var when set, else
+ * ./appassets.config.ts (or legacy ./goldie.config.ts).
  */
 export function defaultConfigPath(): string {
   if (process.env.APPASSETS_CONFIG || process.env.GOLDIE_CONFIG) {
@@ -258,7 +260,7 @@ async function importConfig(path: string): Promise<any> {
 export async function loadConfig(path = defaultConfigPath()): Promise<LoadedConfig> {
   if (!existsSync(path)) throw new Error(`No config at ${path}`);
   const mod = await importConfig(path);
-  let cfg: GoldieConfig = mod.default ?? mod.config;
+  let cfg: AppAssetsConfig = mod.default ?? mod.config;
   if (!cfg) throw new Error(`${path} has no default export`);
   const root = dirname(path);
 
@@ -273,7 +275,7 @@ export async function loadConfig(path = defaultConfigPath()): Promise<LoadedConf
     if (companionPath && existsSync(companionPath)) {
       try {
         const compMod = await importConfig(companionPath);
-        const compCfg: GoldieConfig = compMod.default ?? compMod.config;
+        const compCfg: AppAssetsConfig = compMod.default ?? compMod.config;
         if (compCfg?.scenes && compCfg.scenes.length > 0) {
           cfg = { ...cfg, scenes: compCfg.scenes };
         }
@@ -355,7 +357,9 @@ export function designPath(configPath: string): string {
   const dir = dirname(configPath);
   const appAssetsDesign = resolve(dir, "appassets.design.json");
   if (existsSync(appAssetsDesign)) return appAssetsDesign;
-  return resolve(dir, "goldie.design.json");
+  const legacyDesign = resolve(dir, "goldie.design.json");
+  if (existsSync(legacyDesign)) return legacyDesign;
+  return appAssetsDesign;
 }
 
 export function readDesign(configPath: string): DesignOverrides {

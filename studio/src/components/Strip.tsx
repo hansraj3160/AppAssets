@@ -714,7 +714,7 @@ export function Strip({
         throw new Error(data.error || `Failed with status ${res.status}`);
       }
       sessionStorage.setItem(
-        "goldie_toast",
+        "appassets_toast",
         `✨ Updated capture for scene "${sceneId}" on ${tileSpec.key}`,
       );
       window.location.reload();

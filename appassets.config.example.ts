@@ -1,10 +1,10 @@
-import type { GoldieConfig } from "./src/config.ts";
+import type { AppAssetsConfig } from "./src/config.ts";
 
 /**
- * Template. Copy to goldie.config.ts (here or in the app's own repo) and fill
+ * Template. Copy to appassets.config.ts (here or in the app's own repo) and fill
  * in the app's values. Every relative path resolves against the config file,
- * and out/ is created next to it. Point goldie at a config in another
- * directory with the GOLDIE_CONFIG env var.
+ * and out/ is created next to it. Point appassets at a config in another
+ * directory with the APPASSETS_CONFIG env var.
  *
  * Scene flows are argent flows: they live in the app repo's .argent/flows and
  * are named the way `argent flow run <name>` names them, so a flow recorded
@@ -13,7 +13,7 @@ import type { GoldieConfig } from "./src/config.ts";
 
 const APP_ROOT = "/absolute/path/to/the/app/repo";
 
-const config: GoldieConfig = {
+const config: AppAssetsConfig = {
   appRoot: APP_ROOT,
   // flowsDir: ".argent/flows" under appRoot by default.
   // Release simulator build. A Debug build needs Metro and paints LogBox
@@ -73,7 +73,7 @@ const config: GoldieConfig = {
 
   scenes: [
     // One entry per screenshot, in store-page order. The flow navigates to the
-    // screen; goldie takes the screenshot after its last step. Flow values are
+    // screen; appassets takes the screenshot after its last step. Flow values are
     // argent flow names under .argent/flows (a path under it also works).
     {
       kind: "screenshot",
@@ -99,9 +99,12 @@ const config: GoldieConfig = {
           flow: "store-preview-01-open",
         },
         {
-          id: "act",
-          flow: "store-preview-02-act",
-          holdSeconds: 2,
+          id: "action",
+          flow: "store-preview-02-action",
+        },
+        {
+          id: "outro",
+          flow: "store-preview-03-outro",
         },
       ],
     },

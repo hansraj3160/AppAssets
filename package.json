@@ -42,7 +42,7 @@
     "assets/fonts/",
     "studio/dist/",
     "skills/",
-    "goldie.config.example.ts"
+    "appassets.config.example.ts"
   ],
   "engines": {
     "node": ">=20.12.0"

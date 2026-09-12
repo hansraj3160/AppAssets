@@ -10,7 +10,9 @@ import { dirname, join } from "node:path";
 
 /** Prefer the pinned dependency over whatever happens to be on PATH. */
 function resolveBin(): string {
-  if (process.env.GOLDIE_ARGENT_BIN) return process.env.GOLDIE_ARGENT_BIN;
+  if (process.env.APPASSETS_ARGENT_BIN || process.env.GOLDIE_ARGENT_BIN) {
+    return (process.env.APPASSETS_ARGENT_BIN || process.env.GOLDIE_ARGENT_BIN)!;
+  }
   try {
     const require = createRequire(import.meta.url);
     const pkgPath = require.resolve("@swmansion/argent/package.json");

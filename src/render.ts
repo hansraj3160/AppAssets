@@ -30,7 +30,7 @@ async function readManifest(cfg: LoadedConfig, deviceKey: DeviceKey): Promise<Ca
   try {
     return JSON.parse(await readFile(file, "utf8"));
   } catch {
-    throw new Error(`No capture manifest at ${file}. Run: goldie capture`);
+    throw new Error(`No capture manifest at ${file}. Run: appassets capture`);
   }
 }
 
@@ -523,7 +523,7 @@ export async function renderPreview(cfg: LoadedConfig, deviceKey: DeviceKey, loc
   }
   const manifest = await readManifest(cfg, deviceKey);
   if (!manifest.preview)
-    throw new Error("No preview clips in the capture manifest. Run: goldie capture");
+    throw new Error("No preview clips in the capture manifest. Run: appassets capture");
 
   const clips = scene.segments.map((segment) => {
     const clip = manifest.preview!.clips.find((c) => c.segmentId === segment.id);

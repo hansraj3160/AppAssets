@@ -107,7 +107,7 @@ export type StoreManifest = {
       sceneId: string;
       segments: Array<{ id: string }>;
     } | null;
-    /** Raw capture urls per device key; a device is absent until `goldie capture` ran. */
+    /** Raw capture urls per device key; a device is absent until `appassets capture` ran. */
     captures: Record<
       string,
       {

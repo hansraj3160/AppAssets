@@ -1,7 +1,7 @@
-# goldie.config.ts
+# appassets.config.ts
 
-One file holds everything app-specific. It exports a `GoldieConfig` (type from
-`$GOLDIE/src/config.ts`). Every relative path in it resolves against the config
+One file holds everything app-specific. It exports an `AppAssetsConfig` (type from
+`$APPASSETS/src/config.ts`; `GoldieConfig` is also exported as a backward-compatible alias). Every relative path in it resolves against the config
 file itself, and `out/` is created next to it. Scene flows are the exception:
 they are argent flow names resolved against `flowsDir`, which defaults to
 `.argent/flows` inside `appRoot`.
@@ -9,11 +9,11 @@ they are argent flow names resolved against `flowsDir`, which defaults to
 ## Annotated example
 
 ```ts
-import type { GoldieConfig } from "/Users/<you>/Dev/goldie/src/config.ts";
+import type { AppAssetsConfig } from "/Users/<you>/Dev/appassets/src/config.ts";
 
 const APP_ROOT = "/absolute/path/to/the/app/repo";
 
-const config: GoldieConfig = {
+const config: AppAssetsConfig = {
   appRoot: APP_ROOT,
   // The Release simulator build found in Step 1. Absolute path.
   appPath: `${process.env.HOME}/Library/Developer/Xcode/DerivedData/<App>-<hash>/Build/Products/Release-iphonesimulator/<App>.app`,
@@ -174,5 +174,5 @@ applies to every tile, `scenes[].decorations` to one; both stack.
 | 6.9" preview | 886x1920 H.264 30fps AAC, 15 to 30 s | `out/previews/iphone-6.9/<locale>/` |
 | Play phone screenshots | 1080x1920 PNG, no alpha | `out/screenshots/pixel-10-pro/<locale>/` |
 
-`goldie verify` checks the finished files against these with `sips` and
+`appassets verify` (or `goldie verify`) checks the finished files against these with `sips` and
 `ffprobe` and fails on any mismatch.

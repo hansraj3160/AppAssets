@@ -141,8 +141,8 @@ export function EmptyState({
         onImportSuccess(result);
       } else {
         if (appName && result.targetPlatform && result.targetDevice) {
-          const key = `goldie.view.${appName}`;
-          const current = localStorage.getItem(key);
+          const key = `appassets.view.${appName}`;
+          const current = localStorage.getItem(key) || localStorage.getItem(`goldie.view.${appName}`);
           const parsed = current ? JSON.parse(current) : {};
           localStorage.setItem(
             key,
@@ -154,7 +154,7 @@ export function EmptyState({
           );
         }
         sessionStorage.setItem(
-          "goldie_toast",
+          "appassets_toast",
           `✨ Successfully imported ${result.imported || filePayloads.length} screenshot(s) into ${result.targetDevice || deviceKey || "device"}!`,
         );
         window.location.reload();

@@ -1,4 +1,4 @@
-/** Mirrors the StoreManifest that `goldie manifest` writes to out/store.json. */
+/** Mirrors the StoreManifest that `appassets manifest` writes to out/store.json. */
 
 export type Theme = {
   background: string;
@@ -112,11 +112,11 @@ export type StoreManifest = {
 
 /** A load failure with the CLI command that fixes it, for the empty state. */
 export class ManifestError extends Error {
-  constructor(
-    message: string,
-    readonly command: string,
-  ) {
+  command?: string;
+  constructor(message: string, command?: string) {
     super(message);
+    this.name = "ManifestError";
+    this.command = command;
   }
 }
 
@@ -125,14 +125,14 @@ export async function loadManifest(): Promise<StoreManifest> {
   if (!res.ok) {
     throw new ManifestError(
       "There is no out/store.json yet. Generate the assets first.",
-      "goldie all",
+      "appassets all",
     );
   }
   const manifest: StoreManifest = await res.json();
   if (!manifest.design?.fonts || !manifest.design.layouts) {
     throw new ManifestError(
       "out/store.json predates browser-side composition. Regenerate it.",
-      "goldie manifest",
+      "appassets manifest",
     );
   }
 
@@ -214,7 +214,7 @@ export async function saveDesign(design: SavedDesign): Promise<void> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(design),
   });
-  if (!res.ok) throw new Error(`Saving goldie.design.json failed: ${await res.text()}`);
+  if (!res.ok) throw new Error(`Saving appassets.design.json failed: ${await res.text()}`);
 }
 
 /**
