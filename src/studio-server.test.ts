@@ -930,7 +930,9 @@ describe("iconHandler", () => {
       } as any;
 
       handler(req, res);
-      await new Promise((r) => setTimeout(r, 20));
+      for (let i = 0; i < 50 && responseBody === ""; i++) {
+        await new Promise((r) => setTimeout(r, 20));
+      }
       const parsed = JSON.parse(responseBody);
       expect(parsed.iconUrl).toBeNull();
     }
@@ -958,7 +960,9 @@ describe("iconHandler", () => {
       listeners.data?.(JSON.stringify({ dataUrl: fakePngDataUrl }));
       listeners.end?.();
 
-      await new Promise((r) => setTimeout(r, 40));
+      for (let i = 0; i < 50 && responseBody === ""; i++) {
+        await new Promise((r) => setTimeout(r, 20));
+      }
       const parsed = JSON.parse(responseBody);
       expect(parsed.success).toBe(true);
       expect(parsed.iconUrl).toBe("/icon.png");
@@ -983,7 +987,9 @@ describe("iconHandler", () => {
       } as any;
 
       handler(req, res);
-      await new Promise((r) => setTimeout(r, 20));
+      for (let i = 0; i < 50 && responseBody === ""; i++) {
+        await new Promise((r) => setTimeout(r, 20));
+      }
       const parsed = JSON.parse(responseBody);
       expect(parsed.iconUrl).toBe("/icon.png");
     }
@@ -1000,7 +1006,9 @@ describe("iconHandler", () => {
       } as any;
 
       handler(req, res);
-      await new Promise((r) => setTimeout(r, 30));
+      for (let i = 0; i < 50 && responseBody === ""; i++) {
+        await new Promise((r) => setTimeout(r, 20));
+      }
       const parsed = JSON.parse(responseBody);
       expect(parsed.success).toBe(true);
       expect(parsed.iconUrl).toBeNull();
@@ -1042,6 +1050,7 @@ describe("iconHandler", () => {
 
     // 1. Upload icon
     {
+      let ended = false;
       const fakePngDataUrl =
         "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
       const listeners: Record<string, (...args: any[]) => void> = {};
@@ -1051,13 +1060,20 @@ describe("iconHandler", () => {
           listeners[event] = cb;
         },
       } as any;
-      const res = { writeHead: () => {}, end: () => {} } as any;
+      const res = {
+        writeHead: () => {},
+        end: () => {
+          ended = true;
+        },
+      } as any;
 
       handler(req, res);
       listeners.data?.(JSON.stringify({ dataUrl: fakePngDataUrl }));
       listeners.end?.();
 
-      await new Promise((r) => setTimeout(r, 40));
+      for (let i = 0; i < 50 && !ended; i++) {
+        await new Promise((r) => setTimeout(r, 20));
+      }
       const fs = await import("node:fs");
       const designJson = JSON.parse(fs.readFileSync(designFile, "utf8"));
       expect(designJson.appIcon).toBe("/icon.png");
@@ -1067,11 +1083,19 @@ describe("iconHandler", () => {
 
     // 2. Delete icon
     {
+      let ended = false;
       const req = { method: "DELETE" } as any;
-      const res = { writeHead: () => {}, end: () => {} } as any;
+      const res = {
+        writeHead: () => {},
+        end: () => {
+          ended = true;
+        },
+      } as any;
 
       handler(req, res);
-      await new Promise((r) => setTimeout(r, 30));
+      for (let i = 0; i < 50 && !ended; i++) {
+        await new Promise((r) => setTimeout(r, 20));
+      }
       const fs = await import("node:fs");
       const designJson = JSON.parse(fs.readFileSync(designFile, "utf8"));
       expect(designJson.appIcon).toBeUndefined();
