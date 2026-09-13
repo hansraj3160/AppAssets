@@ -493,52 +493,61 @@ describe("aiCopyHandler", () => {
   });
 
   test("returns 404 when screenshot image is not found on disk", async () => {
-    const tmp = await mkdtemp(join(tmpdir(), "goldie-ai-test-"));
-    const outDir = join(tmp, "out");
-    await mkdir(outDir, { recursive: true });
+    const prevKey = process.env.GEMINI_API_KEY;
+    process.env.GEMINI_API_KEY = "dummy-test-key-for-unit-test";
+    try {
+      const tmp = await mkdtemp(join(tmpdir(), "goldie-ai-test-"));
+      const outDir = join(tmp, "out");
+      await mkdir(outDir, { recursive: true });
 
-    const handler = aiCopyHandler({
-      paths: {
-        configPath: join(tmp, "goldie.config.ts"),
-        configDir: tmp,
-        outDir,
-        webDir: join(outDir, "web"),
-        designFile: join(tmp, "goldie.design.json"),
-        exportZip: join(outDir, "export.zip"),
-      },
-      cli: ["echo"],
-    });
+      const handler = aiCopyHandler({
+        paths: {
+          configPath: join(tmp, "goldie.config.ts"),
+          configDir: tmp,
+          outDir,
+          webDir: join(outDir, "web"),
+          designFile: join(tmp, "goldie.design.json"),
+          exportZip: join(outDir, "export.zip"),
+        },
+        cli: ["echo"],
+      });
 
-    let statusCode = 0;
-    let endedWith = "";
-    const listeners: Record<string, (...args: any[]) => void> = {};
-    const req = {
-      method: "POST",
-      on: (event: string, cb: (...args: any[]) => void) => {
-        listeners[event] = cb;
-      },
-    } as any;
-    const res = {
-      set statusCode(code: number) {
-        statusCode = code;
-      },
-      setHeader: () => {},
-      end(body: string) {
-        endedWith = body;
-      },
-    } as any;
+      let statusCode = 0;
+      let endedWith = "";
+      const listeners: Record<string, (...args: any[]) => void> = {};
+      const req = {
+        method: "POST",
+        on: (event: string, cb: (...args: any[]) => void) => {
+          listeners[event] = cb;
+        },
+      } as any;
+      const res = {
+        set statusCode(code: number) {
+          statusCode = code;
+        },
+        setHeader: () => {},
+        end(body: string) {
+          endedWith = body;
+        },
+      } as any;
 
-    handler(req, res);
-    listeners.data?.(JSON.stringify({ sceneId: "nonexistent_scene" }));
-    listeners.end?.();
+      handler(req, res);
+      listeners.data?.(JSON.stringify({ sceneId: "nonexistent_scene" }));
+      listeners.end?.();
 
-    await new Promise((r) => setTimeout(r, 50));
-    expect(statusCode).toBe(404);
-    expect(JSON.parse(endedWith).error).toContain(
-      'Screenshot file for scene "nonexistent_scene" not found',
-    );
+      for (let i = 0; i < 50 && statusCode === 0; i++) {
+        await new Promise((r) => setTimeout(r, 20));
+      }
+      expect(statusCode).toBe(404);
+      expect(JSON.parse(endedWith).error).toContain(
+        'Screenshot file for scene "nonexistent_scene" not found',
+      );
 
-    await rm(tmp, { recursive: true, force: true });
+      await rm(tmp, { recursive: true, force: true });
+    } finally {
+      if (prevKey !== undefined) process.env.GEMINI_API_KEY = prevKey;
+      else delete process.env.GEMINI_API_KEY;
+    }
   });
 
   test("aiCopyHandler rejects customPrompt exceeding 300 characters with 400", async () => {
@@ -1131,7 +1140,9 @@ describe("bannerExportHandler", () => {
       } as any;
 
       handler(req, res);
-      await new Promise((r) => setTimeout(r, 100));
+      for (let i = 0; i < 50 && statusCode === 0; i++) {
+        await new Promise((r) => setTimeout(r, 40));
+      }
 
       expect(statusCode).toBe(200);
       expect(headers["Content-Type"]).toBe("image/png");
@@ -1176,7 +1187,9 @@ describe("bannerExportHandler", () => {
       );
       listeners.end?.();
 
-      await new Promise((r) => setTimeout(r, 100));
+      for (let i = 0; i < 50 && statusCode === 0; i++) {
+        await new Promise((r) => setTimeout(r, 40));
+      }
 
       expect(statusCode).toBe(200);
       expect(headers["Content-Type"]).toBe("image/png");
@@ -1221,7 +1234,9 @@ describe("bannerExportHandler", () => {
       );
       listeners.end?.();
 
-      await new Promise((r) => setTimeout(r, 100));
+      for (let i = 0; i < 50 && statusCode === 0; i++) {
+        await new Promise((r) => setTimeout(r, 40));
+      }
 
       expect(statusCode).toBe(200);
       expect(headers["Content-Type"]).toBe("image/png");
