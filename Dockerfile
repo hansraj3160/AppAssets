@@ -38,6 +38,7 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=4321
+ENV HOST=0.0.0.0
 
 # Install runtime libraries required by @napi-rs/canvas
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -72,4 +73,5 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
 EXPOSE 4321
 
 # Start the Studio server (no browser auto-open in container)
-CMD ["bun", "run", "dist/cli.js", "studio", "--no-open", "--port", "4321"]
+CMD ["bun", "run", "dist/cli.js", "studio", "--no-open", "--port", "4321", "--host", "0.0.0.0"]
+

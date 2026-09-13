@@ -2299,7 +2299,11 @@ export const STUDIO_DIST = resolve(dirname(fileURLToPath(import.meta.url)), ".."
  * Serve the prebuilt studio plus the app's out/web at `/`, with the API on top.
  * Resolves with the URL once listening.
  */
-export function serveStudio(api: StudioApi, port = 4321): Promise<string> {
+export function serveStudio(
+  api: StudioApi,
+  port = 4321,
+  host = process.env.HOST || "0.0.0.0",
+): Promise<string> {
   if (!existsSync(join(STUDIO_DIST, "index.html"))) {
     throw new Error(
       `No studio build at ${STUDIO_DIST}. In a source checkout run: bun run studio:build`,
@@ -2348,7 +2352,9 @@ export function serveStudio(api: StudioApi, port = 4321): Promise<string> {
 
   return new Promise((done, fail) => {
     server.on("error", fail);
-    server.listen(port, "127.0.0.1", () => done(`http://localhost:${port}`));
+    server.listen(port, host, () =>
+      done(`http://${host === "0.0.0.0" ? "localhost" : host}:${port}`),
+    );
   });
 }
 
