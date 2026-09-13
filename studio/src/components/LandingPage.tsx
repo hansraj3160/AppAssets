@@ -29,12 +29,14 @@ interface LandingPageProps {
   onStartDesigning: () => void;
   dark: boolean;
   onToggleDark: () => void;
+  onOpenPrivacy?: () => void;
 }
 
 export function LandingPage({
   onStartDesigning,
   dark,
   onToggleDark,
+  onOpenPrivacy,
 }: LandingPageProps) {
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
   const [selectedTemplateTab, setSelectedTemplateTab] = useState<string>("single");
@@ -811,6 +813,15 @@ export function LandingPage({
             >
               appassetstudio.com
             </a>
+            {onOpenPrivacy ? (
+              <button
+                type="button"
+                onClick={onOpenPrivacy}
+                className="hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer"
+              >
+                Privacy Policy
+              </button>
+            ) : null}
             <span>MIT License</span>
             <button
               type="button"

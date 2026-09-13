@@ -15,6 +15,7 @@ import { AuthModal } from "./components/AuthModal";
 import { EmptyState } from "./components/EmptyState";
 import { Header } from "./components/Header";
 import { LandingPage } from "./components/LandingPage";
+import { PrivacyPolicy } from "./components/PrivacyPolicy";
 import { LocaleManagerModal } from "./components/LocaleManagerModal";
 import { PromoBannersStudio } from "./components/PromoBannersStudio";
 import { Sidebar } from "./components/Sidebar";
@@ -79,13 +80,48 @@ export function App() {
     null,
   );
   const [error, setError] = useState<Error | null>(null);
-  const [screen, setScreen] = useState<"landing" | "studio">(() => {
+  const [screen, setScreen] = useState<"landing" | "studio" | "privacy">(() => {
     const params = new URLSearchParams(window.location.search);
+    if (params.get("view") === "privacy" || window.location.hash === "#privacy") {
+      return "privacy";
+    }
     if (params.get("view") === "studio" || window.location.hash === "#studio") {
       return "studio";
     }
     return "landing";
   });
+
+  const navigateTo = useCallback((view: "landing" | "studio" | "privacy") => {
+    setScreen(view);
+    const url = new URL(window.location.href);
+    if (view === "landing") {
+      url.searchParams.delete("view");
+      url.hash = "";
+    } else {
+      url.searchParams.set("view", view);
+      url.hash = "";
+    }
+    window.history.pushState(
+      {},
+      "",
+      url.pathname + (url.search ? url.search : ""),
+    );
+  }, []);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("view") === "privacy" || window.location.hash === "#privacy") {
+        setScreen("privacy");
+      } else if (params.get("view") === "studio" || window.location.hash === "#studio") {
+        setScreen("studio");
+      } else {
+        setScreen("landing");
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
   const [dark, setDark] = useState(() => {
     const param = new URLSearchParams(window.location.search).get("dark");
     if (param === "1") return true;
@@ -115,17 +151,26 @@ export function App() {
     return (
       <AuthProvider>
         <LandingPage
-          onStartDesigning={() => {
-            setScreen("studio");
-            const url = new URL(window.location.href);
-            url.searchParams.set("view", "studio");
-            window.history.pushState({}, "", url.toString());
-          }}
+          onStartDesigning={() => navigateTo("studio")}
+          onOpenPrivacy={() => navigateTo("privacy")}
           dark={dark}
           onToggleDark={() => setDark((prev) => !prev)}
         />
         <AuthModal />
         <UpgradeModal />
+      </AuthProvider>
+    );
+  }
+
+  if (screen === "privacy") {
+    return (
+      <AuthProvider>
+        <PrivacyPolicy
+          onNavigateHome={() => navigateTo("landing")}
+          onStartDesigning={() => navigateTo("studio")}
+          dark={dark}
+          onToggleDark={() => setDark((prev) => !prev)}
+        />
       </AuthProvider>
     );
   }
@@ -156,16 +201,7 @@ export function App() {
         onRefresh={refresh}
         dark={dark}
         setDark={setDark}
-        onNavigateToLanding={() => {
-          setScreen("landing");
-          const url = new URL(window.location.href);
-          url.searchParams.delete("view");
-          window.history.pushState(
-            {},
-            "",
-            url.pathname + (url.search ? url.search : ""),
-          );
-        }}
+        onNavigateToLanding={() => navigateTo("landing")}
       />
       <AuthModal />
       <UpgradeModal />
