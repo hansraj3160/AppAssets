@@ -154,3 +154,44 @@ jobs:
         run: |
           docker stop appassets-test || true
           docker rm appassets-test || true
+
+  # 5. Deploy Job: Automatic Continuous Deployment to AWS EC2
+  deploy:
+    name: Deploy to AWS EC2 Production
+    needs: [quality, test, build, docker]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Deploy to EC2 via Rsync & SSH
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST || '52.66.73.8' }}
+          EC2_USER: ${{ secrets.EC2_USER || 'ubuntu' }}
+          SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          if [ -z "$SSH_KEY" ]; then
+            echo "⚠️ Notice: EC2_SSH_KEY secret is not set in GitHub repository secrets."
+            echo "Skipping EC2 deployment. Add EC2_SSH_KEY in repository settings to enable auto-deploy."
+            exit 0
+          fi
+
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+          echo "🚀 Syncing codebase to EC2 ($EC2_HOST)..."
+          rsync -avz \
+            --exclude 'node_modules' \
+            --exclude 'studio/node_modules' \
+            --exclude '.git' \
+            --exclude '*.pem' \
+            -e "ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa" \
+            ./ "${EC2_USER}@${EC2_HOST}:/home/ubuntu/appassets/"
+
+          echo "🔧 Running remote deploy script on EC2..."
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa "${EC2_USER}@${EC2_HOST}" "bash /home/ubuntu/appassets/scripts/deploy.sh"
+
+          echo "🎉 Deployment to https://appassetstudio.com completed successfully!"
+
