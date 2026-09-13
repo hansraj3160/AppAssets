@@ -30,6 +30,7 @@ interface LandingPageProps {
   dark: boolean;
   onToggleDark: () => void;
   onOpenPrivacy?: () => void;
+  onOpenTerms?: () => void;
 }
 
 export function LandingPage({
@@ -37,6 +38,7 @@ export function LandingPage({
   dark,
   onToggleDark,
   onOpenPrivacy,
+  onOpenTerms,
 }: LandingPageProps) {
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
   const [selectedTemplateTab, setSelectedTemplateTab] = useState<string>("single");
@@ -820,6 +822,15 @@ export function LandingPage({
                 className="hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer"
               >
                 Privacy Policy
+              </button>
+            ) : null}
+            {onOpenTerms ? (
+              <button
+                type="button"
+                onClick={onOpenTerms}
+                className="hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer"
+              >
+                Terms & Conditions
               </button>
             ) : null}
             <span>MIT License</span>

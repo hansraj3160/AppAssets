@@ -15,6 +15,7 @@ import { Button } from "./ui/button";
 
 interface PrivacyPolicyProps {
   onNavigateHome: () => void;
+  onNavigateTerms?: () => void;
   onStartDesigning: () => void;
   dark: boolean;
   onToggleDark: () => void;
@@ -22,6 +23,7 @@ interface PrivacyPolicyProps {
 
 export function PrivacyPolicy({
   onNavigateHome,
+  onNavigateTerms,
   onStartDesigning,
   dark,
   onToggleDark,
@@ -456,6 +458,15 @@ export function PrivacyPolicy({
             >
               Home
             </button>
+            {onNavigateTerms ? (
+              <button
+                type="button"
+                onClick={onNavigateTerms}
+                className="hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer"
+              >
+                Terms & Conditions
+              </button>
+            ) : null}
             <a
               href="mailto:support@appassetstudio.com"
               className="hover:text-zinc-900 dark:hover:text-white transition-colors flex items-center gap-1.5"

@@ -16,6 +16,7 @@ import { EmptyState } from "./components/EmptyState";
 import { Header } from "./components/Header";
 import { LandingPage } from "./components/LandingPage";
 import { PrivacyPolicy } from "./components/PrivacyPolicy";
+import { TermsAndConditions } from "./components/TermsAndConditions";
 import { LocaleManagerModal } from "./components/LocaleManagerModal";
 import { PromoBannersStudio } from "./components/PromoBannersStudio";
 import { Sidebar } from "./components/Sidebar";
@@ -80,10 +81,13 @@ export function App() {
     null,
   );
   const [error, setError] = useState<Error | null>(null);
-  const [screen, setScreen] = useState<"landing" | "studio" | "privacy">(() => {
+  const [screen, setScreen] = useState<"landing" | "studio" | "privacy" | "terms">(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("view") === "privacy" || window.location.hash === "#privacy") {
       return "privacy";
+    }
+    if (params.get("view") === "terms" || window.location.hash === "#terms") {
+      return "terms";
     }
     if (params.get("view") === "studio" || window.location.hash === "#studio") {
       return "studio";
@@ -91,7 +95,7 @@ export function App() {
     return "landing";
   });
 
-  const navigateTo = useCallback((view: "landing" | "studio" | "privacy") => {
+  const navigateTo = useCallback((view: "landing" | "studio" | "privacy" | "terms") => {
     setScreen(view);
     const url = new URL(window.location.href);
     if (view === "landing") {
@@ -113,6 +117,8 @@ export function App() {
       const params = new URLSearchParams(window.location.search);
       if (params.get("view") === "privacy" || window.location.hash === "#privacy") {
         setScreen("privacy");
+      } else if (params.get("view") === "terms" || window.location.hash === "#terms") {
+        setScreen("terms");
       } else if (params.get("view") === "studio" || window.location.hash === "#studio") {
         setScreen("studio");
       } else {
@@ -153,6 +159,7 @@ export function App() {
         <LandingPage
           onStartDesigning={() => navigateTo("studio")}
           onOpenPrivacy={() => navigateTo("privacy")}
+          onOpenTerms={() => navigateTo("terms")}
           dark={dark}
           onToggleDark={() => setDark((prev) => !prev)}
         />
@@ -167,6 +174,21 @@ export function App() {
       <AuthProvider>
         <PrivacyPolicy
           onNavigateHome={() => navigateTo("landing")}
+          onNavigateTerms={() => navigateTo("terms")}
+          onStartDesigning={() => navigateTo("studio")}
+          dark={dark}
+          onToggleDark={() => setDark((prev) => !prev)}
+        />
+      </AuthProvider>
+    );
+  }
+
+  if (screen === "terms") {
+    return (
+      <AuthProvider>
+        <TermsAndConditions
+          onNavigateHome={() => navigateTo("landing")}
+          onNavigatePrivacy={() => navigateTo("privacy")}
           onStartDesigning={() => navigateTo("studio")}
           dark={dark}
           onToggleDark={() => setDark((prev) => !prev)}
