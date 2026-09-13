@@ -2,9 +2,9 @@ name: CI / CD Pipeline
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, production, production_branch ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main, master, production, production_branch ]
   workflow_dispatch:
 
 concurrency:
@@ -159,7 +159,7 @@ jobs:
   deploy:
     name: Deploy to AWS EC2 Production
     needs: [quality, test, build, docker]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/production' || github.ref == 'refs/heads/production_branch')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
