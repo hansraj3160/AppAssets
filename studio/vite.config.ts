@@ -88,7 +88,7 @@ function appassetsApi(): Plugin {
       server.middlewares.use("/api/delete-all", delAll);
       server.middlewares.use("/api/delete", del);
       server.middlewares.use((req, res, next) => {
-        if (req.url && req.url.endsWith(".png")) {
+        if (req.url?.endsWith(".png")) {
           const filePath = join(STUDIO_PUBLIC, req.url.slice(1));
           if (existsSync(filePath)) {
             res.setHeader("Content-Type", "image/png");

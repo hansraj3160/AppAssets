@@ -3,11 +3,11 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
-  ExternalLink,
   Gift,
   Globe,
   Image as ImageIcon,
   Layers,
+  Mail,
   MoonIcon,
   ShieldCheck,
   Smartphone,
@@ -377,11 +377,10 @@ export function LandingPage({
                   key={item.id}
                   type="button"
                   onClick={() => setActiveShowcaseCategory(item.id)}
-                  className={`px-4 py-2 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-                    activeShowcaseCategory === item.id
-                      ? "bg-[#FF6B00] text-white shadow-sm"
-                      : "bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
-                  }`}
+                  className={`px-4 py-2 rounded-full text-xs font-semibold transition-all cursor-pointer ${activeShowcaseCategory === item.id
+                    ? "bg-[#FF6B00] text-white shadow-sm"
+                    : "bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+                    }`}
                 >
                   {item.name}
                 </button>
@@ -396,11 +395,10 @@ export function LandingPage({
               return (
                 <div
                   key={cat.id}
-                  className={`rounded-3xl p-6 border transition-all duration-300 flex flex-col justify-between ${
-                    isSelected
-                      ? "bg-zinc-50 dark:bg-zinc-900/90 border-[#FF6B00]/60 dark:border-[#FF6B00]/70 shadow-md scale-102 ring-2 ring-[#FF6B00]/20"
-                      : "bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800/80 shadow-xs hover:border-zinc-300"
-                  }`}
+                  className={`rounded-3xl p-6 border transition-all duration-300 flex flex-col justify-between ${isSelected
+                    ? "bg-zinc-50 dark:bg-zinc-900/90 border-[#FF6B00]/60 dark:border-[#FF6B00]/70 shadow-md scale-102 ring-2 ring-[#FF6B00]/20"
+                    : "bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800/80 shadow-xs hover:border-zinc-300"
+                    }`}
                 >
                   <div>
                     <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
@@ -588,11 +586,10 @@ export function LandingPage({
                   key={key}
                   type="button"
                   onClick={() => setSelectedTemplateTab(key)}
-                  className={`px-4 py-2 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-                    selectedTemplateTab === key
-                      ? "bg-[#FF6B00] text-white shadow-sm"
-                      : "bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
-                  }`}
+                  className={`px-4 py-2 rounded-full text-xs font-semibold transition-all cursor-pointer ${selectedTemplateTab === key
+                    ? "bg-[#FF6B00] text-white shadow-sm"
+                    : "bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+                    }`}
                 >
                   {t.title}
                 </button>
@@ -744,9 +741,8 @@ export function LandingPage({
                 >
                   <span>{f.q}</span>
                   <ChevronDown
-                    className={`size-4 text-zinc-500 shrink-0 transition-transform duration-200 ${
-                      activeFaq === i ? "rotate-180 text-zinc-900 dark:text-white" : ""
-                    }`}
+                    className={`size-4 text-zinc-500 shrink-0 transition-transform duration-200 ${activeFaq === i ? "rotate-180 text-zinc-900 dark:text-white" : ""
+                      }`}
                   />
                 </button>
                 {activeFaq === i ? (
@@ -801,13 +797,19 @@ export function LandingPage({
 
           <div className="flex items-center gap-6">
             <a
-              href="https://github.com/hansraj3160/AppAssets"
+              href="mailto:support@appassetstudio.com"
+              className="hover:text-zinc-900 dark:hover:text-white transition-colors flex items-center gap-1.5"
+            >
+              <Mail className="size-3.5 text-[#FF6B00]" />
+              <span>support@appassetstudio.com</span>
+            </a>
+            <a
+              href="https://appassetstudio.com"
               target="_blank"
               rel="noreferrer"
-              className="hover:text-zinc-900 dark:hover:text-white transition-colors flex items-center gap-1"
+              className="hover:text-zinc-900 dark:hover:text-white transition-colors"
             >
-              <span>GitHub</span>
-              <ExternalLink className="size-3" />
+              appassetstudio.com
             </a>
             <span>MIT License</span>
             <button
