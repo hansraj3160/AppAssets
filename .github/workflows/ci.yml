@@ -158,7 +158,7 @@ jobs:
   # 5. Deploy Job: Automatic Continuous Deployment to AWS EC2
   deploy:
     name: Deploy to AWS EC2 Production
-    needs: [quality, test, build, docker]
+    needs: [quality, test, build]
     if: github.event_name == 'push' && (github.ref == 'refs/heads/production' || github.ref == 'refs/heads/production_branch')
     runs-on: ubuntu-latest
     steps:
