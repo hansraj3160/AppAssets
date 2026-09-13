@@ -115,6 +115,7 @@ async function main() {
           cli: [process.execPath, fileURLToPath(import.meta.url)],
         },
         opt("port") ? Number(opt("port")) : 4321,
+        opt("host") || process.env.HOST || "0.0.0.0",
       );
       console.log(`studio  ${url}`);
       if (!argv.includes("--no-open")) await openInBrowser(url);
