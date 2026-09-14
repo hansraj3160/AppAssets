@@ -11,9 +11,9 @@
   /* App Store blue, the accent on every Get button and link. */
   --color-store-blue: #007aff;
   --color-store-blue-dark: #0a84ff;
-  --color-brand-orange: #FF6B00;
-  --color-brand-golden: #FFB21A;
-  --color-brand-bright: #FF8A00;
+  --color-brand-orange: #ff6b00;
+  --color-brand-golden: #ffb21a;
+  --color-brand-bright: #ff8a00;
 }
 
 html,
@@ -27,11 +27,11 @@ body,
 .goldie-wordmark {
   background-image: linear-gradient(
     105deg,
-    #FF6B00 0%,
-    #FF8A00 40%,
-    #FFB21A 50%,
-    #FF8A00 60%,
-    #FF6B00 100%
+    #ff6b00 0%,
+    #ff8a00 40%,
+    #ffb21a 50%,
+    #ff8a00 60%,
+    #ff6b00 100%
   );
   background-size: 300% 100%;
   background-position: 100% 0;
@@ -45,11 +45,11 @@ body,
 .dark .goldie-wordmark {
   background-image: linear-gradient(
     105deg,
-    #FF8A00 0%,
-    #FF9B1A 40%,
-    #FFB21A 50%,
-    #FF8A00 60%,
-    #FF6B00 100%
+    #ff8a00 0%,
+    #ff9b1a 40%,
+    #ffb21a 50%,
+    #ff8a00 60%,
+    #ff6b00 100%
   );
 }
 
@@ -239,15 +239,15 @@ body,
 
 /* shadcn's primary is AppAssets Brand Orange so Button and Slider pick up the accent. */
 :root {
-  --primary: #FF6B00;
+  --primary: #ff6b00;
   --primary-foreground: #ffffff;
-  --ring: #FF6B00;
+  --ring: #ff6b00;
 }
 
 .dark {
-  --primary: #FF6B00;
+  --primary: #ff6b00;
   --primary-foreground: #ffffff;
-  --ring: #FF8A00;
+  --ring: #ff8a00;
 }
 
 /* Tile -> lightbox shared-element morph (Strip.tsx): only the scene animates,

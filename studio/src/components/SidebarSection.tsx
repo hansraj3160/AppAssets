@@ -23,8 +23,7 @@ export function SidebarSection({
   const [isOpen, setIsOpen] = useState(() => {
     try {
       const saved =
-        localStorage.getItem(storageKey) ??
-        localStorage.getItem(`goldie_sidebar_section_${id}`);
+        localStorage.getItem(storageKey) ?? localStorage.getItem(`goldie_sidebar_section_${id}`);
       return saved !== null ? saved === "true" : defaultOpen;
     } catch {
       return defaultOpen;

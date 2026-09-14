@@ -1,24 +1,59 @@
 import { Check, Loader2, Sparkles, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
+import { trackUpgradeEvent } from "@/lib/analytics";
 
 export function UpgradeModal() {
   const { isUpgradeModalOpen, closeUpgradeModal, isPro, toggleProPlan, user, openAuthModal } =
     useAuth();
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    if (isUpgradeModalOpen) {
+      trackUpgradeEvent("pricing_viewed", {
+        plan: "pro",
+        price: 9.0,
+        currency: "USD",
+      });
+    }
+  }, [isUpgradeModalOpen]);
+
   if (!isUpgradeModalOpen) return null;
 
   const handleAction = async () => {
+    trackUpgradeEvent("upgrade_clicked", {
+      plan: "pro",
+      price: 9.0,
+      currency: "USD",
+      action: isPro ? "downgrade" : "upgrade",
+    });
+
     if (!user) {
       closeUpgradeModal();
       openAuthModal();
       return;
     }
+
+    if (!isPro) {
+      trackUpgradeEvent("begin_checkout", {
+        plan: "pro",
+        price: 9.0,
+        currency: "USD",
+      });
+    }
+
     setLoading(true);
     try {
       await toggleProPlan();
+      if (!isPro) {
+        trackUpgradeEvent("purchase", {
+          plan: "pro",
+          price: 9.0,
+          currency: "USD",
+          transaction_id: `txn_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        });
+      }
       closeUpgradeModal();
     } finally {
       setLoading(false);

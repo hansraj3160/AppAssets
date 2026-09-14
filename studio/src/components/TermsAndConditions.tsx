@@ -106,14 +106,8 @@ export function TermsAndConditions({
             </h1>
             <p className="mt-3 text-sm sm:text-base text-zinc-600 dark:text-zinc-400">
               Last updated: September 13, 2026 • Official Terms of Service for{" "}
-              <span className="font-semibold text-zinc-900 dark:text-white">
-                App Assets
-              </span>{" "}
-              (
-              <a
-                href="https://appassetstudio.com"
-                className="text-[#FF6B00] hover:underline"
-              >
+              <span className="font-semibold text-zinc-900 dark:text-white">App Assets</span> (
+              <a href="https://appassetstudio.com" className="text-[#FF6B00] hover:underline">
                 appassetstudio.com
               </a>
               )
@@ -143,8 +137,8 @@ export function TermsAndConditions({
                   <span>100% Asset Ownership</span>
                 </div>
                 <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                  You own all intellectual property rights in your screenshots, logos,
-                  and exported store packages.
+                  You own all intellectual property rights in your screenshots, logos, and exported
+                  store packages.
                 </p>
               </div>
 
@@ -154,8 +148,8 @@ export function TermsAndConditions({
                   <span>Commercial Use Allowed</span>
                 </div>
                 <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                  Exported screenshots can be used freely for commercial app store
-                  listings, marketing, and advertising.
+                  Exported screenshots can be used freely for commercial app store listings,
+                  marketing, and advertising.
                 </p>
               </div>
 
@@ -165,8 +159,8 @@ export function TermsAndConditions({
                   <span>Transparent & Fair</span>
                 </div>
                 <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                  No hidden lock-ins. Core tools are free and open source with clear,
-                  predictable licensing.
+                  No hidden lock-ins. Core tools are free and open source with clear, predictable
+                  licensing.
                 </p>
               </div>
             </div>
@@ -187,9 +181,9 @@ export function TermsAndConditions({
                 >
                   appassetstudio.com
                 </a>
-                , or the AppAssets Studio application (collectively, the "Service"),
-                you agree to be bound by these Terms and Conditions ("Terms"). If you
-                do not agree to these Terms, please do not use the Service.
+                , or the AppAssets Studio application (collectively, the "Service"), you agree to be
+                bound by these Terms and Conditions ("Terms"). If you do not agree to these Terms,
+                please do not use the Service.
               </p>
             </section>
 
@@ -199,14 +193,14 @@ export function TermsAndConditions({
                 <span className="text-[#FF6B00]">2.</span> Description of Service
               </h2>
               <p>
-                App Assets provides an automated, browser-based studio and command-line
-                tools designed to generate, frame, style, and format screenshots, app
-                icons, and feature graphics for the Apple App Store, Google Play Store,
-                and related application marketplaces.
+                App Assets provides an automated, browser-based studio and command-line tools
+                designed to generate, frame, style, and format screenshots, app icons, and feature
+                graphics for the Apple App Store, Google Play Store, and related application
+                marketplaces.
               </p>
               <p>
-                The Service operates with a client-first design: rendering and image
-                compositing occur within your local browser environment.
+                The Service operates with a client-first design: rendering and image compositing
+                occur within your local browser environment.
               </p>
             </section>
 
@@ -217,22 +211,20 @@ export function TermsAndConditions({
               </h2>
               <ul className="list-disc pl-5 space-y-2 text-zinc-600 dark:text-zinc-400">
                 <li>
-                  <strong>Your Content & Exports:</strong> You retain complete ownership,
-                  copyright, and intellectual property rights in all screenshots, logos,
-                  brand assets, and final graphics created or exported using AppAssets Studio.
-                  We claim zero copyright or licensing rights over your exported materials.
+                  <strong>Your Content & Exports:</strong> You retain complete ownership, copyright,
+                  and intellectual property rights in all screenshots, logos, brand assets, and
+                  final graphics created or exported using AppAssets Studio. We claim zero copyright
+                  or licensing rights over your exported materials.
                 </li>
                 <li>
-                  <strong>Commercial Freedom:</strong> You are granted unrestricted rights
-                  to use, publish, monetize, distribute, and display exported screenshot
-                  packages in the Apple App Store, Google Play Console, press kits, and
-                  marketing campaigns.
+                  <strong>Commercial Freedom:</strong> You are granted unrestricted rights to use,
+                  publish, monetize, distribute, and display exported screenshot packages in the
+                  Apple App Store, Google Play Console, press kits, and marketing campaigns.
                 </li>
                 <li>
-                  <strong>Software & Branding:</strong> The AppAssets name, wordmarks,
-                  logos, site design, and proprietary interface elements are protected by
-                  copyright and trademark laws. The core open-source engine is licensed
-                  under the MIT License.
+                  <strong>Software & Branding:</strong> The AppAssets name, wordmarks, logos, site
+                  design, and proprietary interface elements are protected by copyright and
+                  trademark laws. The core open-source engine is licensed under the MIT License.
                 </li>
               </ul>
             </section>
@@ -245,21 +237,20 @@ export function TermsAndConditions({
               <p>When utilizing the Service, you agree not to:</p>
               <ul className="list-disc pl-5 space-y-1.5 text-zinc-600 dark:text-zinc-400">
                 <li>
-                  Use the Service to produce deceptive, fraudulent, or counterfeit app
-                  store listings designed to impersonate existing brand owners.
+                  Use the Service to produce deceptive, fraudulent, or counterfeit app store
+                  listings designed to impersonate existing brand owners.
                 </li>
                 <li>
-                  Generate content that violates applicable local, state, national, or
-                  international laws, or infringes third-party patents, copyrights, or
-                  trademarks.
+                  Generate content that violates applicable local, state, national, or international
+                  laws, or infringes third-party patents, copyrights, or trademarks.
                 </li>
                 <li>
-                  Attempt to probe, compromise, or disrupt the security, integrity, or
-                  availability of our hosting infrastructure or servers.
+                  Attempt to probe, compromise, or disrupt the security, integrity, or availability
+                  of our hosting infrastructure or servers.
                 </li>
                 <li>
-                  Abuse, spam, or excessively overload the AI copywriter endpoints beyond
-                  designated rate limits.
+                  Abuse, spam, or excessively overload the AI copywriter endpoints beyond designated
+                  rate limits.
                 </li>
               </ul>
             </section>
@@ -270,11 +261,10 @@ export function TermsAndConditions({
                 <span className="text-[#FF6B00]">5.</span> AI Features & Content Generation
               </h2>
               <p>
-                The optional smart copywriter utilizes artificial intelligence to suggest
-                headline copy. You acknowledge that AI-generated copy is provided as
-                suggestions only. You are solely responsible for reviewing and ensuring
-                that any marketing claims comply with store guidelines and truth-in-advertising
-                regulations.
+                The optional smart copywriter utilizes artificial intelligence to suggest headline
+                copy. You acknowledge that AI-generated copy is provided as suggestions only. You
+                are solely responsible for reviewing and ensuring that any marketing claims comply
+                with store guidelines and truth-in-advertising regulations.
               </p>
             </section>
 
@@ -284,23 +274,21 @@ export function TermsAndConditions({
                 <span className="text-[#FF6B00]">6.</span> App Store Compliance & Disclaimers
               </h2>
               <p>
-                While AppAssets Studio includes a comprehensive Store Pre-Flight Audit
-                engineered according to Apple App Store Connect and Google Play Console
-                specifications:
+                While AppAssets Studio includes a comprehensive Store Pre-Flight Audit engineered
+                according to Apple App Store Connect and Google Play Console specifications:
               </p>
               <ul className="list-disc pl-5 space-y-1.5 text-zinc-600 dark:text-zinc-400">
                 <li>
-                  Final approval of app submissions remains at the sole discretion of
-                  Apple Inc. and Google LLC respectively.
+                  Final approval of app submissions remains at the sole discretion of Apple Inc. and
+                  Google LLC respectively.
                 </li>
                 <li>
-                  App Assets is an independent developer tool and is not affiliated,
-                  endorsed, or sponsored by Apple Inc. or Google LLC.
+                  App Assets is an independent developer tool and is not affiliated, endorsed, or
+                  sponsored by Apple Inc. or Google LLC.
                 </li>
                 <li>
-                  We do not guarantee that your application will be accepted into any
-                  marketplace, as reviews involve app functionality and content guidelines
-                  beyond screenshots.
+                  We do not guarantee that your application will be accepted into any marketplace,
+                  as reviews involve app functionality and content guidelines beyond screenshots.
                 </li>
               </ul>
             </section>
@@ -311,11 +299,11 @@ export function TermsAndConditions({
                 <span className="text-[#FF6B00]">7.</span> Limitation of Liability
               </h2>
               <p>
-                To the maximum extent permitted by applicable law, App Assets and its
-                contributors shall not be liable for any indirect, incidental, special,
-                consequential, or punitive damages, including loss of profits, data, or
-                business opportunities, arising out of your access to or use of the Service.
-                The Service is provided on an "AS IS" and "AS AVAILABLE" basis.
+                To the maximum extent permitted by applicable law, App Assets and its contributors
+                shall not be liable for any indirect, incidental, special, consequential, or
+                punitive damages, including loss of profits, data, or business opportunities,
+                arising out of your access to or use of the Service. The Service is provided on an
+                "AS IS" and "AS AVAILABLE" basis.
               </p>
             </section>
 
@@ -325,10 +313,10 @@ export function TermsAndConditions({
                 <span className="text-[#FF6B00]">8.</span> Changes to Terms
               </h2>
               <p>
-                We reserve the right to revise these Terms at any time. When modifications
-                occur, we will update the "Last updated" date at the top of this page.
-                Continued use of the Service following the posting of revised Terms
-                constitutes your acceptance of the changes.
+                We reserve the right to revise these Terms at any time. When modifications occur, we
+                will update the "Last updated" date at the top of this page. Continued use of the
+                Service following the posting of revised Terms constitutes your acceptance of the
+                changes.
               </p>
             </section>
 
@@ -338,8 +326,8 @@ export function TermsAndConditions({
                 <span className="text-[#FF6B00]">9.</span> Contact Us
               </h2>
               <p>
-                If you have questions, inquiries, or legal concerns regarding these Terms
-                and Conditions, please contact:
+                If you have questions, inquiries, or legal concerns regarding these Terms and
+                Conditions, please contact:
               </p>
               <div className="mt-3 p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 flex items-center gap-3">
                 <Mail className="size-5 text-[#FF6B00] shrink-0" />

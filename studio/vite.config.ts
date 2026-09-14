@@ -50,6 +50,7 @@ const PATHS = studioPaths(CONFIG);
 export default defineConfig(({ command }) => ({
   plugins: [react(), tailwindcss(), appassetsApi()],
   resolve: { alias: { "@": SRC_DIR } },
+  envPrefix: ["VITE_", "NEXT_PUBLIC_"],
   publicDir: command === "build" ? resolve(import.meta.dirname, "public") : PATHS.webDir,
   server: { port: 4321, open: true, fs: { allow: [APPASSETS_ROOT, PATHS.outDir] } },
 }));
