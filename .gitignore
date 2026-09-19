@@ -14,6 +14,8 @@ appassets.config.ts
 goldie.config.ts
 goldie.design.json
 appassets.design.json
+aws.txt
+
 
 # Generated assets: screenshots, previews, staged frames, export bundles
 out/
