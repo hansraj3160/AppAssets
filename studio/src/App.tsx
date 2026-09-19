@@ -29,6 +29,7 @@ import { initGA, trackAppImported, trackPageView, trackToolOpened } from "./lib/
 import { apiFetch } from "./lib/api";
 import { getSessionId } from "./lib/session";
 import { useHistory } from "./lib/useHistory";
+import { isModifiedEvent } from "./lib/utils";
 import {
   type AppInfo,
   type BundledFont,
@@ -80,50 +81,49 @@ const ENABLE_PLATFORM: Record<
 /** How long the design must sit still before it is written to disk. */
 const SAVE_DEBOUNCE_MS = 500;
 
+export type Screen = "landing" | "studio" | "privacy" | "terms" | "not-found";
+
+export function resolveScreenFromLocation(): Screen {
+  if (typeof window === "undefined") return "landing";
+  const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
+  if (pathname === "/privacy") return "privacy";
+  if (pathname === "/terms") return "terms";
+  if (pathname === "/studio") return "studio";
+  if (pathname === "/" || pathname === "") {
+    const params = new URLSearchParams(window.location.search);
+    const view = params.get("view");
+    const hash = window.location.hash;
+    if (view === "privacy" || hash === "#privacy") return "privacy";
+    if (view === "terms" || hash === "#terms") return "terms";
+    if (view === "studio" || hash === "#studio") return "studio";
+    return "landing";
+  }
+  return "not-found";
+}
+
 export function App() {
   const [loaded, setLoaded] = useState<{ manifest: StoreManifest; design: SavedDesign } | null>(
     null,
   );
   const [error, setError] = useState<Error | null>(null);
-  const [screen, setScreen] = useState<"landing" | "studio" | "privacy" | "terms">(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("view") === "privacy" || window.location.hash === "#privacy") {
-      return "privacy";
-    }
-    if (params.get("view") === "terms" || window.location.hash === "#terms") {
-      return "terms";
-    }
-    if (params.get("view") === "studio" || window.location.hash === "#studio") {
-      return "studio";
-    }
-    return "landing";
-  });
+  const [screen, setScreen] = useState<Screen>(resolveScreenFromLocation);
 
   const navigateTo = useCallback((view: "landing" | "studio" | "privacy" | "terms") => {
     setScreen(view);
     const url = new URL(window.location.href);
+    url.searchParams.delete("view");
+    url.hash = "";
     if (view === "landing") {
-      url.searchParams.delete("view");
-      url.hash = "";
+      url.pathname = "/";
     } else {
-      url.searchParams.set("view", view);
-      url.hash = "";
+      url.pathname = `/${view}`;
     }
     window.history.pushState({}, "", url.pathname + (url.search ? url.search : ""));
   }, []);
 
   useEffect(() => {
     const handlePopState = () => {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("view") === "privacy" || window.location.hash === "#privacy") {
-        setScreen("privacy");
-      } else if (params.get("view") === "terms" || window.location.hash === "#terms") {
-        setScreen("terms");
-      } else if (params.get("view") === "studio" || window.location.hash === "#studio") {
-        setScreen("studio");
-      } else {
-        setScreen("landing");
-      }
+      setScreen(resolveScreenFromLocation());
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
@@ -132,11 +132,12 @@ export function App() {
   useEffect(() => {
     getSessionId();
     initGA();
-    const screenToPage: Record<typeof screen, { path: string; title: string }> = {
+    const screenToPage: Record<Screen, { path: string; title: string }> = {
       landing: { path: "/", title: "AppAssets - App Store & Google Play Screenshot Studio" },
       studio: { path: "/studio", title: "AppAssets Studio - Screenshot Editor" },
       privacy: { path: "/privacy", title: "Privacy Policy - AppAssets" },
       terms: { path: "/terms", title: "Terms and Conditions - AppAssets" },
+      "not-found": { path: "/404", title: "404 Not Found - AppAssets" },
     };
     const current = screenToPage[screen];
     trackPageView(current.path, current.title);
@@ -210,6 +211,61 @@ export function App() {
           dark={dark}
           onToggleDark={() => setDark((prev) => !prev)}
         />
+      </AuthProvider>
+    );
+  }
+
+  if (screen === "not-found") {
+    return (
+      <AuthProvider>
+        <div className="min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-zinc-100 flex flex-col font-sans selection:bg-[#FF6B00]/20 selection:text-[#FF6B00]">
+          <header className="sticky top-0 z-50 w-full border-b border-zinc-200/80 dark:border-zinc-800/80 bg-white/85 dark:bg-black/85 backdrop-blur-md px-6 py-3">
+            <div className="max-w-7xl mx-auto flex items-center justify-between">
+              <a
+                href="/"
+                onClick={(e) => {
+                  if (!isModifiedEvent(e)) {
+                    e.preventDefault();
+                    navigateTo("landing");
+                  }
+                }}
+                className="flex items-center gap-2.5 group cursor-pointer"
+              >
+                <img src="/logo.png" alt="AppAssets Logo" className="size-8 rounded-lg object-cover" />
+                <span className="text-base font-bold tracking-tight text-zinc-900 dark:text-white">
+                  App<span className="text-[#FF6B00]">Assets</span> Studio
+                </span>
+              </a>
+            </div>
+          </header>
+          <main className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+            <div className="max-w-md mx-auto space-y-4">
+              <div className="inline-flex items-center justify-center size-16 rounded-2xl bg-[#FF6B00]/10 text-[#FF6B00] text-2xl font-bold">
+                404
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-zinc-900 dark:text-white">
+                Page Not Found
+              </h1>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                The page you are looking for does not exist or has been moved.
+              </p>
+              <div className="pt-2">
+                <a
+                  href="/"
+                  onClick={(e) => {
+                    if (!isModifiedEvent(e)) {
+                      e.preventDefault();
+                      navigateTo("landing");
+                    }
+                  }}
+                  className="inline-flex items-center justify-center h-10 px-6 rounded-full font-semibold text-xs bg-[#FF6B00] hover:bg-[#FF8A00] text-white transition-all shadow-xs cursor-pointer"
+                >
+                  Return to Home
+                </a>
+              </div>
+            </div>
+          </main>
+        </div>
       </AuthProvider>
     );
   }

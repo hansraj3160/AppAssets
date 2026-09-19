@@ -1,11 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { PassThrough } from "node:stream";
+import { PassThrough, Writable } from "node:stream";
 import {
   aiCopyHandler,
   bannerExportHandler,
+  createStudioRequestHandler,
   exportHandler,
   extractLocalesFromConfig,
   faviconExportHandler,
@@ -17,6 +18,7 @@ import {
   localesHandler,
   MemoryRateLimiter,
   PRESET_LOCALES,
+  MIME,
   renderAppIconCanvas,
   replaceCaptureHandler,
   resolveDeviceFromDimensions,
@@ -1486,10 +1488,10 @@ describe("bannerExportHandler", () => {
       putReqA.method = "PUT";
       putReqA.url = "/api/design";
       putReqA.headers = { "x-session-id": "session-A" };
-      let putCodeA = 0;
+      let _putCodeA = 0;
       const putResA: any = {
         statusCode: 0,
-        end() { putCodeA = this.statusCode || 200; },
+        end() { _putCodeA = this.statusCode || 200; },
       };
       handler(putReqA, putResA);
       putReqA.emit("data", JSON.stringify({ background: "#FF0000", appInfo: { name: "App A" } }));
@@ -1531,6 +1533,127 @@ describe("bannerExportHandler", () => {
       expect(parsedA.appInfo?.name).toBe("App A");
 
       await rm(tmp, { recursive: true, force: true });
+    });
+  });
+
+  describe("Phase 1 AdSense Compliance & Routing", () => {
+    test("MIME map includes text/plain for .txt files", () => {
+      expect(MIME[".txt"]).toBe("text/plain; charset=utf-8");
+    });
+
+    test("ads.txt source file contains verified publisher ID and seller cert", async () => {
+      const adsTxtContent = await readFile(join(import.meta.dirname, "..", "studio", "public", "ads.txt"), "utf8");
+      expect(adsTxtContent).toContain("pub-9354906754361033");
+      expect(adsTxtContent).toContain("f08c47fec0942fa0");
+      expect(adsTxtContent).not.toContain("pub-XXXXXXXXXXXXXXXX");
+    });
+
+    test("Privacy Policy component contains mandatory AdSense disclosures and opt-out links", async () => {
+      const privacyContent = await readFile(join(import.meta.dirname, "..", "studio", "src", "components", "PrivacyPolicy.tsx"), "utf8");
+      expect(privacyContent).toContain("ca-pub-9354906754361033");
+      expect(privacyContent).toContain("Google AdSense");
+      expect(privacyContent).toContain("Google Analytics");
+      expect(privacyContent).toContain("G-DEML3C77ZR");
+      expect(privacyContent).toContain("google.com/settings/ads");
+      expect(privacyContent).toContain("aboutads.info/choices");
+      expect(privacyContent).not.toContain("Zero Ad Tracking");
+    });
+
+    test("AdBanner component enforces non-empty slot ID and prevents duplicate pushes", async () => {
+      const adBannerContent = await readFile(join(import.meta.dirname, "..", "studio", "src", "components", "AdBanner.tsx"), "utf8");
+      expect(adBannerContent).toContain("hasValidSlot");
+      expect(adBannerContent).toContain("isFullyConfiguredAdSlot");
+      expect(adBannerContent).toContain("isPushedRef");
+      expect(adBannerContent).toContain("data-adsbygoogle-status");
+    });
+
+    class MockServerResponse extends Writable {
+      statusCode = 200;
+      headers: Record<string, string> = {};
+      body = "";
+
+      writeHead(code: number, headers?: any) {
+        this.statusCode = code;
+        if (headers) {
+          for (const [k, v] of Object.entries(headers)) {
+            this.headers[k.toLowerCase()] = String(v);
+          }
+        }
+        return this;
+      }
+
+      setHeader(name: string, value: any) {
+        this.headers[name.toLowerCase()] = String(value);
+        return this;
+      }
+
+      getHeader(name: string) {
+        return this.headers[name.toLowerCase()];
+      }
+
+      override _write(chunk: any, _encoding: string, callback: (err?: any) => void) {
+        this.body += chunk.toString();
+        callback();
+      }
+    }
+
+    function testRequest(handler: (req: any, res: any) => void, url: string): Promise<MockServerResponse> {
+      return new Promise((resolve) => {
+        const req: any = {
+          method: "GET",
+          url,
+          headers: {},
+        };
+        const res = new MockServerResponse();
+        res.on("finish", () => resolve(res));
+        handler(req, res);
+      });
+    }
+
+    test("serves /ads.txt with HTTP 200, text/plain; charset=utf-8, and publisher ID", async () => {
+      const handler = createStudioRequestHandler({
+        paths: studioPaths(join(import.meta.dirname, "..", "appassets.config.ts")),
+        cli: ["echo"],
+      });
+      const res = await testRequest(handler, "/ads.txt");
+      expect(res.statusCode).toBe(200);
+      expect(res.headers["content-type"]).toBe("text/plain; charset=utf-8");
+      expect(res.body).toContain("pub-9354906754361033");
+    });
+
+    test("serves known legal and studio routes with HTTP 200 and index.html", async () => {
+      const handler = createStudioRequestHandler({
+        paths: studioPaths(join(import.meta.dirname, "..", "appassets.config.ts")),
+        cli: ["echo"],
+      });
+      for (const route of ["/", "/privacy", "/terms", "/studio"]) {
+        const res = await testRequest(handler, route);
+        expect(res.statusCode).toBe(200);
+        expect(res.headers["content-type"]).toContain("text/html");
+        expect(res.body).toContain("<!doctype html>");
+      }
+    });
+
+    test("serves unknown frontend paths with HTTP 404 and index.html", async () => {
+      const handler = createStudioRequestHandler({
+        paths: studioPaths(join(import.meta.dirname, "..", "appassets.config.ts")),
+        cli: ["echo"],
+      });
+      const res = await testRequest(handler, "/some-random-unknown-page");
+      expect(res.statusCode).toBe(404);
+      expect(res.headers["content-type"]).toContain("text/html");
+      expect(res.body).toContain("<!doctype html>");
+    });
+
+    test("serves unknown API endpoints with HTTP 404 and JSON error", async () => {
+      const handler = createStudioRequestHandler({
+        paths: studioPaths(join(import.meta.dirname, "..", "appassets.config.ts")),
+        cli: ["echo"],
+      });
+      const res = await testRequest(handler, "/api/unknown-action");
+      expect(res.statusCode).toBe(404);
+      expect(res.headers["content-type"]).toContain("application/json");
+      expect(JSON.parse(res.body).error).toBe("Endpoint not found");
     });
   });
 });

@@ -24,6 +24,7 @@ import showcaseImg from "@/assets/show_case_img.png";
 import singleFocusHeroImg from "@/assets/single_focus_hero.png";
 import trioStoryImg from "@/assets/trio_story.png";
 import { Button } from "./ui/button";
+import { isModifiedEvent } from "@/lib/utils";
 
 interface LandingPageProps {
   onStartDesigning: () => void;
@@ -850,31 +851,46 @@ export function LandingPage({
               appassetstudio.com
             </a>
             {onOpenPrivacy ? (
-              <button
-                type="button"
-                onClick={onOpenPrivacy}
+              <a
+                href="/privacy"
+                onClick={(e) => {
+                  if (!isModifiedEvent(e)) {
+                    e.preventDefault();
+                    onOpenPrivacy();
+                  }
+                }}
                 className="hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer"
               >
                 Privacy Policy
-              </button>
+              </a>
             ) : null}
             {onOpenTerms ? (
-              <button
-                type="button"
-                onClick={onOpenTerms}
+              <a
+                href="/terms"
+                onClick={(e) => {
+                  if (!isModifiedEvent(e)) {
+                    e.preventDefault();
+                    onOpenTerms();
+                  }
+                }}
                 className="hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer"
               >
                 Terms & Conditions
-              </button>
+              </a>
             ) : null}
             <span>MIT License</span>
-            <button
-              type="button"
-              onClick={onStartDesigning}
+            <a
+              href="/studio"
+              onClick={(e) => {
+                if (!isModifiedEvent(e)) {
+                  e.preventDefault();
+                  onStartDesigning();
+                }
+              }}
               className="text-[#FF6B00] hover:underline cursor-pointer font-semibold"
             >
               Open Studio
-            </button>
+            </a>
           </div>
         </div>
       </footer>

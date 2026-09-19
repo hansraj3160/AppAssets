@@ -1344,7 +1344,7 @@ function stream(
   });
 }
 
-const MIME: Record<string, string> = {
+export const MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
   ".css": "text/css; charset=utf-8",
@@ -1360,6 +1360,7 @@ const MIME: Record<string, string> = {
   ".woff": "font/woff",
   ".woff2": "font/woff2",
   ".ico": "image/x-icon",
+  ".txt": "text/plain; charset=utf-8",
 };
 
 /** Serve `file` with Range support, so the preview video seeks in the browser. */
@@ -2516,19 +2517,12 @@ export function localesHandler(api: StudioApi): Handler {
 export const STUDIO_DIST = resolve(dirname(fileURLToPath(import.meta.url)), "..", "studio", "dist");
 
 /**
- * Serve the prebuilt studio plus the app's out/web at `/`, with the API on top.
- * Resolves with the URL once listening.
+/**
+ * Creates the HTTP request handler for AppAssets Studio, handling APIs, static assets,
+ * known routes (/privacy, /terms, /studio, /) with HTTP 200, unknown API paths with HTTP 404 JSON,
+ * and unknown frontend routes with HTTP 404 HTML.
  */
-export function serveStudio(
-  api: StudioApi,
-  port = 4321,
-  host = process.env.HOST || "0.0.0.0",
-): Promise<string> {
-  if (!existsSync(join(STUDIO_DIST, "index.html"))) {
-    throw new Error(
-      `No studio build at ${STUDIO_DIST}. In a source checkout run: bun run studio:build`,
-    );
-  }
+export function createStudioRequestHandler(api: StudioApi): Handler {
   const design = designHandler(api);
   const exp = exportHandler(api);
   const expSingle = singleExportHandler(api);
@@ -2543,7 +2537,7 @@ export function serveStudio(
   const icon = iconHandler(api);
   const health = healthHandler(api);
 
-  const server = createServer((req, res) => {
+  return (req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
     const path = url.pathname;
     if (path === "/api/health" || path === "/health") return health(req, res);
@@ -2559,6 +2553,13 @@ export function serveStudio(
     if (path === "/api/replace-capture") return repCapture(req, res);
     if (path === "/api/delete") return del(req, res);
     if (path === "/api/delete-all") return delAll(req, res);
+
+    if (path.startsWith("/api/")) {
+      res.statusCode = 404;
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify({ error: "Endpoint not found" }));
+      return;
+    }
 
     const sessionId = getSessionIdFromRequest(req);
     const sessionPaths = resolveWorkspacePaths(api, sessionId);
@@ -2581,8 +2582,50 @@ export function serveStudio(
       fileIn(STUDIO_DIST, path);
     if (file) return sendFile(req, res, file);
 
-    sendFile(req, res, join(STUDIO_DIST, "index.html"));
-  });
+    const normalizedPath = path.replace(/\/+$/, "") || "/";
+    const isKnownRoute =
+      normalizedPath === "/" ||
+      normalizedPath === "/privacy" ||
+      normalizedPath === "/terms" ||
+      normalizedPath === "/studio";
+
+    const indexPath = join(STUDIO_DIST, "index.html");
+    if (isKnownRoute) {
+      sendFile(req, res, indexPath);
+      return;
+    }
+
+    // For unknown paths, return HTTP 404 status code while serving index.html so client renders 404 view
+    if (existsSync(indexPath)) {
+      res.writeHead(404, {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-store",
+      });
+      createReadStream(indexPath).pipe(res);
+      return;
+    }
+
+    res.statusCode = 404;
+    res.end("Not Found");
+  };
+}
+
+/**
+ * Serve the prebuilt studio plus the app's out/web at `/`, with the API on top.
+ * Resolves with the URL once listening.
+ */
+export function serveStudio(
+  api: StudioApi,
+  port = 4321,
+  host = process.env.HOST || "0.0.0.0",
+): Promise<string> {
+  if (!existsSync(join(STUDIO_DIST, "index.html"))) {
+    throw new Error(
+      `No studio build at ${STUDIO_DIST}. In a source checkout run: bun run studio:build`,
+    );
+  }
+  const handler = createStudioRequestHandler(api);
+  const server = createServer(handler);
 
   // Prune stale guest workspaces on startup and periodically every 2 hours
   const workspacesDir = join(api.paths.configDir, "workspaces");

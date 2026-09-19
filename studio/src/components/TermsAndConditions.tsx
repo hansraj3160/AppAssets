@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import appLogo from "@/assets/logo.png";
 import { Button } from "./ui/button";
+import { isModifiedEvent } from "@/lib/utils";
 
 interface TermsAndConditionsProps {
   onNavigateHome: () => void;
@@ -33,9 +34,14 @@ export function TermsAndConditions({
       {/* Sticky Header */}
       <header className="sticky top-0 z-50 w-full border-b border-zinc-200/80 dark:border-zinc-800/80 bg-white/85 dark:bg-black/85 backdrop-blur-md px-6 py-3 transition-all">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <button
-            type="button"
-            onClick={onNavigateHome}
+          <a
+            href="/"
+            onClick={(e) => {
+              if (!isModifiedEvent(e)) {
+                e.preventDefault();
+                onNavigateHome();
+              }
+            }}
             className="flex items-center gap-2.5 cursor-pointer group text-left border-none bg-transparent p-0"
             aria-label="AppAssets Studio Home"
           >
@@ -57,17 +63,22 @@ export function TermsAndConditions({
                 Screenshot Automation
               </span>
             </div>
-          </button>
+          </a>
 
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={onNavigateHome}
+            <a
+              href="/"
+              onClick={(e) => {
+                if (!isModifiedEvent(e)) {
+                  e.preventDefault();
+                  onNavigateHome();
+                }
+              }}
               className="hidden sm:flex items-center gap-1.5 text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer mr-2"
             >
               <ArrowLeft className="size-3.5" />
               <span>Back to Home</span>
-            </button>
+            </a>
 
             <Button
               type="button"
@@ -381,20 +392,30 @@ export function TermsAndConditions({
           </div>
 
           <div className="flex items-center gap-6">
-            <button
-              type="button"
-              onClick={onNavigateHome}
+            <a
+              href="/"
+              onClick={(e) => {
+                if (!isModifiedEvent(e)) {
+                  e.preventDefault();
+                  onNavigateHome();
+                }
+              }}
               className="hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer"
             >
               Home
-            </button>
-            <button
-              type="button"
-              onClick={onNavigatePrivacy}
+            </a>
+            <a
+              href="/privacy"
+              onClick={(e) => {
+                if (!isModifiedEvent(e)) {
+                  e.preventDefault();
+                  onNavigatePrivacy();
+                }
+              }}
               className="hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer"
             >
               Privacy Policy
-            </button>
+            </a>
             <a
               href="mailto:support@appassetstudio.com"
               className="hover:text-zinc-900 dark:hover:text-white transition-colors flex items-center gap-1.5"
@@ -402,13 +423,18 @@ export function TermsAndConditions({
               <Mail className="size-3.5 text-[#FF6B00]" />
               <span>support@appassetstudio.com</span>
             </a>
-            <button
-              type="button"
-              onClick={onStartDesigning}
+            <a
+              href="/studio"
+              onClick={(e) => {
+                if (!isModifiedEvent(e)) {
+                  e.preventDefault();
+                  onStartDesigning();
+                }
+              }}
               className="text-[#FF6B00] hover:underline cursor-pointer font-semibold"
             >
               Open Studio
-            </button>
+            </a>
           </div>
         </div>
       </footer>

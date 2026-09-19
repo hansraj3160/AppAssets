@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import appLogo from "@/assets/logo.png";
 import { Button } from "./ui/button";
+import { isModifiedEvent } from "@/lib/utils";
 
 interface PrivacyPolicyProps {
   onNavigateHome: () => void;
@@ -33,9 +34,14 @@ export function PrivacyPolicy({
       {/* Sticky Header */}
       <header className="sticky top-0 z-50 w-full border-b border-zinc-200/80 dark:border-zinc-800/80 bg-white/85 dark:bg-black/85 backdrop-blur-md px-6 py-3 transition-all">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <button
-            type="button"
-            onClick={onNavigateHome}
+          <a
+            href="/"
+            onClick={(e) => {
+              if (!isModifiedEvent(e)) {
+                e.preventDefault();
+                onNavigateHome();
+              }
+            }}
             className="flex items-center gap-2.5 cursor-pointer group text-left border-none bg-transparent p-0"
             aria-label="AppAssets Studio Home"
           >
@@ -57,17 +63,22 @@ export function PrivacyPolicy({
                 Screenshot Automation
               </span>
             </div>
-          </button>
+          </a>
 
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={onNavigateHome}
+            <a
+              href="/"
+              onClick={(e) => {
+                if (!isModifiedEvent(e)) {
+                  e.preventDefault();
+                  onNavigateHome();
+                }
+              }}
               className="hidden sm:flex items-center gap-1.5 text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer mr-2"
             >
               <ArrowLeft className="size-3.5" />
               <span>Back to Home</span>
-            </button>
+            </a>
 
             <Button
               type="button"
@@ -156,11 +167,10 @@ export function PrivacyPolicy({
               <div className="p-4 rounded-2xl bg-white dark:bg-zinc-900/80 border border-zinc-200/80 dark:border-zinc-800">
                 <div className="flex items-center gap-2 text-xs font-bold text-zinc-900 dark:text-white mb-1">
                   <Database className="size-4 text-[#FF6B00]" />
-                  <span>Zero Ad Tracking</span>
+                  <span>Ad-Supported Service</span>
                 </div>
                 <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                  We do not sell personal data or use third-party advertising tracking networks or
-                  cross-site profiling cookies.
+                  We do not sell personal data or uploaded screenshots. Third-party advertising partners, including Google AdSense, use cookies to serve ads on this website.
                 </p>
               </div>
             </div>
@@ -255,28 +265,46 @@ export function PrivacyPolicy({
               </ul>
             </section>
 
-            {/* 4. Local Storage and Session Cookies */}
+            {/* 4. Cookies, Analytics & Advertising Disclosures */}
             <section className="space-y-3">
               <h2 className="text-xl font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-                <span className="text-[#FF6B00]">4.</span> Cookies & Local Storage
+                <span className="text-[#FF6B00]">4.</span> Cookies, Analytics & Advertising Disclosures
               </h2>
               <p>
-                We do <strong>not</strong> use invasive third-party tracking cookies or advertising
-                pixels. We use standard browser `localStorage` and `sessionStorage` solely to
-                preserve your workflow:
+                We use local browser storage and specific third-party services to operate the application, analyze usage patterns, and serve advertisements:
               </p>
-              <ul className="list-disc pl-5 space-y-1.5 text-zinc-600 dark:text-zinc-400">
+              <ul className="list-disc pl-5 space-y-2 text-zinc-600 dark:text-zinc-400">
                 <li>
-                  <strong>Theme Preference:</strong> Storing whether you prefer Light or Dark mode
-                  (`appassets_theme`).
+                  <strong>First-Party Storage & Session Cookies:</strong> We store user interface preferences (such as Light or Dark theme via <code>appassets_theme</code>) and a temporary workspace identifier (<code>appassets_session_id</code>) in <code>localStorage</code> and a session cookie to keep user design sessions isolated. You can clear local storage and cookies at any time through your browser settings.
                 </li>
                 <li>
-                  <strong>Design Workspace State:</strong> Remembering active layout, device
-                  selections, and typography between browser sessions so you do not lose unsaved
-                  work.
+                  <strong>Analytics (Google Analytics 4):</strong> We use Google Analytics (measurement ID <code>G-DEML3C77ZR</code>) to measure aggregated website traffic and feature engagement. Google Analytics uses cookies (such as <code>_ga</code>) to distinguish unique visits and monitor service performance.
+                </li>
+                <li>
+                  <strong>Third-Party Advertising (Google AdSense):</strong> We display advertisements served by Google AdSense (publisher ID <code>ca-pub-9354906754361033</code>). Google and its advertising partners use cookies to serve ads based on a user's prior visits to this website or other websites on the Internet.
+                </li>
+                <li>
+                  <strong>Advertising Choices & Settings:</strong> Users may manage personalized advertising preferences or opt out of personalized ads by visiting{" "}
+                  <a
+                    href="https://www.google.com/settings/ads"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#FF6B00] hover:underline"
+                  >
+                    Google Ads Settings
+                  </a>
+                  . Users can also opt out of participating third-party ad vendor cookies by visiting{" "}
+                  <a
+                    href="https://www.aboutads.info/choices/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#FF6B00] hover:underline"
+                  >
+                    aboutads.info
+                  </a>
+                  . Please note that opting out of personalized advertising controls does not disable advertisements entirely; non-personalized or contextual ads will continue to be shown.
                 </li>
               </ul>
-              <p>You can clear your local storage at any time via your browser settings.</p>
             </section>
 
             {/* 5. AI Copywriter & Third-Party APIs */}
@@ -434,21 +462,31 @@ export function PrivacyPolicy({
           </div>
 
           <div className="flex items-center gap-6">
-            <button
-              type="button"
-              onClick={onNavigateHome}
+            <a
+              href="/"
+              onClick={(e) => {
+                if (!isModifiedEvent(e)) {
+                  e.preventDefault();
+                  onNavigateHome();
+                }
+              }}
               className="hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer"
             >
               Home
-            </button>
+            </a>
             {onNavigateTerms ? (
-              <button
-                type="button"
-                onClick={onNavigateTerms}
+              <a
+                href="/terms"
+                onClick={(e) => {
+                  if (!isModifiedEvent(e)) {
+                    e.preventDefault();
+                    onNavigateTerms();
+                  }
+                }}
                 className="hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer"
               >
                 Terms & Conditions
-              </button>
+              </a>
             ) : null}
             <a
               href="mailto:support@appassetstudio.com"
@@ -457,13 +495,18 @@ export function PrivacyPolicy({
               <Mail className="size-3.5 text-[#FF6B00]" />
               <span>support@appassetstudio.com</span>
             </a>
-            <button
-              type="button"
-              onClick={onStartDesigning}
+            <a
+              href="/studio"
+              onClick={(e) => {
+                if (!isModifiedEvent(e)) {
+                  e.preventDefault();
+                  onStartDesigning();
+                }
+              }}
               className="text-[#FF6B00] hover:underline cursor-pointer font-semibold"
             >
               Open Studio
-            </button>
+            </a>
           </div>
         </div>
       </footer>

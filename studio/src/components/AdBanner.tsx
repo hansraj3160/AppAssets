@@ -39,9 +39,19 @@ export function AdBanner({
   const isConfiguredAdSense =
     Boolean(clientId) && clientId.startsWith("ca-pub-") && !clientId.includes("xxxxxxxx");
 
-  // Load Google AdSense script only once when valid credentials exist and user is not Pro/dismissed
+  const hasValidSlot = Boolean(
+    effectiveSlot &&
+    effectiveSlot.trim().length > 0 &&
+    !effectiveSlot.includes("xxxx") &&
+    !effectiveSlot.includes("XXXX"),
+  );
+
+  const isFullyConfiguredAdSlot = isConfiguredAdSense && hasValidSlot;
+  const isPushedRef = useRef(false);
+
+  // Load Google AdSense script only once when valid credentials and slot exist and user is not Pro/dismissed
   useEffect(() => {
-    if (isPro || adDismissed || !isConfiguredAdSense) return;
+    if (isPro || adDismissed || !isFullyConfiguredAdSlot || isPushedRef.current) return;
 
     const existingScript = document.querySelector(`script[src*="pagead2.googlesyndication.com"]`);
     if (!existingScript) {
@@ -54,14 +64,16 @@ export function AdBanner({
     }
 
     try {
-      if (window.adsbygoogle && adRef.current) {
+      if (adRef.current && !adRef.current.getAttribute("data-adsbygoogle-status")) {
+        isPushedRef.current = true;
+        window.adsbygoogle = window.adsbygoogle || [];
         window.adsbygoogle.push({});
       }
     } catch (e) {
       console.warn("AdSense push error or ad blocker detected:", e);
       setIsAdBlockActive(true);
     }
-  }, [isConfiguredAdSense, isPro, adDismissed]);
+  }, [isFullyConfiguredAdSlot, isPro, adDismissed]);
 
   const handleGoPro = () => {
     if (!user) {
@@ -76,8 +88,8 @@ export function AdBanner({
     return null;
   }
 
-  // 1. If Google AdSense is fully configured and ad blocker isn't active, render official AdSense tag
-  if (isConfiguredAdSense && !isAdBlockActive) {
+  // 1. If Google AdSense client & valid slot ID are configured and ad blocker isn't active, render official AdSense tag
+  if (isFullyConfiguredAdSlot && !isAdBlockActive) {
     return (
       <div
         className={`relative flex flex-col items-center overflow-hidden rounded-xl border border-border/70 bg-card/60 p-2 my-2 ${className}`}
