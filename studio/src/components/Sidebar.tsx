@@ -1,4 +1,4 @@
-import { Languages, type LucideIcon, PlayIcon, SmartphoneIcon, TabletIcon } from "lucide-react";
+import { Languages, type LucideIcon, PlayIcon, SmartphoneIcon, TabletIcon, X } from "lucide-react";
 import { RadioGroup as RadioGroupPrimitive } from "radix-ui";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
@@ -66,6 +66,7 @@ export function Sidebar({
   onSceneBadge,
   sceneBackgrounds,
   onSceneBackground,
+  onCloseMobile,
 }: {
   manifest: StoreManifest;
   platform: Platform;
@@ -97,12 +98,26 @@ export function Sidebar({
   onSceneBadge?: (sceneId: string, badge: BadgeData | undefined) => void;
   sceneBackgrounds?: Record<string, string>;
   onSceneBackground?: (sceneId: string, bg: string | undefined) => void;
+  onCloseMobile?: () => void;
 }) {
   const platformDevices = manifest.devices.filter((d) => d.platform === platform);
 
   return (
-    <aside className="flex w-[310px] shrink-0 flex-col overflow-hidden border-r border-border bg-sidebar text-sidebar-foreground">
+    <aside className="flex w-full md:w-[310px] shrink-0 flex-col overflow-hidden border-r border-border bg-sidebar text-sidebar-foreground h-full">
       <div className="sidebar-scroll flex-1 overflow-y-auto p-3.5 space-y-3">
+        {onCloseMobile ? (
+          <div className="flex md:hidden items-center justify-between pb-2 mb-1 border-b border-border/80">
+            <span className="text-xs font-bold text-foreground">Design Settings</span>
+            <button
+              type="button"
+              onClick={onCloseMobile}
+              className="size-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
+              aria-label="Close design settings"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+        ) : null}
         {/* Section 1: Device & Store */}
         <SidebarSection
           id="device-store"

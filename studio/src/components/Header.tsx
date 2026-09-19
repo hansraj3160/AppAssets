@@ -9,6 +9,7 @@ import {
   MoonIcon,
   Package,
   Settings2,
+  SlidersHorizontal,
   Sparkles,
   SunIcon,
   Trash2,
@@ -43,6 +44,7 @@ export function Header({
   appInfo,
   onOpenAppDetails,
   onNavigateToLanding,
+  onToggleMobileSidebar,
 }: {
   manifest: StoreManifest;
   dark: boolean;
@@ -61,6 +63,7 @@ export function Header({
   appInfo?: AppInfo;
   onOpenAppDetails?: () => void;
   onNavigateToLanding?: () => void;
+  onToggleMobileSidebar?: () => void;
 }) {
   const { user, isPro, aiCreditsRemaining, signOutUser, openAuthModal, openUpgradeModal } =
     useAuth();
@@ -212,13 +215,26 @@ export function Header({
   }
 
   return (
-    <header className="relative flex h-16 shrink-0 items-center justify-between border-b border-border bg-card/85 px-6 backdrop-blur-md select-none text-foreground z-30">
+    <header className="relative flex h-16 shrink-0 items-center justify-between border-b border-border bg-card/85 px-3 sm:px-6 backdrop-blur-md select-none text-foreground z-30 gap-2 sm:gap-4 overflow-x-auto md:overflow-x-visible">
       {/* Brand & Theme Toggle */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+        {onToggleMobileSidebar ? (
+          <button
+            type="button"
+            onClick={onToggleMobileSidebar}
+            className="flex md:hidden items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[#FF6B00]/40 bg-[#FF6B00]/10 hover:bg-[#FF6B00]/20 text-[#FF6B00] dark:text-[#FF8A00] text-xs font-semibold shadow-2xs cursor-pointer transition-colors shrink-0"
+            aria-label="Open Design Controls"
+            title="Open Design Controls"
+          >
+            <SlidersHorizontal className="size-3.5" />
+            <span className="hidden xs:inline">Controls</span>
+          </button>
+        ) : null}
+
         <button
           type="button"
           onClick={onNavigateToLanding}
-          className={`flex items-center gap-2.5 text-left transition-all ${
+          className={`flex items-center gap-2 sm:gap-2.5 text-left transition-all ${
             onNavigateToLanding
               ? "cursor-pointer hover:opacity-85 group rounded-lg focus-visible:ring-2 focus-visible:ring-primary p-0.5"
               : "cursor-default"
@@ -228,19 +244,19 @@ export function Header({
           <img
             src={appLogo}
             alt="AppAssets Logo"
-            className="size-7.5 rounded-lg shadow-xs object-cover"
+            className="size-7 sm:size-7.5 rounded-lg shadow-xs object-cover"
           />
           <div className="flex flex-col">
-            <div className="flex items-center text-lg font-bold tracking-tight leading-tight">
+            <div className="flex items-center text-base sm:text-lg font-bold tracking-tight leading-tight">
               <span className="text-foreground">App</span>
               <span className="text-[#FF6B00]">Assets</span>
               {onNavigateToLanding ? (
-                <span className="ml-2 text-[10px] font-semibold bg-muted/80 text-muted-foreground px-1.5 py-0.5 rounded-md group-hover:bg-[#FF6B00]/10 group-hover:text-[#FF6B00] transition-colors border border-border/50">
+                <span className="ml-1.5 sm:ml-2 text-[9px] sm:text-[10px] font-semibold bg-muted/80 text-muted-foreground px-1.5 py-0.5 rounded-md group-hover:bg-[#FF6B00]/10 group-hover:text-[#FF6B00] transition-colors border border-border/50">
                   Home
                 </span>
               ) : null}
             </div>
-            <span className="text-[11px] text-muted-foreground font-normal leading-tight mt-0.5">
+            <span className="text-[11px] text-muted-foreground font-normal leading-tight mt-0.5 hidden lg:inline">
               Beautiful screenshots for the App Store
             </span>
           </div>
@@ -252,67 +268,90 @@ export function Header({
           size="icon"
           onClick={() => onDark(!dark)}
           aria-label={dark ? "Switch to light appearance" : "Switch to dark appearance"}
-          className="size-8.5 rounded-full border-border/80 bg-background/80 hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+          className="size-8 sm:size-8.5 rounded-full border-border/80 bg-background/80 hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer transition-colors shrink-0"
         >
           {dark ? <SunIcon className="size-4" /> : <MoonIcon className="size-4" />}
         </Button>
 
         {/* Dynamic App Info Button & Badge */}
         {onOpenAppDetails ? (
-          <button
-            type="button"
-            onClick={onOpenAppDetails}
-            className="flex items-center gap-2 rounded-xl border border-[#FF6B00]/25 hover:border-[#FF6B00]/50 bg-background/90 hover:bg-[#FF6B00]/5 px-2.5 py-1.5 transition-all cursor-pointer shadow-2xs group max-w-[200px]"
-            title="Click to edit App Name, Category, Description, and Logo"
-          >
-            <div className="relative size-7 shrink-0 rounded-lg overflow-hidden bg-gradient-to-br from-[#FF6B00] via-[#FF8A00] to-[#FFB21A] text-white shadow-xs shadow-[#FF6B00]/25 flex items-center justify-center font-bold text-xs border border-white/20">
-              {appInfo?.icon ? (
-                <img src={appInfo.icon} alt="" className="size-full object-cover" />
-              ) : appInfo?.name ? (
-                <span className="drop-shadow-xs">{appInfo.name.charAt(0).toUpperCase()}</span>
-              ) : (
-                <Sparkles className="size-3.5 text-white fill-white/30 drop-shadow-xs" />
-              )}
-            </div>
+          <>
+            {/* Desktop / Tablet with text */}
+            <button
+              type="button"
+              onClick={onOpenAppDetails}
+              className="hidden sm:flex items-center gap-2 rounded-xl border border-[#FF6B00]/25 hover:border-[#FF6B00]/50 bg-background/90 hover:bg-[#FF6B00]/5 px-2.5 py-1.5 transition-all cursor-pointer shadow-2xs group max-w-[200px]"
+              title="Click to edit App Name, Category, Description, and Logo"
+            >
+              <div className="relative size-7 shrink-0 rounded-lg overflow-hidden bg-gradient-to-br from-[#FF6B00] via-[#FF8A00] to-[#FFB21A] text-white shadow-xs shadow-[#FF6B00]/25 flex items-center justify-center font-bold text-xs border border-white/20">
+                {appInfo?.icon ? (
+                  <img src={appInfo.icon} alt="" className="size-full object-cover" />
+                ) : appInfo?.name ? (
+                  <span className="drop-shadow-xs">{appInfo.name.charAt(0).toUpperCase()}</span>
+                ) : (
+                  <Sparkles className="size-3.5 text-white fill-white/30 drop-shadow-xs" />
+                )}
+              </div>
 
-            <div className="flex flex-col text-left min-w-0">
-              <span className="text-xs font-bold text-foreground leading-tight group-hover:text-[#FF6B00] transition-colors flex items-center gap-1 truncate">
-                <span className="truncate">{appInfo?.name || "App logo"}</span>
-                <Settings2 className="size-3 text-[#FF6B00]/70 group-hover:text-[#FF6B00] group-hover:rotate-45 transition-all shrink-0" />
-              </span>
-              <span className="text-[10px] text-[#FF6B00] dark:text-[#FF8A00] font-medium leading-tight truncate">
-                {appInfo?.category || (appInfo?.name ? "App Details" : "Tap to configure")}
-              </span>
-            </div>
-          </button>
+              <div className="flex flex-col text-left min-w-0">
+                <span className="text-xs font-bold text-foreground leading-tight group-hover:text-[#FF6B00] transition-colors flex items-center gap-1 truncate">
+                  <span className="truncate">{appInfo?.name || "App logo"}</span>
+                  <Settings2 className="size-3 text-[#FF6B00]/70 group-hover:text-[#FF6B00] group-hover:rotate-45 transition-all shrink-0" />
+                </span>
+                <span className="text-[10px] text-[#FF6B00] dark:text-[#FF8A00] font-medium leading-tight truncate">
+                  {appInfo?.category || (appInfo?.name ? "App Details" : "Tap to configure")}
+                </span>
+              </div>
+            </button>
+
+            {/* Mobile icon only */}
+            <button
+              type="button"
+              onClick={onOpenAppDetails}
+              className="flex sm:hidden size-8 rounded-lg border border-[#FF6B00]/25 bg-background/90 hover:bg-[#FF6B00]/5 items-center justify-center cursor-pointer shadow-2xs shrink-0"
+              title="Click to edit App Name, Category, Description, and Logo"
+            >
+              <div className="relative size-6 shrink-0 rounded-md overflow-hidden bg-gradient-to-br from-[#FF6B00] via-[#FF8A00] to-[#FFB21A] text-white flex items-center justify-center font-bold text-[10px]">
+                {appInfo?.icon ? (
+                  <img src={appInfo.icon} alt="" className="size-full object-cover" />
+                ) : appInfo?.name ? (
+                  <span>{appInfo.name.charAt(0).toUpperCase()}</span>
+                ) : (
+                  <Sparkles className="size-3 text-white fill-white/30" />
+                )}
+              </div>
+            </button>
+          </>
         ) : null}
       </div>
 
       {/* Center: View Switcher (Studio Canvas -> Promo Banner -> Store Preview) */}
-      <div className="flex items-center gap-1 rounded-xl bg-muted/60 dark:bg-muted/40 p-1 border border-border/60 shadow-2xs shrink-0">
+      <div className="flex items-center gap-0.5 sm:gap-1 rounded-xl bg-muted/60 dark:bg-muted/40 p-0.5 sm:p-1 border border-border/60 shadow-2xs shrink-0">
         <button
           type="button"
           onClick={() => onViewModeChange?.("editor")}
-          className={`flex items-center whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+          className={`flex items-center whitespace-nowrap rounded-lg px-2 sm:px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
             viewMode === "editor"
               ? "bg-background text-foreground shadow-xs"
               : "text-muted-foreground hover:text-foreground hover:bg-background/40"
           }`}
         >
-          <span>Studio Canvas</span>
+          <span className="hidden sm:inline">Studio Canvas</span>
+          <span className="sm:hidden">Studio</span>
         </button>
 
         <button
           type="button"
           onClick={() => onViewModeChange?.("promo")}
-          className={`flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+          className={`flex items-center gap-1 sm:gap-1.5 whitespace-nowrap rounded-lg px-2 sm:px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
             viewMode === "promo"
               ? "bg-background text-foreground shadow-xs"
               : "text-muted-foreground hover:text-foreground hover:bg-background/40"
           }`}
         >
-          <span>Promo Banner</span>
-          <span className="rounded-full bg-[#FF6B00]/15 px-1.5 py-0.5 text-[9px] font-bold text-[#FF6B00] dark:text-[#FF8A00] leading-none">
+          <span className="hidden sm:inline">Promo Banner</span>
+          <span className="sm:hidden">Promo</span>
+          <span className="hidden sm:inline rounded-full bg-[#FF6B00]/15 px-1.5 py-0.5 text-[9px] font-bold text-[#FF6B00] dark:text-[#FF8A00] leading-none">
             1024×500
           </span>
         </button>
@@ -320,27 +359,28 @@ export function Header({
         <button
           type="button"
           onClick={() => onViewModeChange?.("store")}
-          className={`flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+          className={`flex items-center gap-1 sm:gap-1.5 whitespace-nowrap rounded-lg px-2 sm:px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
             viewMode === "store"
               ? "bg-background text-foreground shadow-xs"
               : "text-muted-foreground hover:text-foreground hover:bg-background/40"
           }`}
         >
-          <span>Store Preview</span>
-          <span className="rounded-full bg-[#FF6B00]/15 px-1.5 py-0.5 text-[9px] font-bold text-[#FF6B00] leading-none">
+          <span className="hidden sm:inline">Store Preview</span>
+          <span className="sm:hidden">Store</span>
+          <span className="hidden sm:inline rounded-full bg-[#FF6B00]/15 px-1.5 py-0.5 text-[9px] font-bold text-[#FF6B00] leading-none">
             Live
           </span>
         </button>
       </div>
 
       {/* Action Buttons: Audit | Remove | Import | Export */}
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center gap-1 sm:gap-2 shrink-0">
         {/* 1. Store Pre-Flight Audit Badge */}
         <button
           type="button"
           onClick={() => setIsAuditModalOpen(true)}
           title={`Store Pre-Flight Audit Score: ${auditResult.score}%\n${auditResult.passedCount}/${auditResult.totalChecks} checks passed.\nClick to view recommendations for Google Play & App Store approval.`}
-          className={`h-8 px-2.5 sm:px-3 gap-1.5 text-xs font-semibold rounded-lg border shadow-2xs cursor-pointer transition-all flex items-center whitespace-nowrap shrink-0 ${
+          className={`h-8 px-2 sm:px-3 gap-1 sm:gap-1.5 text-xs font-semibold rounded-lg border shadow-2xs cursor-pointer transition-all flex items-center whitespace-nowrap shrink-0 ${
             auditResult.score >= 90
               ? "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
               : auditResult.score >= 70
@@ -348,7 +388,8 @@ export function Header({
                 : "bg-red-500/10 hover:bg-red-500/20 text-red-700 dark:text-red-400 border-red-500/30"
           }`}
         >
-          <span>Store Audit</span>
+          <span className="hidden sm:inline">Store Audit</span>
+          <span className="sm:hidden">Audit</span>
           <span className="font-mono text-[11px] font-bold">{auditResult.score}%</span>
           {auditResult.errorCount > 0 && (
             <span
@@ -371,14 +412,14 @@ export function Header({
               onClick={handleClearAll}
               disabled={clearing || !canClear}
               title={canClear ? "Remove all screenshots & reset app details" : "Nothing to remove"}
-              className="h-8 px-2.5 sm:px-3 gap-1.5 text-xs font-medium rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 hover:bg-red-100/80 dark:bg-red-950/25 dark:hover:bg-red-950/45 text-red-600 dark:text-red-400 shadow-2xs cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shrink-0"
+              className="h-8 px-2 sm:px-3 gap-1.5 text-xs font-medium rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 hover:bg-red-100/80 dark:bg-red-950/25 dark:hover:bg-red-950/45 text-red-600 dark:text-red-400 shadow-2xs cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shrink-0"
             >
               {clearing ? (
                 <Loader2Icon className="size-3.5 animate-spin text-red-600 dark:text-red-400" />
               ) : (
                 <Trash2 className="size-3.5 text-red-600 dark:text-red-400" />
               )}
-              <span>{clearing ? "Removing..." : "Remove all"}</span>
+              <span className="hidden sm:inline">{clearing ? "Removing..." : "Remove all"}</span>
             </Button>
           );
         })()}
@@ -389,7 +430,7 @@ export function Header({
         {/* 3. Import screenshots */}
         <ImportButton
           wrapperClassName="shrink-0"
-          className="h-8 px-2.5 sm:px-3 gap-1.5 text-xs font-medium rounded-lg border border-border/80 bg-background hover:bg-muted text-foreground shadow-2xs cursor-pointer transition-colors [&_svg]:size-3.5 whitespace-nowrap shrink-0"
+          className="h-8 px-2 sm:px-3 gap-1.5 text-xs font-medium rounded-lg border border-border/80 bg-background hover:bg-muted text-foreground shadow-2xs cursor-pointer transition-colors [&_svg]:size-3.5 whitespace-nowrap shrink-0"
           label="Import"
         />
 

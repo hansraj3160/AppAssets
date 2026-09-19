@@ -3,6 +3,7 @@ import {
   Loader2Icon,
   type LucideIcon,
   SmartphoneIcon,
+  Sparkles,
   TabletIcon,
   TriangleAlertIcon,
   UploadIcon,
@@ -302,6 +303,11 @@ function Loaded({
       : (manifest.locales[0] ?? ""),
   );
   const [canvasView, setCanvasView] = useState<"editor" | "store" | "promo">("editor");
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [showMobileTip, setShowMobileTip] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return !sessionStorage.getItem("dismissed_mobile_tip");
+  });
   const knownLayout = (key: string | undefined) =>
     key && design.layouts.some((l) => l.key === key) ? key : undefined;
   const { state, set } = useHistory<DesignState>(() => ({
@@ -772,45 +778,120 @@ function Loaded({
         appInfo={appInfo}
         onOpenAppDetails={() => setIsAppDetailsModalOpen(true)}
         onNavigateToLanding={onNavigateToLanding}
+        onToggleMobileSidebar={() => setIsMobileSidebarOpen((prev) => !prev)}
       />
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        <Sidebar
-          manifest={manifest}
-          platform={platform}
-          device={device}
-          locale={locale}
-          background={background}
-          frame={frame}
-          fontFamily={fontFamily}
-          template={template}
-          layout={layout}
-          screenOnly={screenOnly}
-          headlineColor={headlineColor}
-          subheadColor={subheadColor}
-          fontSizeScale={fontSizeScale}
-          onPlatform={selectPlatform}
-          onDevice={setDevice}
-          onLocale={setLocale}
-          onBackground={setBackground}
-          onFrame={setFrame}
-          onFontFamily={setFontFamily}
-          onTemplate={setTemplate}
-          onLayout={setLayout}
-          onScreenOnly={setScreenOnly}
-          onHeadlineColor={setHeadlineColor}
-          onSubheadColor={setSubheadColor}
-          onFontSizeScale={setFontSizeScale}
-          sceneBadges={sceneBadges}
-          onSceneBadge={setSceneBadge}
-          sceneBackgrounds={sceneBackgrounds}
-          onSceneBackground={setSceneBackground}
-          onOpenLocaleManager={() => setIsLocaleModalOpen(true)}
-        />
+        {/* Desktop static sidebar */}
+        <div className="hidden md:flex h-full shrink-0">
+          <Sidebar
+            manifest={manifest}
+            platform={platform}
+            device={device}
+            locale={locale}
+            background={background}
+            frame={frame}
+            fontFamily={fontFamily}
+            template={template}
+            layout={layout}
+            screenOnly={screenOnly}
+            headlineColor={headlineColor}
+            subheadColor={subheadColor}
+            fontSizeScale={fontSizeScale}
+            onPlatform={selectPlatform}
+            onDevice={setDevice}
+            onLocale={setLocale}
+            onBackground={setBackground}
+            onFrame={setFrame}
+            onFontFamily={setFontFamily}
+            onTemplate={setTemplate}
+            onLayout={setLayout}
+            onScreenOnly={setScreenOnly}
+            onHeadlineColor={setHeadlineColor}
+            onSubheadColor={setSubheadColor}
+            onFontSizeScale={setFontSizeScale}
+            sceneBadges={sceneBadges}
+            onSceneBadge={setSceneBadge}
+            sceneBackgrounds={sceneBackgrounds}
+            onSceneBackground={setSceneBackground}
+            onOpenLocaleManager={() => setIsLocaleModalOpen(true)}
+          />
+        </div>
+
+        {/* Mobile Slide-Over Drawer */}
+        {isMobileSidebarOpen ? (
+          <div className="fixed inset-0 z-50 flex md:hidden" role="dialog" aria-modal="true">
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
+              onClick={() => setIsMobileSidebarOpen(false)}
+              aria-hidden="true"
+            />
+            {/* Slide-over panel */}
+            <div className="relative z-10 w-[85vw] max-w-[340px] h-full bg-sidebar shadow-2xl flex flex-col animate-in slide-in-from-left duration-200">
+              <Sidebar
+                manifest={manifest}
+                platform={platform}
+                device={device}
+                locale={locale}
+                background={background}
+                frame={frame}
+                fontFamily={fontFamily}
+                template={template}
+                layout={layout}
+                screenOnly={screenOnly}
+                headlineColor={headlineColor}
+                subheadColor={subheadColor}
+                fontSizeScale={fontSizeScale}
+                onPlatform={selectPlatform}
+                onDevice={setDevice}
+                onLocale={setLocale}
+                onBackground={setBackground}
+                onFrame={setFrame}
+                onFontFamily={setFontFamily}
+                onTemplate={setTemplate}
+                onLayout={setLayout}
+                onScreenOnly={setScreenOnly}
+                onHeadlineColor={setHeadlineColor}
+                onSubheadColor={setSubheadColor}
+                onFontSizeScale={setFontSizeScale}
+                sceneBadges={sceneBadges}
+                onSceneBadge={setSceneBadge}
+                sceneBackgrounds={sceneBackgrounds}
+                onSceneBackground={setSceneBackground}
+                onOpenLocaleManager={() => setIsLocaleModalOpen(true)}
+                onCloseMobile={() => setIsMobileSidebarOpen(false)}
+              />
+            </div>
+          </div>
+        ) : null}
 
         <div className="flex min-w-0 flex-1 flex-col">
+          {/* Mobile recommendation banner (strictly hidden on desktop) */}
+          {showMobileTip ? (
+            <div className="flex md:hidden items-center justify-between px-3 py-1.5 bg-[#FF6B00]/10 border-b border-[#FF6B00]/20 text-[11px] text-foreground shrink-0">
+              <div className="flex items-center gap-1.5 truncate">
+                <Sparkles className="size-3 text-[#FF6B00] shrink-0" />
+                <span className="truncate">
+                  Tip: Studio is best experienced on Mac/Desktop for drag & drop & 4K exports.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMobileTip(false);
+                  sessionStorage.setItem("dismissed_mobile_tip", "1");
+                }}
+                className="p-1 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer ml-2"
+                aria-label="Dismiss tip"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+          ) : null}
+
           <main
-            className="relative grid flex-1 place-items-center overflow-auto p-10"
+            className="relative grid flex-1 place-items-center overflow-auto p-3 sm:p-6 md:p-10"
             onDragEnter={(e) => {
               if (e.dataTransfer.types.includes("Files")) {
                 e.preventDefault();
