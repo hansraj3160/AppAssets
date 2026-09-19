@@ -31,6 +31,8 @@ const PII_KEYS = new Set([
 
 let initialized = false;
 
+export const DEFAULT_MEASUREMENT_ID = "G-DEML3C77ZR";
+
 /** Retrieves the configured GA4 Measurement ID from Vite/Next.js environment variables. */
 export function getMeasurementId(): string {
   const nextPublicId =
@@ -42,7 +44,7 @@ export function getMeasurementId(): string {
       ? import.meta.env.VITE_GA_MEASUREMENT_ID
       : "";
 
-  return (nextPublicId || viteId || "").trim();
+  return (nextPublicId || viteId || DEFAULT_MEASUREMENT_ID).trim();
 }
 
 /** Sanitizes parameters to guarantee no PII is transmitted to GA4. */
