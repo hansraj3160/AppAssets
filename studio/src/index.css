@@ -22,6 +22,12 @@ body,
   height: 100%;
 }
 
+html,
+body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
 /* Wordmark: Brand orange/golden text with a subtle shine sweep */
 .appassets-wordmark,
 .goldie-wordmark {
