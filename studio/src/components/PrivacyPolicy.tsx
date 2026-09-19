@@ -106,14 +106,8 @@ export function PrivacyPolicy({
             </h1>
             <p className="mt-3 text-sm sm:text-base text-zinc-600 dark:text-zinc-400">
               Last updated: September 13, 2026 • Official policy for{" "}
-              <span className="font-semibold text-zinc-900 dark:text-white">
-                App Assets
-              </span>{" "}
-              (
-              <a
-                href="https://appassetstudio.com"
-                className="text-[#FF6B00] hover:underline"
-              >
+              <span className="font-semibold text-zinc-900 dark:text-white">App Assets</span> (
+              <a href="https://appassetstudio.com" className="text-[#FF6B00] hover:underline">
                 appassetstudio.com
               </a>
               )
@@ -143,8 +137,8 @@ export function PrivacyPolicy({
                   <span>100% In-Browser</span>
                 </div>
                 <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                  Your screenshots and images are processed directly on your device
-                  using browser canvas and WebAssembly.
+                  Your screenshots and images are processed directly on your device using browser
+                  canvas and WebAssembly.
                 </p>
               </div>
 
@@ -154,8 +148,8 @@ export function PrivacyPolicy({
                   <span>No Image Storage</span>
                 </div>
                 <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                  We never store, upload, or inspect your private application screenshots
-                  on external servers or databases.
+                  We never store, upload, or inspect your private application screenshots on
+                  external servers or databases.
                 </p>
               </div>
 
@@ -165,8 +159,8 @@ export function PrivacyPolicy({
                   <span>Zero Ad Tracking</span>
                 </div>
                 <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                  We do not sell personal data or use third-party advertising tracking
-                  networks or cross-site profiling cookies.
+                  We do not sell personal data or use third-party advertising tracking networks or
+                  cross-site profiling cookies.
                 </p>
               </div>
             </div>
@@ -180,49 +174,45 @@ export function PrivacyPolicy({
                 <span className="text-[#FF6B00]">1.</span> Introduction
               </h2>
               <p>
-                Welcome to <strong>App Assets</strong> ("we," "our," or "us"),
-                accessible via{" "}
-                <a
-                  href="https://appassetstudio.com"
-                  className="text-[#FF6B00] hover:underline"
-                >
+                Welcome to <strong>App Assets</strong> ("we," "our," or "us"), accessible via{" "}
+                <a href="https://appassetstudio.com" className="text-[#FF6B00] hover:underline">
                   appassetstudio.com
                 </a>
-                . App Assets is designed from the ground up with a privacy-first
-                architecture. We believe that your application screenshots, branding
-                graphics, and app metadata belong solely to you.
+                . App Assets is designed from the ground up with a privacy-first architecture. We
+                believe that your application screenshots, branding graphics, and app metadata
+                belong solely to you.
               </p>
               <p>
-                This Privacy Policy explains what information is collected, how it is
-                handled, and how we ensure your design assets remain private and secure
-                when you use AppAssets Studio.
+                This Privacy Policy explains what information is collected, how it is handled, and
+                how we ensure your design assets remain private and secure when you use AppAssets
+                Studio.
               </p>
             </section>
 
             {/* 2. Client-Side & In-Browser Processing */}
             <section className="space-y-3">
               <h2 className="text-xl font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-                <span className="text-[#FF6B00]">2.</span> Local In-Browser Processing (Screenshots & Media)
+                <span className="text-[#FF6B00]">2.</span> Local In-Browser Processing (Screenshots
+                & Media)
               </h2>
               <p>
-                Unlike traditional cloud design tools, AppAssets Studio runs image
-                manipulation, device frame compositing, background rendering, and color
-                space adjustments <strong>locally in your web browser</strong> or on
-                your local machine.
+                Unlike traditional cloud design tools, AppAssets Studio runs image manipulation,
+                device frame compositing, background rendering, and color space adjustments{" "}
+                <strong>locally in your web browser</strong> or on your local machine.
               </p>
               <ul className="list-disc pl-5 space-y-1.5 text-zinc-600 dark:text-zinc-400">
                 <li>
-                  Your uploaded screenshots, custom backgrounds, and logos remain in your
-                  browser's memory and local environment.
+                  Your uploaded screenshots, custom backgrounds, and logos remain in your browser's
+                  memory and local environment.
                 </li>
                 <li>
-                  We do not transmit your screenshots to remote image analysis servers or
-                  public storage buckets.
+                  We do not transmit your screenshots to remote image analysis servers or public
+                  storage buckets.
                 </li>
                 <li>
-                  Exported packages (`.ZIP` archives containing App Store and Google Play
-                  folders) are assembled directly on your system or streamed directly to
-                  your local download directory.
+                  Exported packages (`.ZIP` archives containing App Store and Google Play folders)
+                  are assembled directly on your system or streamed directly to your local download
+                  directory.
                 </li>
               </ul>
             </section>
@@ -233,19 +223,18 @@ export function PrivacyPolicy({
                 <span className="text-[#FF6B00]">3.</span> Information We Collect
               </h2>
               <p>
-                We minimize data collection to the absolute minimum required to operate
-                the service:
+                We minimize data collection to the absolute minimum required to operate the service:
               </p>
               <ul className="list-disc pl-5 space-y-1.5 text-zinc-600 dark:text-zinc-400">
                 <li>
-                  <strong>No Account Required for Core Tool:</strong> You can create,
-                  customize, and export screenshots completely anonymously without
-                  registering or providing an email address.
+                  <strong>No Account Required for Core Tool:</strong> You can create, customize, and
+                  export screenshots completely anonymously without registering or providing an
+                  email address.
                 </li>
                 <li>
-                  <strong>Optional Account Data:</strong> If you choose to create an
-                  account or sign up for notifications, we collect your email address
-                  strictly for authentication, account management, and service updates.
+                  <strong>Optional Account Data:</strong> If you choose to create an account or sign
+                  up for notifications, we collect your email address strictly for authentication,
+                  account management, and service updates.
                 </li>
                 <li>
                   <strong>Support Communications:</strong> If you contact us via{" "}
@@ -255,14 +244,13 @@ export function PrivacyPolicy({
                   >
                     support@appassetstudio.com
                   </a>
-                  , we collect your email address and message contents solely to resolve
-                  your inquiry.
+                  , we collect your email address and message contents solely to resolve your
+                  inquiry.
                 </li>
                 <li>
-                  <strong>Technical Server Logs:</strong> Standard HTTP web server logs
-                  (such as IP address, user-agent, and requested file path) may be
-                  temporarily recorded for server security, error diagnosis, and DDoS
-                  mitigation.
+                  <strong>Technical Server Logs:</strong> Standard HTTP web server logs (such as IP
+                  address, user-agent, and requested file path) may be temporarily recorded for
+                  server security, error diagnosis, and DDoS mitigation.
                 </li>
               </ul>
             </section>
@@ -273,24 +261,22 @@ export function PrivacyPolicy({
                 <span className="text-[#FF6B00]">4.</span> Cookies & Local Storage
               </h2>
               <p>
-                We do <strong>not</strong> use invasive third-party tracking cookies or
-                advertising pixels. We use standard browser `localStorage` and
-                `sessionStorage` solely to preserve your workflow:
+                We do <strong>not</strong> use invasive third-party tracking cookies or advertising
+                pixels. We use standard browser `localStorage` and `sessionStorage` solely to
+                preserve your workflow:
               </p>
               <ul className="list-disc pl-5 space-y-1.5 text-zinc-600 dark:text-zinc-400">
                 <li>
-                  <strong>Theme Preference:</strong> Storing whether you prefer Light or
-                  Dark mode (`appassets_theme`).
+                  <strong>Theme Preference:</strong> Storing whether you prefer Light or Dark mode
+                  (`appassets_theme`).
                 </li>
                 <li>
-                  <strong>Design Workspace State:</strong> Remembering active layout,
-                  device selections, and typography between browser sessions so you do
-                  not lose unsaved work.
+                  <strong>Design Workspace State:</strong> Remembering active layout, device
+                  selections, and typography between browser sessions so you do not lose unsaved
+                  work.
                 </li>
               </ul>
-              <p>
-                You can clear your local storage at any time via your browser settings.
-              </p>
+              <p>You can clear your local storage at any time via your browser settings.</p>
             </section>
 
             {/* 5. AI Copywriter & Third-Party APIs */}
@@ -299,20 +285,18 @@ export function PrivacyPolicy({
                 <span className="text-[#FF6B00]">5.</span> AI Copywriting Services
               </h2>
               <p>
-                AppAssets Studio includes an optional smart copywriter feature to help
-                generate marketing headlines. If you choose to use this feature:
+                AppAssets Studio includes an optional smart copywriter feature to help generate
+                marketing headlines. If you choose to use this feature:
               </p>
               <ul className="list-disc pl-5 space-y-1.5 text-zinc-600 dark:text-zinc-400">
                 <li>
-                  Only the specific textual prompt (e.g. app category and target
-                  headline context) is transmitted to the language model API.
+                  Only the specific textual prompt (e.g. app category and target headline context)
+                  is transmitted to the language model API.
                 </li>
                 <li>
                   Your screenshot images are <strong>not</strong> sent to the AI model.
                 </li>
-                <li>
-                  We do not use your inputs to train public foundational AI models.
-                </li>
+                <li>We do not use your inputs to train public foundational AI models.</li>
               </ul>
             </section>
 
@@ -326,9 +310,9 @@ export function PrivacyPolicy({
                 <code className="text-xs bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded text-[#FF6B00]">
                   appassetstudio.com
                 </code>{" "}
-                is encrypted in transit using industry-standard Transport Layer Security
-                (TLS/SSL) encryption. Our infrastructure is hosted in secure, ISO-certified
-                cloud data centers with strict access controls.
+                is encrypted in transit using industry-standard Transport Layer Security (TLS/SSL)
+                encryption. Our infrastructure is hosted in secure, ISO-certified cloud data centers
+                with strict access controls.
               </p>
             </section>
 
@@ -338,22 +322,22 @@ export function PrivacyPolicy({
                 <span className="text-[#FF6B00]">7.</span> Your Privacy Rights (GDPR & CCPA)
               </h2>
               <p>
-                Depending on your geographic location (including the European Economic Area
-                under GDPR and California under CCPA/CPRA), you possess rights regarding your
-                personal data:
+                Depending on your geographic location (including the European Economic Area under
+                GDPR and California under CCPA/CPRA), you possess rights regarding your personal
+                data:
               </p>
               <ul className="list-disc pl-5 space-y-1.5 text-zinc-600 dark:text-zinc-400">
                 <li>The right to access, rectify, or delete any personal data we hold.</li>
                 <li>The right to restrict or object to the processing of your data.</li>
                 <li>
-                  The right to data portability and non-discrimination for exercising
-                  privacy rights.
+                  The right to data portability and non-discrimination for exercising privacy
+                  rights.
                 </li>
               </ul>
               <p>
-                Because we do not store your app screenshots or build profiles on you, most
-                user data remains exclusively in your own hands. To exercise any data
-                rights, contact us at{" "}
+                Because we do not store your app screenshots or build profiles on you, most user
+                data remains exclusively in your own hands. To exercise any data rights, contact us
+                at{" "}
                 <a
                   href="mailto:support@appassetstudio.com"
                   className="text-[#FF6B00] hover:underline"
@@ -370,11 +354,10 @@ export function PrivacyPolicy({
                 <span className="text-[#FF6B00]">8.</span> Children's Privacy
               </h2>
               <p>
-                AppAssets Studio is intended for software developers, designers, and
-                app publishers. We do not knowingly collect personal identifiable
-                information from children under the age of 13 (or 16 in certain
-                jurisdictions). If you believe a child has provided us with personal data,
-                please notify us immediately.
+                AppAssets Studio is intended for software developers, designers, and app publishers.
+                We do not knowingly collect personal identifiable information from children under
+                the age of 13 (or 16 in certain jurisdictions). If you believe a child has provided
+                us with personal data, please notify us immediately.
               </p>
             </section>
 
@@ -384,9 +367,9 @@ export function PrivacyPolicy({
                 <span className="text-[#FF6B00]">9.</span> Changes to This Privacy Policy
               </h2>
               <p>
-                We may update this Privacy Policy periodically to reflect enhancements in
-                our technology, legal obligations, or service features. Any changes will be
-                posted on this page with an updated "Last updated" date.
+                We may update this Privacy Policy periodically to reflect enhancements in our
+                technology, legal obligations, or service features. Any changes will be posted on
+                this page with an updated "Last updated" date.
               </p>
             </section>
 
@@ -396,8 +379,8 @@ export function PrivacyPolicy({
                 <span className="text-[#FF6B00]">10.</span> Contact Us
               </h2>
               <p>
-                If you have any questions, suggestions, or concerns regarding this Privacy
-                Policy or your data privacy, please reach out to us:
+                If you have any questions, suggestions, or concerns regarding this Privacy Policy or
+                your data privacy, please reach out to us:
               </p>
               <div className="mt-3 p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 flex items-center gap-3">
                 <Mail className="size-5 text-[#FF6B00] shrink-0" />

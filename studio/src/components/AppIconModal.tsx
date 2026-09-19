@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { trackAssetDownloaded, trackExport, trackToolOpened } from "../lib/analytics";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 
@@ -134,6 +135,12 @@ export function AppIconModal({
   const [scale, setScale] = useState<number>(72); // 72% default safe area, up to 125%
   const [offsetX, setOffsetX] = useState<number>(0); // Relative percentage offset (-100 to 100)
   const [offsetY, setOffsetY] = useState<number>(0);
+
+  useEffect(() => {
+    if (isOpen) {
+      trackToolOpened("app_icon");
+    }
+  }, [isOpen]);
   const [cornerRadius, setCornerRadius] = useState<number>(20); // 20% default squircle
   const [clipCornersOnExport, setClipCornersOnExport] = useState<boolean>(true);
   const [isDragging, setIsDragging] = useState<boolean>(false);
@@ -364,16 +371,38 @@ export function AppIconModal({
   /** Downloads exact store specification icon */
   const handleDownloadIcon = async (size: 512 | 1024, formatName: "GooglePlay" | "AppStore") => {
     setDownloadingFormat(formatName);
+    trackExport("started", {
+      export_type: "app_icon",
+      size,
+      format: formatName,
+    });
     try {
       const dataUrl = await renderMasterCanvas(size);
       const a = document.createElement("a");
       const safeName = appName.trim().replace(/[^\w.-]/g, "_") || "app";
+      const fileName = `${safeName}-${formatName}-icon-${size}x${size}.png`;
       a.href = dataUrl;
-      a.download = `${safeName}-${formatName}-icon-${size}x${size}.png`;
+      a.download = fileName;
       document.body.appendChild(a);
       a.click();
       a.remove();
+
+      trackExport("completed", {
+        export_type: "app_icon",
+        size,
+        format: formatName,
+      });
+      trackAssetDownloaded({
+        asset_type: "app_icon",
+        file_name: fileName,
+      });
     } catch (err) {
+      trackExport("failed", {
+        export_type: "app_icon",
+        size,
+        format: formatName,
+        reason: err instanceof Error ? err.message : String(err),
+      });
       alert(err instanceof Error ? err.message : "Failed to generate icon");
     } finally {
       setDownloadingFormat(null);
@@ -383,6 +412,9 @@ export function AppIconModal({
   /** Downloads complete Favicon & Web Kit (.zip) including favicon.ico, apple-touch-icon, webmanifest, html snippet */
   const handleDownloadFaviconBundle = async () => {
     setDownloadingFavicon(true);
+    trackExport("started", {
+      export_type: "favicon_zip",
+    });
     try {
       const dataUrl = await renderMasterCanvas(512);
       const res = await fetch("/api/export-favicon", {
@@ -408,14 +440,27 @@ export function AppIconModal({
       const blob = await res.blob();
       const downloadUrl = URL.createObjectURL(blob);
       const safeName = appName.trim().replace(/[^\w.-]/g, "_") || "app";
+      const fileName = `${safeName}-favicon-bundle.zip`;
       const a = document.createElement("a");
       a.href = downloadUrl;
-      a.download = `${safeName}-favicon-bundle.zip`;
+      a.download = fileName;
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(downloadUrl);
+
+      trackExport("completed", {
+        export_type: "favicon_zip",
+      });
+      trackAssetDownloaded({
+        asset_type: "favicon_zip",
+        file_name: fileName,
+      });
     } catch (err) {
+      trackExport("failed", {
+        export_type: "favicon_zip",
+        reason: err instanceof Error ? err.message : String(err),
+      });
       console.error("Failed to generate Favicon Kit:", err);
       alert(err instanceof Error ? err.message : "Failed to generate Favicon Kit");
     } finally {

@@ -1,10 +1,11 @@
 import { sendPasswordResetEmail } from "firebase/auth";
 import { CheckCircle2, Loader2, Lock, Mail, Sparkles, X } from "lucide-react";
 import type React from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/AuthContext";
+import { trackAuthEvent } from "@/lib/analytics";
 import { auth } from "@/lib/firebase";
 
 export function AuthModal() {
@@ -19,6 +20,12 @@ export function AuthModal() {
   const [loadingReset, setLoadingReset] = useState(false);
   const [resetSent, setResetSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isAuthModalOpen && mode === "signup") {
+      trackAuthEvent("signup_started", "email");
+    }
+  }, [isAuthModalOpen, mode]);
 
   if (!isAuthModalOpen) return null;
 
@@ -44,6 +51,7 @@ export function AuthModal() {
     setLoadingGoogle(true);
     try {
       await signInWithGoogle();
+      trackAuthEvent(mode === "signup" ? "sign_up" : "login", "google");
     } catch (err: any) {
       setError(err?.message || "Google sign-in failed. Please try again.");
     } finally {
@@ -62,8 +70,10 @@ export function AuthModal() {
     try {
       if (mode === "signin") {
         await signInWithEmail(email, password);
+        trackAuthEvent("login", "email");
       } else {
         await signUpWithEmail(email, password);
+        trackAuthEvent("sign_up", "email");
       }
     } catch (err: any) {
       const msg =

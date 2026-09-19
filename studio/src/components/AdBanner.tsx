@@ -27,8 +27,8 @@ export function AdBanner({
   const [isAdBlockActive, setIsAdBlockActive] = useState(false);
   const adRef = useRef<HTMLModElement | null>(null);
 
-  // Read AdSense Client and Slot IDs from Vite env variables
-  const clientId = import.meta.env.VITE_ADSENSE_CLIENT_ID || "";
+  // Read AdSense Client and Slot IDs from Vite env variables, defaulting to AppAssets publisher ID
+  const clientId = import.meta.env.VITE_ADSENSE_CLIENT_ID || "ca-pub-9354906754361033";
   const effectiveSlot =
     slot ||
     (variant === "sidebar"

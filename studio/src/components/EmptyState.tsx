@@ -142,7 +142,8 @@ export function EmptyState({
       } else {
         if (appName && result.targetPlatform && result.targetDevice) {
           const key = `appassets.view.${appName}`;
-          const current = localStorage.getItem(key) || localStorage.getItem(`goldie.view.${appName}`);
+          const current =
+            localStorage.getItem(key) || localStorage.getItem(`goldie.view.${appName}`);
           const parsed = current ? JSON.parse(current) : {};
           localStorage.setItem(
             key,

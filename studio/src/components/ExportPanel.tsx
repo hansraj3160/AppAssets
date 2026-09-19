@@ -9,6 +9,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { CUSTOM_TEMPLATE } from "../App";
+import { trackAssetDownloaded, trackExport } from "../lib/analytics";
 
 /**
  * The Export panel re-renders framed screenshots and preview video with
@@ -83,6 +84,13 @@ export function ExportPanel({
     setLog("");
     let text = "";
 
+    trackExport("started", {
+      export_type: "store_zip",
+      template: template === CUSTOM_TEMPLATE ? "custom" : template || "none",
+      frame,
+      background,
+    });
+
     try {
       const res = await fetch("/api/export", {
         method: "POST",
@@ -101,6 +109,10 @@ export function ExportPanel({
       if (!res.ok || !res.body) {
         setLog(`${res.status}: ${await res.text()}`);
         setStage("Export failed");
+        trackExport("failed", {
+          export_type: "store_zip",
+          reason: `HTTP ${res.status}`,
+        });
         return;
       }
 
@@ -116,6 +128,14 @@ export function ExportPanel({
 
       if (text.includes("[done]")) {
         setCompleted(true);
+        trackExport("completed", {
+          export_type: "store_zip",
+          template: template === CUSTOM_TEMPLATE ? "custom" : template || "none",
+        });
+        trackAssetDownloaded({
+          asset_type: "zip",
+          file_name: "AppAssets-export.zip",
+        });
         const a = document.createElement("a");
         a.href = "/api/export/download";
         a.download = "AppAssets-export.zip";
@@ -124,6 +144,10 @@ export function ExportPanel({
     } catch (err) {
       setLog(`${text}\n${err instanceof Error ? err.message : err}`);
       setStage("Export encountered an error");
+      trackExport("failed", {
+        export_type: "store_zip",
+        reason: err instanceof Error ? err.message : String(err),
+      });
     } finally {
       setBusy(false);
     }

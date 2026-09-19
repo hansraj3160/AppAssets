@@ -51,7 +51,7 @@ export function LandingPage({
     },
     {
       q: "Which devices and screen resolutions are supported?",
-      a: "We support official dimensions required by App Store Connect and Google Play Console, including 6.9\" iPhone 16 Pro Max, 6.5\" iPhone Plus, 13\" iPad Pro, Pixel 10 Pro, and standard Android phone/tablet specs, as well as the 1024×500 Google Play Feature Graphic.",
+      a: 'We support official dimensions required by App Store Connect and Google Play Console, including 6.9" iPhone 16 Pro Max, 6.5" iPhone Plus, 13" iPad Pro, Pixel 10 Pro, and standard Android phone/tablet specs, as well as the 1024×500 Google Play Feature Graphic.',
     },
     {
       q: "Are my app screenshots and private data safe?",
@@ -208,10 +208,7 @@ export function LandingPage({
             >
               Store Audit
             </a>
-            <a
-              href="#faq"
-              className="hover:text-zinc-900 dark:hover:text-white transition-colors"
-            >
+            <a href="#faq" className="hover:text-zinc-900 dark:hover:text-white transition-colors">
               FAQ
             </a>
           </nav>
@@ -270,8 +267,8 @@ export function LandingPage({
 
               {/* Subtitle */}
               <p className="mt-5 text-base sm:text-lg text-zinc-600 dark:text-zinc-400 leading-relaxed max-w-xl">
-                AppAssets is a professional browser-based editor for creating
-                App Store, Google Play, and web screenshots, device mockups, and app icons in minutes.
+                AppAssets is a professional browser-based editor for creating App Store, Google
+                Play, and web screenshots, device mockups, and app icons in minutes.
               </p>
 
               <h2 className="mt-4 text-sm sm:text-base font-semibold text-zinc-800 dark:text-zinc-300">
@@ -349,8 +346,8 @@ export function LandingPage({
             <span>Loved by Indie Developers on Product Hunt & GitHub</span>
           </div>
           <blockquote className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-zinc-900 dark:text-white leading-tight">
-            &ldquo;For the first time, I didn't dread making store screenshots.
-            I finished a polished set in one sitting.&rdquo;
+            &ldquo;For the first time, I didn't dread making store screenshots. I finished a
+            polished set in one sitting.&rdquo;
           </blockquote>
           <div className="mt-6 flex items-center justify-center gap-1 text-[#FFB21A]">
             {[1, 2, 3, 4, 5].map((star) => (
@@ -361,7 +358,10 @@ export function LandingPage({
       </section>
 
       {/* 4. Showcase Section ("Showcase for Every App Category") */}
-      <section id="showcase" className="py-20 lg:py-28 bg-white dark:bg-black px-6 border-b border-zinc-200/80 dark:border-zinc-800">
+      <section
+        id="showcase"
+        className="py-20 lg:py-28 bg-white dark:bg-black px-6 border-b border-zinc-200/80 dark:border-zinc-800"
+      >
         <div className="max-w-7xl mx-auto">
           <div className="text-center max-w-2xl mx-auto mb-12">
             <span className="text-xs font-bold uppercase tracking-wider text-[#FF6B00] dark:text-[#FF8A00]">
@@ -371,7 +371,8 @@ export function LandingPage({
               Beautiful Screenshots for Every App Category
             </h2>
             <p className="mt-3 text-sm sm:text-base text-zinc-600 dark:text-zinc-400">
-              See how modern apps present their features. Select any category to jump straight into designing.
+              See how modern apps present their features. Select any category to jump straight into
+              designing.
             </p>
 
             {/* Category Selector Pills */}
@@ -381,10 +382,11 @@ export function LandingPage({
                   key={item.id}
                   type="button"
                   onClick={() => setActiveShowcaseCategory(item.id)}
-                  className={`px-4 py-2 rounded-full text-xs font-semibold transition-all cursor-pointer ${activeShowcaseCategory === item.id
-                    ? "bg-[#FF6B00] text-white shadow-sm"
-                    : "bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
-                    }`}
+                  className={`px-4 py-2 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                    activeShowcaseCategory === item.id
+                      ? "bg-[#FF6B00] text-white shadow-sm"
+                      : "bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+                  }`}
                 >
                   {item.name}
                 </button>
@@ -399,10 +401,11 @@ export function LandingPage({
               return (
                 <div
                   key={cat.id}
-                  className={`rounded-3xl p-6 border transition-all duration-300 flex flex-col justify-between ${isSelected
-                    ? "bg-zinc-50 dark:bg-zinc-900/90 border-[#FF6B00]/60 dark:border-[#FF6B00]/70 shadow-md scale-102 ring-2 ring-[#FF6B00]/20"
-                    : "bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800/80 shadow-xs hover:border-zinc-300"
-                    }`}
+                  className={`rounded-3xl p-6 border transition-all duration-300 flex flex-col justify-between ${
+                    isSelected
+                      ? "bg-zinc-50 dark:bg-zinc-900/90 border-[#FF6B00]/60 dark:border-[#FF6B00]/70 shadow-md scale-102 ring-2 ring-[#FF6B00]/20"
+                      : "bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800/80 shadow-xs hover:border-zinc-300"
+                  }`}
                 >
                   <div>
                     <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
@@ -417,7 +420,9 @@ export function LandingPage({
                   </div>
 
                   {/* Visual Card Preview */}
-                  <div className={`mt-6 h-48 rounded-2xl bg-gradient-to-br ${cat.gradient} p-4 text-white flex flex-col justify-between shadow-inner relative overflow-hidden`}>
+                  <div
+                    className={`mt-6 h-48 rounded-2xl bg-gradient-to-br ${cat.gradient} p-4 text-white flex flex-col justify-between shadow-inner relative overflow-hidden`}
+                  >
                     <div className="flex justify-between items-center text-[10px] font-semibold opacity-90">
                       <span>9:41</span>
                       <span>5G 100%</span>
@@ -443,7 +448,10 @@ export function LandingPage({
       </section>
 
       {/* 5. Bento Grid Features Section ("Everything You Need to Create Stunning Screenshots") */}
-      <section id="features" className="py-20 lg:py-28 bg-zinc-50 dark:bg-zinc-950 px-6 border-b border-zinc-200/80 dark:border-zinc-800">
+      <section
+        id="features"
+        className="py-20 lg:py-28 bg-zinc-50 dark:bg-zinc-950 px-6 border-b border-zinc-200/80 dark:border-zinc-800"
+      >
         <div className="max-w-7xl mx-auto">
           <div className="text-center max-w-2xl mx-auto mb-16">
             <span className="text-xs font-bold uppercase tracking-wider text-[#FF6B00] dark:text-[#FF8A00]">
@@ -453,7 +461,8 @@ export function LandingPage({
               Everything You Need to Create Stunning Screenshots
             </h2>
             <p className="mt-3 text-sm sm:text-base text-zinc-600 dark:text-zinc-400">
-              No design skills needed. From raw screenshots to fully compliant store packages in seconds.
+              No design skills needed. From raw screenshots to fully compliant store packages in
+              seconds.
             </p>
           </div>
 
@@ -468,9 +477,9 @@ export function LandingPage({
                   Design Anytime Anywhere — 100% In-Browser
                 </h3>
                 <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-2 leading-relaxed max-w-xl">
-                  Run directly in your browser without installing heavy design software.
-                  All hardware frame compositing, background rendering, and packaging
-                  execute natively on your machine with total privacy.
+                  Run directly in your browser without installing heavy design software. All
+                  hardware frame compositing, background rendering, and packaging execute natively
+                  on your machine with total privacy.
                 </p>
               </div>
 
@@ -500,8 +509,8 @@ export function LandingPage({
                   Pre-Flight Store Audit
                 </h3>
                 <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-2 leading-relaxed">
-                  Real-time validation against 11 Apple & Google Play review criteria.
-                  Catches missing sizes, transparent icons, and WCAG contrast issues.
+                  Real-time validation against 11 Apple & Google Play review criteria. Catches
+                  missing sizes, transparent icons, and WCAG contrast issues.
                 </p>
               </div>
               <div className="mt-6 pt-4 border-t border-zinc-100 dark:border-zinc-800 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
@@ -519,8 +528,8 @@ export function LandingPage({
                   Smart Copy Generation
                 </h3>
                 <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-2 leading-relaxed">
-                  Tailor high-converting headlines and subheads to your app category
-                  with 1 click. Never struggle with marketing captions again.
+                  Tailor high-converting headlines and subheads to your app category with 1 click.
+                  Never struggle with marketing captions again.
                 </p>
               </div>
               <div className="mt-6 pt-4 border-t border-zinc-100 dark:border-zinc-800 text-xs font-semibold text-zinc-500">
@@ -538,8 +547,8 @@ export function LandingPage({
                   1024×500 Feature Graphic
                 </h3>
                 <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-2 leading-relaxed">
-                  Instantly outputs the mandatory Google Play promo graphic and App Store
-                  promo banner with customizable focal points and hardware bezels.
+                  Instantly outputs the mandatory Google Play promo graphic and App Store promo
+                  banner with customizable focal points and hardware bezels.
                 </p>
               </div>
               <div className="mt-6 pt-4 border-t border-zinc-100 dark:border-zinc-800 text-xs font-semibold text-[#FF6B00]">
@@ -557,8 +566,8 @@ export function LandingPage({
                   1-Click Formatted ZIP
                 </h3>
                 <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-2 leading-relaxed">
-                  Exports cleanly organized folders (`AppStore/`, `GooglePlay/`, `Favicon Kit`)
-                  with exact naming conventions and an upload guide.
+                  Exports cleanly organized folders (`AppStore/`, `GooglePlay/`, `Favicon Kit`) with
+                  exact naming conventions and an upload guide.
                 </p>
               </div>
               <div className="mt-6 pt-4 border-t border-zinc-100 dark:border-zinc-800 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
@@ -570,7 +579,10 @@ export function LandingPage({
       </section>
 
       {/* 6. Layout Templates Showcase */}
-      <section id="templates" className="py-20 lg:py-28 bg-white dark:bg-black px-6 border-b border-zinc-200/80 dark:border-zinc-800">
+      <section
+        id="templates"
+        className="py-20 lg:py-28 bg-white dark:bg-black px-6 border-b border-zinc-200/80 dark:border-zinc-800"
+      >
         <div className="max-w-7xl mx-auto">
           <div className="text-center max-w-2xl mx-auto mb-12">
             <span className="text-xs font-bold uppercase tracking-wider text-[#FF6B00] dark:text-[#FF8A00]">
@@ -590,10 +602,11 @@ export function LandingPage({
                   key={key}
                   type="button"
                   onClick={() => setSelectedTemplateTab(key)}
-                  className={`px-4 py-2 rounded-full text-xs font-semibold transition-all cursor-pointer ${selectedTemplateTab === key
-                    ? "bg-[#FF6B00] text-white shadow-sm"
-                    : "bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
-                    }`}
+                  className={`px-4 py-2 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                    selectedTemplateTab === key
+                      ? "bg-[#FF6B00] text-white shadow-sm"
+                      : "bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+                  }`}
                 >
                   {t.title}
                 </button>
@@ -658,7 +671,10 @@ export function LandingPage({
       </section>
 
       {/* 7. Store Pre-Flight Audit Section */}
-      <section id="audit" className="py-20 lg:py-28 bg-zinc-50 dark:bg-zinc-950 px-6 border-b border-zinc-200/80 dark:border-zinc-800">
+      <section
+        id="audit"
+        className="py-20 lg:py-28 bg-zinc-50 dark:bg-zinc-950 px-6 border-b border-zinc-200/80 dark:border-zinc-800"
+      >
         <div className="max-w-5xl mx-auto rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-8 sm:p-12 shadow-xs">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
             <div className="space-y-4">
@@ -670,10 +686,10 @@ export function LandingPage({
                 Zero Rejections with Built-in Store Audit
               </h2>
               <p className="text-sm sm:text-base text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                Both Apple App Store and Google Play have strict listing requirements.
-                AppAssets audits your screenshots and app icon in real time, scoring
-                them from 0% to 100% store-readiness with 1-click fixes for missing
-                screens, transparent icons, or contrast issues.
+                Both Apple App Store and Google Play have strict listing requirements. AppAssets
+                audits your screenshots and app icon in real time, scoring them from 0% to 100%
+                store-readiness with 1-click fixes for missing screens, transparent icons, or
+                contrast issues.
               </p>
               <div className="pt-2">
                 <Button
@@ -699,20 +715,30 @@ export function LandingPage({
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/60">
-                  <span className="text-zinc-700 dark:text-zinc-300">iPhone 6.9" Required Captures</span>
-                  <span className="text-emerald-600 dark:text-emerald-400 font-bold">Passed (4+)</span>
+                  <span className="text-zinc-700 dark:text-zinc-300">
+                    iPhone 6.9" Required Captures
+                  </span>
+                  <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                    Passed (4+)
+                  </span>
                 </div>
                 <div className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/60">
-                  <span className="text-zinc-700 dark:text-zinc-300">Google Play 512×512 Opaque Icon</span>
+                  <span className="text-zinc-700 dark:text-zinc-300">
+                    Google Play 512×512 Opaque Icon
+                  </span>
                   <span className="text-emerald-600 dark:text-emerald-400 font-bold">Verified</span>
                 </div>
                 <div className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/60">
-                  <span className="text-zinc-700 dark:text-zinc-300">Apple 1024×1024 Master Icon</span>
+                  <span className="text-zinc-700 dark:text-zinc-300">
+                    Apple 1024×1024 Master Icon
+                  </span>
                   <span className="text-emerald-600 dark:text-emerald-400 font-bold">Verified</span>
                 </div>
                 <div className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/60">
                   <span className="text-zinc-700 dark:text-zinc-300">WCAG Text Contrast Ratio</span>
-                  <span className="text-emerald-600 dark:text-emerald-400 font-bold">Passed (4.5:1)</span>
+                  <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                    Passed (4.5:1)
+                  </span>
                 </div>
               </div>
             </div>
@@ -721,7 +747,10 @@ export function LandingPage({
       </section>
 
       {/* 8. FAQ Section (Clean Accordion) */}
-      <section id="faq" className="py-20 lg:py-28 bg-white dark:bg-black px-6 border-b border-zinc-200/80 dark:border-zinc-800">
+      <section
+        id="faq"
+        className="py-20 lg:py-28 bg-white dark:bg-black px-6 border-b border-zinc-200/80 dark:border-zinc-800"
+      >
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-12">
             <span className="text-xs font-bold uppercase tracking-wider text-[#FF6B00] dark:text-[#FF8A00]">
@@ -745,8 +774,9 @@ export function LandingPage({
                 >
                   <span>{f.q}</span>
                   <ChevronDown
-                    className={`size-4 text-zinc-500 shrink-0 transition-transform duration-200 ${activeFaq === i ? "rotate-180 text-zinc-900 dark:text-white" : ""
-                      }`}
+                    className={`size-4 text-zinc-500 shrink-0 transition-transform duration-200 ${
+                      activeFaq === i ? "rotate-180 text-zinc-900 dark:text-white" : ""
+                    }`}
                   />
                 </button>
                 {activeFaq === i ? (
@@ -770,8 +800,8 @@ export function LandingPage({
               Ready to Upgrade Your App Store Presence?
             </h2>
             <p className="text-zinc-600 dark:text-zinc-400 text-sm sm:text-base leading-relaxed">
-              Create professional, submission-ready screenshots for iOS and Android
-              in minutes with zero design friction.
+              Create professional, submission-ready screenshots for iOS and Android in minutes with
+              zero design friction.
             </p>
             <div className="pt-4 flex justify-center">
               <Button

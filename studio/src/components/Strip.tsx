@@ -26,6 +26,12 @@ import {
 } from "../../../src/layouts";
 import { CUSTOM_TEMPLATE } from "../App";
 import {
+  trackAppImported,
+  trackAssetDownloaded,
+  trackExport,
+  trackScreenshotGeneration,
+} from "../lib/analytics";
+import {
   type AppInfo,
   type Decoration,
   type Design,
@@ -361,9 +367,14 @@ export async function downloadSingleScreenshot({
     params.set("fontSizeScale", String(fontSizeScale));
   }
 
+  trackScreenshotGeneration("started", { device, scene_id: sceneId });
+  trackExport("started", { export_type: "single_png", device, scene_id: sceneId });
+
   const res = await fetch(`/api/export-single?${params.toString()}`);
   if (!res.ok) {
     const errorText = await res.text().catch(() => "Download failed");
+    trackScreenshotGeneration("failed", { device, scene_id: sceneId, reason: errorText });
+    trackExport("failed", { export_type: "single_png", device, reason: errorText });
     throw new Error(errorText || "Download failed");
   }
 
@@ -372,11 +383,16 @@ export async function downloadSingleScreenshot({
   const a = document.createElement("a");
   a.href = url;
   const sliceSuffix = slice && slice > 1 ? `-${slice}` : "";
-  a.download = `${sceneId}${sliceSuffix}-${device}.png`;
+  const fileName = `${sceneId}${sliceSuffix}-${device}.png`;
+  a.download = fileName;
   document.body.appendChild(a);
   a.click();
   window.URL.revokeObjectURL(url);
   a.remove();
+
+  trackScreenshotGeneration("generated", { device, scene_id: sceneId });
+  trackExport("completed", { export_type: "single_png", device });
+  trackAssetDownloaded({ asset_type: "png", file_name: fileName });
 }
 
 export function Strip({
@@ -713,6 +729,12 @@ export function Strip({
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || `Failed with status ${res.status}`);
       }
+      trackAppImported({
+        source: "file_upload",
+        import_type: "replace_capture",
+        device: tileSpec.key,
+        scene_id: sceneId,
+      });
       sessionStorage.setItem(
         "appassets_toast",
         `✨ Updated capture for scene "${sceneId}" on ${tileSpec.key}`,

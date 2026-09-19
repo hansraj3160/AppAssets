@@ -15,6 +15,7 @@ import {
   Upload,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { trackAssetDownloaded, trackExport, trackToolOpened } from "../lib/analytics";
 import type {
   AppInfo,
   Design,
@@ -256,6 +257,10 @@ export function PromoBannersStudio({
   const [showSafeArea, setShowSafeArea] = useState(false);
   const [safeAreaMargin, setSafeAreaMargin] = useState<"15%" | "20%" | "8%">("15%");
   const [deviceCount, setDeviceCount] = useState<"single" | "duo" | "trio">("trio");
+
+  useEffect(() => {
+    trackToolOpened("promo_banners");
+  }, []);
 
   // Screenshots available to feature inside the banner
   const screenshotEntries: ScreenshotEntry[] = useMemo(() => {
@@ -960,6 +965,11 @@ export function PromoBannersStudio({
 
   const handleDownload = async () => {
     setIsDownloading(true);
+    trackExport("started", {
+      export_type: "banner",
+      format: selectedFormat,
+      resolution: exportResolution,
+    });
     try {
       const payload = getExportPayload();
       let blob: Blob | null = null;
@@ -993,15 +1003,31 @@ export function PromoBannersStudio({
       const isRetina = exportResolution === "2x";
       const outW = isRetina ? activeFormat.width * 2 : activeFormat.width;
       const outH = isRetina ? activeFormat.height * 2 : activeFormat.height;
+      const fileName = `${selectedFormat}-${outW}x${outH}${isRetina ? "@2x" : ""}.png`;
       const blobUrl = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = blobUrl;
-      a.download = `${selectedFormat}-${outW}x${outH}${isRetina ? "@2x" : ""}.png`;
+      a.download = fileName;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(blobUrl);
       a.remove();
+
+      trackExport("completed", {
+        export_type: "banner",
+        format: selectedFormat,
+        resolution: exportResolution,
+      });
+      trackAssetDownloaded({
+        asset_type: "banner",
+        file_name: fileName,
+      });
     } catch (err) {
+      trackExport("failed", {
+        export_type: "banner",
+        format: selectedFormat,
+        reason: err instanceof Error ? err.message : String(err),
+      });
       alert(err instanceof Error ? err.message : "Failed to download banner");
     } finally {
       setIsDownloading(false);

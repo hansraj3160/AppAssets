@@ -9,6 +9,7 @@ import {
 import { doc, getDoc, increment, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
 import type React from "react";
 import { createContext, useContext, useEffect, useState } from "react";
+import { setUserProperties } from "@/lib/analytics";
 import { auth, db, googleProvider } from "@/lib/firebase";
 
 export interface UserProfile {
@@ -112,6 +113,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (unsubscribeProfile) unsubscribeProfile();
     };
   }, []);
+
+  useEffect(() => {
+    if (profile) {
+      setUserProperties({ is_pro: profile.isPro, plan: profile.plan });
+    } else {
+      setUserProperties({ is_pro: false, plan: "free" });
+    }
+  }, [profile]);
 
   const signInWithGoogle = async () => {
     try {

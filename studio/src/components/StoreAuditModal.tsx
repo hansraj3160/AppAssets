@@ -9,8 +9,9 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { trackToolOpened } from "../lib/analytics";
 import type { AuditAction, AuditCheckItem, StoreAuditResult } from "../lib/storeAudit";
 import { Button } from "./ui/button";
 
@@ -30,6 +31,15 @@ export function StoreAuditModal({
   onExportZip,
 }: StoreAuditModalProps) {
   const [selectedTab, setSelectedTab] = useState<"all" | "google-play" | "app-store">("all");
+
+  useEffect(() => {
+    if (isOpen) {
+      trackToolOpened("store_audit", {
+        score: auditResult.score,
+        is_store_ready: auditResult.isStoreReady,
+      });
+    }
+  }, [isOpen, auditResult.score, auditResult.isStoreReady]);
 
   if (!isOpen) return null;
   if (typeof document === "undefined") return null;

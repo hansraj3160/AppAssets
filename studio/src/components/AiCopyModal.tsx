@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../context/AuthContext";
+import { trackAiCopyGenerated, trackToolOpened } from "../lib/analytics";
 import type { AppInfo, StoreManifest } from "../manifest";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -92,6 +93,12 @@ export function AiCopyModal({
     }, 1000);
     return () => clearInterval(timer);
   }, [cooldownSeconds]);
+
+  useEffect(() => {
+    if (isOpen) {
+      trackToolOpened("ai_copywriter", { scene_id: sceneId });
+    }
+  }, [isOpen, sceneId]);
 
   const fetchAiSuggestions = useCallback(
     async (overrideTone?: string) => {
@@ -177,6 +184,11 @@ export function AiCopyModal({
         setCooldownSeconds(null);
         setScreenAnalysis(data.screenAnalysis || null);
         setSuggestions(data.suggestions || []);
+        trackAiCopyGenerated({
+          scene_id: sceneId,
+          tone: overrideTone ?? selectedTone,
+          char_count: data.suggestions?.[0]?.headline?.length,
+        });
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
       } finally {
