@@ -25,6 +25,7 @@ import { ImportButton } from "./ImportButton";
 import { StoreAuditModal } from "./StoreAuditModal";
 import { Button } from "./ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { apiFetch } from "../lib/api";
 
 export function Header({
   manifest,
@@ -100,7 +101,7 @@ export function Header({
     if (!window.confirm("Are you sure you want to remove all screenshots?")) return;
     setClearing(true);
     try {
-      const res = await fetch("/api/delete-all", {
+      const res = await apiFetch("/api/delete-all", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });
@@ -167,7 +168,7 @@ export function Header({
       setExportStage("Starting store export engine...");
 
       const font = fontKey(manifest.design, fontFamily);
-      const res = await fetch("/api/export", {
+      const res = await apiFetch("/api/export", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

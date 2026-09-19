@@ -1,6 +1,7 @@
 import { ImagePlusIcon, Loader2Icon } from "lucide-react";
 import { type ChangeEvent, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { apiFetch } from "@/lib/api";
 
 export function ImportButton({
   className,
@@ -74,7 +75,7 @@ export function ImportButton({
         Array.from(files).map((file) => readFileAsDataUrl(file)),
       );
 
-      const response = await fetch("/api/import", {
+      const response = await apiFetch("/api/import", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

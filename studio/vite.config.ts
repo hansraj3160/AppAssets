@@ -1,4 +1,4 @@
-import { createReadStream, existsSync } from "node:fs";
+import { createReadStream, existsSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
@@ -19,6 +19,8 @@ import {
   type StudioApi,
   singleExportHandler,
   studioPaths,
+  getSessionIdFromRequest,
+  resolveWorkspacePaths,
 } from "../src/studio-server.ts";
 
 const SRC_DIR = resolve(import.meta.dirname, "src");
@@ -89,6 +91,26 @@ function appassetsApi(): Plugin {
       server.middlewares.use("/api/delete-all", delAll);
       server.middlewares.use("/api/delete", del);
       server.middlewares.use((req, res, next) => {
+        const sessionId = getSessionIdFromRequest(req);
+        if (sessionId !== "default") {
+          const sessionPaths = resolveWorkspacePaths(api, sessionId);
+          const rawUrl = req.url ?? "/";
+          const path = rawUrl.split("?")[0]!;
+
+          if (path === "/store.json" && existsSync(join(sessionPaths.webDir, "store.json"))) {
+            res.setHeader("Content-Type", "application/json");
+            res.setHeader("Cache-Control", "no-store");
+            createReadStream(join(sessionPaths.webDir, "store.json")).pipe(res);
+            return;
+          }
+
+          const sessionFilePath = join(sessionPaths.webDir, path.replace(/^\//, ""));
+          if (existsSync(sessionFilePath) && statSync(sessionFilePath).isFile()) {
+            createReadStream(sessionFilePath).pipe(res);
+            return;
+          }
+        }
+
         if (req.url?.endsWith(".png")) {
           const filePath = join(STUDIO_PUBLIC, req.url.slice(1));
           if (existsSync(filePath)) {

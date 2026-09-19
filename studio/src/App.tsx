@@ -26,6 +26,8 @@ import { TermsAndConditions } from "./components/TermsAndConditions";
 import { UpgradeModal } from "./components/UpgradeModal";
 import { AuthProvider } from "./context/AuthContext";
 import { initGA, trackAppImported, trackPageView, trackToolOpened } from "./lib/analytics";
+import { apiFetch } from "./lib/api";
+import { getSessionId } from "./lib/session";
 import { useHistory } from "./lib/useHistory";
 import {
   type AppInfo,
@@ -128,6 +130,7 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    getSessionId();
     initGA();
     const screenToPage: Record<typeof screen, { path: string; title: string }> = {
       landing: { path: "/", title: "AppAssets - App Store & Google Play Screenshot Studio" },
@@ -711,7 +714,7 @@ function Loaded({
     setIsImporting(true);
     try {
       const payloads = await Promise.all(files.map((file) => readFileData(file)));
-      const res = await fetch("/api/import", {
+      const res = await apiFetch("/api/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

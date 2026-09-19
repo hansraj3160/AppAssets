@@ -1419,4 +1419,118 @@ describe("bannerExportHandler", () => {
       expect(typeof parsed.timestamp).toBe("string");
     });
   });
+
+  describe("Multi-Tenant Session & Workspace Isolation", () => {
+    test("getSessionIdFromRequest correctly extracts and sanitizes session ID", async () => {
+      const { getSessionIdFromRequest } = await import("./studio-server.ts");
+
+      // Header priority
+      const reqWithHeader: any = {
+        headers: { "x-session-id": "user_abc-123!@#" },
+        url: "/api/design",
+      };
+      expect(getSessionIdFromRequest(reqWithHeader)).toBe("user_abc-123");
+
+      // Cookie fallback
+      const reqWithCookie: any = {
+        headers: { cookie: "other=val; appassets_session_id=guest_xyz-789; foo=bar" },
+        url: "/api/design",
+      };
+      expect(getSessionIdFromRequest(reqWithCookie)).toBe("guest_xyz-789");
+
+      // Query param fallback
+      const reqWithQuery: any = {
+        headers: {},
+        url: "/store.json?sessionId=session_999",
+      };
+      expect(getSessionIdFromRequest(reqWithQuery)).toBe("session_999");
+
+      // Default fallback
+      const reqEmpty: any = {
+        headers: {},
+        url: "/store.json",
+      };
+      expect(getSessionIdFromRequest(reqEmpty)).toBe("default");
+    });
+
+    test("resolveWorkspacePaths provides separate directories per session", async () => {
+      const { resolveWorkspacePaths, studioPaths } = await import("./studio-server.ts");
+      const tmp = await mkdtemp(join(tmpdir(), "goldie-ws-test-"));
+      const configPath = join(tmp, "appassets.config.ts");
+      const baseApi = { paths: studioPaths(configPath), cli: ["bun"] };
+
+      const defaultPaths = resolveWorkspacePaths(baseApi, "default");
+      expect(defaultPaths.configPath).toBe(baseApi.paths.configPath);
+
+      const sessionAPaths = resolveWorkspacePaths(baseApi, "session-A");
+      const sessionBPaths = resolveWorkspacePaths(baseApi, "session-B");
+
+      expect(sessionAPaths.configDir).toContain("workspaces/session-A");
+      expect(sessionBPaths.configDir).toContain("workspaces/session-B");
+      expect(sessionAPaths.configDir).not.toBe(sessionBPaths.configDir);
+      expect(sessionAPaths.designFile).not.toBe(sessionBPaths.designFile);
+
+      await rm(tmp, { recursive: true, force: true });
+    });
+
+    test("designHandler isolates design changes between different sessions", async () => {
+      const { designHandler, studioPaths } = await import("./studio-server.ts");
+      const tmp = await mkdtemp(join(tmpdir(), "goldie-design-ws-"));
+      const configPath = join(tmp, "appassets.config.ts");
+      await writeFile(configPath, "export default { scenes: [] };\n");
+      const api = { paths: studioPaths(configPath), cli: ["bun"] };
+      const handler = designHandler(api);
+
+      // Session A saves background red
+      const putReqA = new PassThrough() as any;
+      putReqA.method = "PUT";
+      putReqA.url = "/api/design";
+      putReqA.headers = { "x-session-id": "session-A" };
+      let putCodeA = 0;
+      const putResA: any = {
+        statusCode: 0,
+        end() { putCodeA = this.statusCode || 200; },
+      };
+      handler(putReqA, putResA);
+      putReqA.emit("data", JSON.stringify({ background: "#FF0000", appInfo: { name: "App A" } }));
+      putReqA.emit("end");
+      await new Promise((r) => setTimeout(r, 50));
+
+      // Session B gets design (should be empty, NOT session A's data)
+      const getReqB: any = {
+        method: "GET",
+        url: "/api/design",
+        headers: { "x-session-id": "session-B" },
+      };
+      let bodyB = "";
+      const getResB: any = {
+        writeHead() {},
+        end(data: string) { bodyB = data; },
+      };
+      handler(getReqB, getResB);
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect(JSON.parse(bodyB)).toEqual({});
+
+      // Session A gets design (should be App A)
+      const getReqA: any = {
+        method: "GET",
+        url: "/api/design",
+        headers: { "x-session-id": "session-A" },
+      };
+      let bodyA = "";
+      const getResA: any = {
+        writeHead() {},
+        end(data: string) { bodyA = data; },
+      };
+      handler(getReqA, getResA);
+      await new Promise((r) => setTimeout(r, 50));
+
+      const parsedA = JSON.parse(bodyA);
+      expect(parsedA.background).toBe("#FF0000");
+      expect(parsedA.appInfo?.name).toBe("App A");
+
+      await rm(tmp, { recursive: true, force: true });
+    });
+  });
 });

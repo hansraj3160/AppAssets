@@ -51,6 +51,7 @@ import { CHECKERBOARD, layoutOptions, TRANSPARENT } from "./DesignPanel";
 import { SceneBackgroundPopover } from "./SceneBackgroundPopover";
 import { Select } from "./Sidebar";
 import { Button } from "./ui/button";
+import { apiFetch } from "../lib/api";
 
 /** Tiles shown at once; the App Store product page shows this many before scrolling. */
 const PAGE_SIZE = 5;
@@ -370,7 +371,7 @@ export async function downloadSingleScreenshot({
   trackScreenshotGeneration("started", { device, scene_id: sceneId });
   trackExport("started", { export_type: "single_png", device, scene_id: sceneId });
 
-  const res = await fetch(`/api/export-single?${params.toString()}`);
+  const res = await apiFetch(`/api/export-single?${params.toString()}`);
   if (!res.ok) {
     const errorText = await res.text().catch(() => "Download failed");
     trackScreenshotGeneration("failed", { device, scene_id: sceneId, reason: errorText });
@@ -630,7 +631,7 @@ export function Strip({
   const handleDelete = async (sceneId: string) => {
     if (!window.confirm(`Are you sure you want to remove screenshot "${sceneId}"?`)) return;
     try {
-      const res = await fetch("/api/delete", {
+      const res = await apiFetch("/api/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sceneId }),
@@ -649,7 +650,7 @@ export function Strip({
   const handleClearAll = async () => {
     if (!window.confirm("Are you sure you want to remove all screenshots?")) return;
     try {
-      const res = await fetch("/api/delete-all", {
+      const res = await apiFetch("/api/delete-all", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });
@@ -710,7 +711,7 @@ export function Strip({
     setReplacingSceneId(sceneId);
     try {
       const { dataUrl, width, height } = await readFileData(file);
-      const res = await fetch("/api/replace-capture", {
+      const res = await apiFetch("/api/replace-capture", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

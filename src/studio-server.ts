@@ -1,6 +1,16 @@
 import { spawn } from "node:child_process";
 import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
-import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import {
+  cp,
+  mkdir,
+  readdir,
+  readFile,
+  rename,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -93,6 +103,149 @@ export type StudioApi = {
   cli: string[];
 };
 
+/**
+ * Extracts and sanitizes the user session identifier from the request:
+ * 1. X-Session-ID header
+ * 2. appassets_session_id cookie
+ * 3. ?sessionId= query parameter
+ * Returns "default" if absent or invalid.
+ */
+export function getSessionIdFromRequest(req?: IncomingMessage | null): string {
+  if (!req) return "default";
+  const headers = req.headers || {};
+
+  // 1. Header
+  const headerSid = headers["x-session-id"];
+  if (typeof headerSid === "string" && headerSid.trim()) {
+    const clean = headerSid.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64);
+    if (clean) return clean;
+  }
+
+  // 2. Cookie
+  const cookieHeader = headers.cookie;
+  if (cookieHeader) {
+    const match = cookieHeader.match(/(?:^|; )appassets_session_id=([^;]*)/);
+    if (match?.[1]) {
+      const clean = decodeURIComponent(match[1]).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64);
+      if (clean) return clean;
+    }
+  }
+
+  // 3. Query Param
+  try {
+    const url = new URL(req.url ?? "/", "http://localhost");
+    const querySid = url.searchParams.get("sessionId");
+    if (querySid?.trim()) {
+      const clean = querySid.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64);
+      if (clean) return clean;
+    }
+  } catch {}
+
+  return "default";
+}
+
+/**
+ * Resolves isolated paths for a specific user/guest session workspace.
+ * If sessionId is "default", returns the shared base project paths.
+ */
+export function resolveWorkspacePaths(api: StudioApi, sessionId: string): StudioPaths {
+  if (!sessionId || sessionId === "default") {
+    return api.paths;
+  }
+  const workspaceDir = join(api.paths.configDir, "workspaces", sessionId);
+  const outDir = join(workspaceDir, "out");
+  return {
+    configPath: join(workspaceDir, "appassets.config.ts"),
+    configDir: workspaceDir,
+    outDir,
+    webDir: join(outDir, "web"),
+    designFile: join(workspaceDir, "appassets.design.json"),
+    exportZip: join(outDir, "export.zip"),
+  };
+}
+
+/**
+ * Ensures that a session's workspace has a valid config file and required assets.
+ */
+export async function ensureWorkspaceConfig(basePaths: StudioPaths, wsPaths: StudioPaths): Promise<void> {
+  await mkdir(wsPaths.configDir, { recursive: true });
+  await mkdir(wsPaths.outDir, { recursive: true });
+  await mkdir(wsPaths.webDir, { recursive: true });
+
+  if (!existsSync(wsPaths.configPath)) {
+    if (existsSync(basePaths.configPath)) {
+      let baseContent = await readFile(basePaths.configPath, "utf8");
+      // Fix import path to point to the base src/config.ts
+      const srcConfigAbs = resolve(basePaths.configDir, "src", "config.ts");
+      baseContent = baseContent.replace(
+        /import\s+type\s+\{\s*GoldieConfig\s*\}\s+from\s+["']\.\/src\/config\.ts["'];?/,
+        `import type { GoldieConfig } from ${JSON.stringify(srcConfigAbs)};`,
+      );
+      // Ensure workspace config starts with empty scenes
+      const scenesIdx = baseContent.indexOf("scenes:");
+      if (scenesIdx !== -1) {
+        const openBracket = baseContent.indexOf("[", scenesIdx);
+        if (openBracket !== -1) {
+          let depth = 0;
+          let closeBracket = -1;
+          for (let i = openBracket; i < baseContent.length; i++) {
+            if (baseContent[i] === "[") depth++;
+            else if (baseContent[i] === "]") {
+              depth--;
+              if (depth === 0) {
+                closeBracket = i;
+                break;
+              }
+            }
+          }
+          if (closeBracket !== -1) {
+            baseContent =
+              baseContent.slice(0, openBracket + 1) +
+              "\n  " +
+              baseContent.slice(closeBracket);
+          }
+        }
+      }
+      await writeFile(wsPaths.configPath, baseContent);
+    }
+  }
+
+  // Ensure assets folder is linked or copied
+  const baseAssets = join(basePaths.configDir, "assets");
+  const wsAssets = join(wsPaths.configDir, "assets");
+  if (!existsSync(wsAssets) && existsSync(baseAssets)) {
+    try {
+      await symlink(baseAssets, wsAssets);
+    } catch {
+      await cp(baseAssets, wsAssets, { recursive: true });
+    }
+  }
+}
+
+/**
+ * Prunes inactive guest workspaces older than maxGuestAgeMs (default 48h).
+ */
+export async function pruneOldWorkspaces(workspacesDir: string, maxGuestAgeMs = 48 * 3600 * 1000): Promise<void> {
+  if (!existsSync(workspacesDir)) return;
+  try {
+    const entries = await readdir(workspacesDir, { withFileTypes: true });
+    const now = Date.now();
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const wsPath = join(workspacesDir, entry.name);
+      try {
+        const stats = await stat(wsPath);
+        const age = now - stats.mtimeMs;
+        const isGuest = entry.name.startsWith("guest_");
+        const maxAge = isGuest ? maxGuestAgeMs : 30 * 24 * 3600 * 1000;
+        if (age > maxAge) {
+          await rm(wsPath, { recursive: true, force: true });
+        }
+      } catch {}
+    }
+  } catch {}
+}
+
 type Handler = (req: IncomingMessage, res: ServerResponse) => void;
 
 function readBody(req: IncomingMessage): Promise<string> {
@@ -123,8 +276,11 @@ export function healthHandler({ paths: _paths }: StudioApi): Handler {
 }
 
 /** Handles /api/design. */
-export function designHandler({ paths }: StudioApi): Handler {
+export function designHandler(api: StudioApi): Handler {
   return (req, res) => {
+    const sessionId = getSessionIdFromRequest(req);
+    const paths = resolveWorkspacePaths(api, sessionId);
+
     if (req.method === "GET") {
       readFile(paths.designFile, "utf8").then(
         (json) => {
@@ -132,6 +288,19 @@ export function designHandler({ paths }: StudioApi): Handler {
           res.end(json);
         },
         () => {
+          if (sessionId === "default" && existsSync(api.paths.designFile)) {
+            readFile(api.paths.designFile, "utf8").then(
+              (json) => {
+                res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+                res.end(json);
+              },
+              () => {
+                res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+                res.end("{}");
+              },
+            );
+            return;
+          }
           res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
           res.end("{}");
         },
@@ -154,6 +323,7 @@ export function designHandler({ paths }: StudioApi): Handler {
         return;
       }
       try {
+        await mkdir(paths.configDir, { recursive: true });
         const tmp = `${paths.designFile}.tmp`;
         await writeFile(tmp, `${JSON.stringify(design, null, 2)}\n`);
         await rename(tmp, paths.designFile);
@@ -161,7 +331,7 @@ export function designHandler({ paths }: StudioApi): Handler {
         res.end();
       } catch (err) {
         res.statusCode = 500;
-        res.end(err instanceof Error ? err.message : String(err));
+        res.end(`Failed to write ${paths.designFile}: ${err}`);
       }
     });
   };
@@ -223,10 +393,14 @@ export async function renderAppIconCanvas(
 }
 
 /** Handles /api/export and /api/export/download. `sub` is the path after /api/export. */
-export function exportHandler({ paths, cli }: StudioApi): (sub: string) => Handler {
+export function exportHandler(api: StudioApi): (sub: string) => Handler {
   let busy = false;
 
   return (sub) => (req, res) => {
+    const sessionId = getSessionIdFromRequest(req);
+    const paths = resolveWorkspacePaths(api, sessionId);
+    const cli = api.cli;
+
     if (req.method === "GET" && sub.startsWith("/download")) {
       if (!existsSync(paths.exportZip)) {
         res.statusCode = 404;
@@ -488,7 +662,7 @@ export function resolveDeviceFromDimensions(
 }
 
 /** Handles POST /api/replace-capture for replacing a single screenshot capture. */
-export function replaceCaptureHandler({ paths, cli }: StudioApi): Handler {
+export function replaceCaptureHandler(api: StudioApi): Handler {
   return (req, res) => {
     if (req.method !== "POST") {
       res.statusCode = 405;
@@ -496,8 +670,15 @@ export function replaceCaptureHandler({ paths, cli }: StudioApi): Handler {
       return;
     }
 
+    const sessionId = getSessionIdFromRequest(req);
+    const paths = resolveWorkspacePaths(api, sessionId);
+    const cli = api.cli;
+
     readBody(req).then(async (body) => {
       try {
+        if (sessionId !== "default") {
+          await ensureWorkspaceConfig(api.paths, paths);
+        }
         const {
           sceneId,
           device: preferredDevice,
@@ -592,7 +773,7 @@ export function replaceCaptureHandler({ paths, cli }: StudioApi): Handler {
 }
 
 /** Handles POST /api/import for uploading screenshots directly from Studio UI. */
-export function importHandler({ paths, cli }: StudioApi): Handler {
+export function importHandler(api: StudioApi): Handler {
   return (req, res) => {
     if (req.method !== "POST") {
       res.statusCode = 405;
@@ -600,8 +781,15 @@ export function importHandler({ paths, cli }: StudioApi): Handler {
       return;
     }
 
+    const sessionId = getSessionIdFromRequest(req);
+    const paths = resolveWorkspacePaths(api, sessionId);
+    const cli = api.cli;
+
     readBody(req).then(async (body) => {
       try {
+        if (sessionId !== "default") {
+          await ensureWorkspaceConfig(api.paths, paths);
+        }
         const { files, autoRoute, preferredDevice, targetMode } = JSON.parse(body) as {
           files: Array<{ name: string; dataUrl: string; width?: number; height?: number }>;
           autoRoute?: boolean;
@@ -769,8 +957,11 @@ export function importHandler({ paths, cli }: StudioApi): Handler {
 }
 
 /** Handles /api/icon for uploading, retrieving, and resetting app icon/logo. */
-export function iconHandler({ paths }: StudioApi): Handler {
+export function iconHandler(api: StudioApi): Handler {
   return (req, res) => {
+    const sessionId = getSessionIdFromRequest(req);
+    const paths = resolveWorkspacePaths(api, sessionId);
+
     if (req.method === "GET") {
       (async () => {
         let iconUrl: string | null = null;
@@ -932,13 +1123,17 @@ function removeSceneFromConfig(configContent: string, sceneId: string): string {
 }
 
 /** Handles POST /api/delete for removing a screenshot scene. */
-export function deleteHandler({ paths, cli }: StudioApi): Handler {
+export function deleteHandler(api: StudioApi): Handler {
   return (req, res) => {
     if (req.method !== "POST") {
       res.statusCode = 405;
       res.end("POST only");
       return;
     }
+
+    const sessionId = getSessionIdFromRequest(req);
+    const paths = resolveWorkspacePaths(api, sessionId);
+    const cli = api.cli;
 
     readBody(req).then(async (body) => {
       try {
@@ -1014,7 +1209,7 @@ export function deleteHandler({ paths, cli }: StudioApi): Handler {
 }
 
 /** Handles POST /api/delete-all for removing all screenshots at once. */
-export function deleteAllHandler({ paths, cli }: StudioApi): Handler {
+export function deleteAllHandler(api: StudioApi): Handler {
   return (req, res) => {
     if (req.method !== "POST") {
       res.statusCode = 405;
@@ -1022,8 +1217,19 @@ export function deleteAllHandler({ paths, cli }: StudioApi): Handler {
       return;
     }
 
+    const sessionId = getSessionIdFromRequest(req);
+    const paths = resolveWorkspacePaths(api, sessionId);
+    const cli = api.cli;
+
     (async () => {
       try {
+        if (sessionId !== "default" && existsSync(paths.configDir)) {
+          await rm(paths.configDir, { recursive: true, force: true });
+          res.statusCode = 200;
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify({ ok: true, cleared: true }));
+          return;
+        }
         const devices = ["iphone-6.9", "ipad-13", "pixel-10-pro"];
         for (const dev of devices) {
           const rawDir = join(paths.outDir, "raw", dev);
@@ -1230,8 +1436,12 @@ export function findScreenshotFile(
 }
 
 /** Handles GET /api/export-single?sceneId=...&device=...&locale=...&slice=... for downloading a single screenshot. */
-export function singleExportHandler({ paths, cli }: StudioApi): Handler {
+export function singleExportHandler(api: StudioApi): Handler {
   return (req, res) => {
+    const sessionId = getSessionIdFromRequest(req);
+    const paths = resolveWorkspacePaths(api, sessionId);
+    const cli = api.cli;
+
     const url = new URL(req.url ?? "/", "http://localhost");
     const sceneId = url.searchParams.get("sceneId");
     const device = url.searchParams.get("device") || "iphone-6.9";
@@ -1346,8 +1556,11 @@ export function singleExportHandler({ paths, cli }: StudioApi): Handler {
 }
 
 /** Handles GET /api/export-banner?type=...&sceneId=...&locale=... for downloading individual marketing/store banners */
-export function bannerExportHandler({ paths }: StudioApi): Handler {
+export function bannerExportHandler(api: StudioApi): Handler {
   return (req, res) => {
+    const sessionId = getSessionIdFromRequest(req);
+    const paths = resolveWorkspacePaths(api, sessionId);
+
     (async () => {
       try {
         let body: Record<string, any> = {};
@@ -1474,8 +1687,11 @@ export function bannerExportHandler({ paths }: StudioApi): Handler {
  * - html-snippet.html (copy-pasteable HTML <head> snippet)
  * - README.md
  */
-export function faviconExportHandler({ paths }: StudioApi): Handler {
+export function faviconExportHandler(api: StudioApi): Handler {
   return (req, res) => {
+    const sessionId = getSessionIdFromRequest(req);
+    const paths = resolveWorkspacePaths(api, sessionId);
+
     (async () => {
       try {
         const url = new URL(req.url ?? "/", "http://localhost");
@@ -2164,8 +2380,12 @@ export function updateLocalesInConfig(content: string, locales: string[]): strin
 }
 
 /** Handles GET and POST /api/locales */
-export function localesHandler({ paths, cli }: StudioApi): Handler {
+export function localesHandler(api: StudioApi): Handler {
   return (req, res) => {
+    const sessionId = getSessionIdFromRequest(req);
+    const paths = resolveWorkspacePaths(api, sessionId);
+    const cli = api.cli;
+
     if (req.method === "GET") {
       (async () => {
         try {
@@ -2340,15 +2560,37 @@ export function serveStudio(
     if (path === "/api/delete") return del(req, res);
     if (path === "/api/delete-all") return delAll(req, res);
 
-    const file = fileIn(api.paths.webDir, path) ?? fileIn(STUDIO_DIST, path);
-    if (file) return sendFile(req, res, file);
+    const sessionId = getSessionIdFromRequest(req);
+    const sessionPaths = resolveWorkspacePaths(api, sessionId);
+
     if (path === "/store.json") {
+      if (sessionId !== "default" && existsSync(join(sessionPaths.webDir, "store.json"))) {
+        return sendFile(req, res, join(sessionPaths.webDir, "store.json"));
+      }
+      if (existsSync(join(api.paths.webDir, "store.json"))) {
+        return sendFile(req, res, join(api.paths.webDir, "store.json"));
+      }
       res.statusCode = 404;
       res.end("No out/web/store.json. Run: goldie manifest");
       return;
     }
+
+    const file =
+      (sessionId !== "default" ? fileIn(sessionPaths.webDir, path) : null) ??
+      fileIn(api.paths.webDir, path) ??
+      fileIn(STUDIO_DIST, path);
+    if (file) return sendFile(req, res, file);
+
     sendFile(req, res, join(STUDIO_DIST, "index.html"));
   });
+
+  // Prune stale guest workspaces on startup and periodically every 2 hours
+  const workspacesDir = join(api.paths.configDir, "workspaces");
+  pruneOldWorkspaces(workspacesDir).catch(() => {});
+  const pruneInterval = setInterval(() => {
+    pruneOldWorkspaces(workspacesDir).catch(() => {});
+  }, 2 * 3600 * 1000);
+  if (typeof pruneInterval.unref === "function") pruneInterval.unref();
 
   return new Promise((done, fail) => {
     server.on("error", fail);

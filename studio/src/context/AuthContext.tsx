@@ -11,6 +11,7 @@ import type React from "react";
 import { createContext, useContext, useEffect, useState } from "react";
 import { setUserProperties } from "@/lib/analytics";
 import { auth, db, googleProvider } from "@/lib/firebase";
+import { setAuthSession } from "@/lib/session";
 
 export interface UserProfile {
   uid: string;
@@ -60,6 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
+      setAuthSession(currentUser ? currentUser.uid : null);
       if (currentUser) {
         const userRef = doc(db, "users", currentUser.uid);
         try {

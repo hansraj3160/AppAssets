@@ -1,0 +1,76 @@
+/**
+ * Session management for multi-tenant AppAssets Studio workspaces.
+ *
+ * Each browser / user receives a unique session ID:
+ * - If logged in with Firebase Auth, uses `uid_${user.uid}`.
+ * - For guest visitors, generates and stores a persistent `guest_${uuid}` in localStorage and cookies.
+ *
+ * The cookie `appassets_session_id` ensures that native browser requests
+ * (e.g. <img src="/screenshots/..."> or /store.json) automatically carry the session ID.
+ */
+
+const STORAGE_KEY = "appassets_session_id";
+const COOKIE_NAME = "appassets_session_id";
+
+function getCookie(name: string): string | null {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]!) : null;
+}
+
+function setCookie(name: string, value: string, days = 365) {
+  if (typeof document === "undefined") return;
+  const maxAge = days * 24 * 60 * 60;
+  // biome-ignore lint/suspicious/noDocumentCookie: cookie needed for browser media requests
+  document.cookie = `${name}=${encodeURIComponent(value)}; Path=/; SameSite=Lax; Max-Age=${maxAge}`;
+}
+
+export function getSessionId(): string {
+  if (typeof window === "undefined") return "default";
+
+  // 1. Check existing localStorage
+  let sid = localStorage.getItem(STORAGE_KEY);
+
+  // 2. Check existing cookie fallback
+  if (!sid) {
+    sid = getCookie(COOKIE_NAME);
+  }
+
+  // 3. Generate a new guest session if not present
+  if (!sid || sid.trim().length === 0) {
+    sid = `guest_${crypto.randomUUID()}`;
+  }
+
+  // Sanitize session id: alphanumeric and hyphens/underscores only
+  sid = sid.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64);
+
+  // Ensure both localStorage and cookie are in sync
+  try {
+    localStorage.setItem(STORAGE_KEY, sid);
+    setCookie(COOKIE_NAME, sid);
+  } catch {}
+
+  return sid;
+}
+
+/**
+ * Bind session to an authenticated user's UID or switch session.
+ */
+export function setAuthSession(uid: string | null): string {
+  if (typeof window === "undefined") return "default";
+
+  let newSid: string;
+  if (uid) {
+    newSid = `uid_${uid}`.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64);
+  } else {
+    // If logging out, generate a fresh guest session
+    newSid = `guest_${crypto.randomUUID()}`;
+  }
+
+  try {
+    localStorage.setItem(STORAGE_KEY, newSid);
+    setCookie(COOKIE_NAME, newSid);
+  } catch {}
+
+  return newSid;
+}

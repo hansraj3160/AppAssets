@@ -17,6 +17,7 @@ import {
   useState,
 } from "react";
 import { Button } from "@/components/ui/button";
+import { apiFetch } from "@/lib/api";
 
 function hasFiles(types: readonly string[] | DOMStringList | null | undefined): boolean {
   if (!types) return false;
@@ -113,7 +114,7 @@ export function EmptyState({
     try {
       const filePayloads = await Promise.all(validFiles.map((file) => readFileAsDataUrl(file)));
 
-      const response = await fetch("/api/import", {
+      const response = await apiFetch("/api/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

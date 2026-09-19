@@ -17,6 +17,7 @@ import type { AppInfo } from "../manifest";
 import { AppIconModal } from "./AppIconModal";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import { apiFetch } from "@/lib/api";
 
 export const CATEGORY_OPTIONS = [
   "VPN & Security",
@@ -81,7 +82,7 @@ export function AppDetailsModal({ isOpen, onClose, appInfo, onSaveAppInfo }: App
       reader.onload = async () => {
         const dataUrl = reader.result as string;
         try {
-          const res = await fetch("/api/icon", {
+          const res = await apiFetch("/api/icon", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ dataUrl }),
@@ -107,14 +108,14 @@ export function AppDetailsModal({ isOpen, onClose, appInfo, onSaveAppInfo }: App
   const handleRemoveIcon = async () => {
     setIcon(null);
     try {
-      await fetch("/api/icon", { method: "DELETE" });
+      await apiFetch("/api/icon", { method: "DELETE" });
     } catch {}
   };
 
   const handleApplyFromStudio = async (dataUrl: string) => {
     setIcon(dataUrl);
     try {
-      await fetch("/api/icon", {
+      await apiFetch("/api/icon", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ dataUrl }),
@@ -140,7 +141,7 @@ export function AppDetailsModal({ isOpen, onClose, appInfo, onSaveAppInfo }: App
     setDescription("");
     setIcon(null);
     try {
-      await fetch("/api/icon", { method: "DELETE" });
+      await apiFetch("/api/icon", { method: "DELETE" });
     } catch {}
     onSaveAppInfo({
       name: "",
