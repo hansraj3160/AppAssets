@@ -2516,7 +2516,8 @@ export function localesHandler(api: StudioApi): Handler {
 /** The studio bundle Vite emits; shipped in the npm package. */
 export const STUDIO_DIST = resolve(dirname(fileURLToPath(import.meta.url)), "..", "studio", "dist");
 
-/**
+export const STUDIO_PUBLIC = resolve(dirname(fileURLToPath(import.meta.url)), "..", "studio", "public");
+
 /**
  * Creates the HTTP request handler for AppAssets Studio, handling APIs, static assets,
  * known routes (/privacy, /terms, /studio, /) with HTTP 200, unknown API paths with HTTP 404 JSON,
@@ -2579,7 +2580,8 @@ export function createStudioRequestHandler(api: StudioApi): Handler {
     const file =
       (sessionId !== "default" ? fileIn(sessionPaths.webDir, path) : null) ??
       fileIn(api.paths.webDir, path) ??
-      fileIn(STUDIO_DIST, path);
+      fileIn(STUDIO_DIST, path) ??
+      fileIn(STUDIO_PUBLIC, path);
     if (file) return sendFile(req, res, file);
 
     const normalizedPath = path.replace(/\/+$/, "") || "/";
@@ -2589,14 +2591,24 @@ export function createStudioRequestHandler(api: StudioApi): Handler {
       normalizedPath === "/terms" ||
       normalizedPath === "/studio";
 
-    const indexPath = join(STUDIO_DIST, "index.html");
+    const indexPath =
+      (existsSync(join(STUDIO_DIST, "index.html")) ? join(STUDIO_DIST, "index.html") : null) ??
+      (existsSync(resolve(dirname(fileURLToPath(import.meta.url)), "..", "studio", "index.html"))
+        ? resolve(dirname(fileURLToPath(import.meta.url)), "..", "studio", "index.html")
+        : null);
+
     if (isKnownRoute) {
-      sendFile(req, res, indexPath);
+      if (indexPath) {
+        sendFile(req, res, indexPath);
+        return;
+      }
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.end("<!doctype html><html><body><div id=\"root\"></div></body></html>");
       return;
     }
 
     // For unknown paths, return HTTP 404 status code while serving index.html so client renders 404 view
-    if (existsSync(indexPath)) {
+    if (indexPath) {
       res.writeHead(404, {
         "Content-Type": "text/html; charset=utf-8",
         "Cache-Control": "no-store",
@@ -2605,8 +2617,8 @@ export function createStudioRequestHandler(api: StudioApi): Handler {
       return;
     }
 
-    res.statusCode = 404;
-    res.end("Not Found");
+    res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" });
+    res.end("<!doctype html><html><body><div id=\"root\">Not Found</div></body></html>");
   };
 }
 
