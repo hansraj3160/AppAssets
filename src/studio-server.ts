@@ -1552,10 +1552,12 @@ export const MIME: Record<string, string> = {
 };
 
 /** Serve `file` with Range support, so the preview video seeks in the browser. */
-function sendFile(req: IncomingMessage, res: ServerResponse, file: string) {
+function sendFile(req: IncomingMessage, res: ServerResponse, file: string, cacheControl?: string) {
   const size = statSync(file).size;
   const type = MIME[extname(file).toLowerCase()] ?? "application/octet-stream";
   const range = req.headers.range?.match(/^bytes=(\d*)-(\d*)$/);
+  const isHashedAsset = req.url?.includes("/assets/");
+  const cc = cacheControl ?? (isHashedAsset ? "public, max-age=31536000, immutable" : "no-store");
   if (range) {
     const start = range[1] ? Number(range[1]) : 0;
     const end = range[2] ? Math.min(Number(range[2]), size - 1) : size - 1;
@@ -1564,7 +1566,7 @@ function sendFile(req: IncomingMessage, res: ServerResponse, file: string) {
       "Content-Range": `bytes ${start}-${end}/${size}`,
       "Content-Length": end - start + 1,
       "Accept-Ranges": "bytes",
-      "Cache-Control": "no-store",
+      "Cache-Control": cc,
     });
     createReadStream(file, { start, end }).pipe(res);
     return;
@@ -1573,7 +1575,7 @@ function sendFile(req: IncomingMessage, res: ServerResponse, file: string) {
     "Content-Type": type,
     "Content-Length": size,
     "Accept-Ranges": "bytes",
-    "Cache-Control": "no-store",
+    "Cache-Control": cc,
   });
   createReadStream(file).pipe(res);
 }
