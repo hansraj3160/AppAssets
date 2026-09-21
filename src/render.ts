@@ -102,6 +102,22 @@ export async function renderScreenshots(cfg: LoadedConfig, deviceKey: DeviceKey,
       const background = scene.background ?? cfg.theme.background;
       const transparent = isTransparent(background);
       if (!transparent) {
+        let customBgImage: Image | null = null;
+        const parsedBg = parseBackground(background);
+        if (parsedBg.type === "custom-image" && parsedBg.src) {
+          try {
+            const srcPath =
+              parsedBg.src.startsWith("data:") ||
+              parsedBg.src.startsWith("http://") ||
+              parsedBg.src.startsWith("https://")
+                ? parsedBg.src
+                : resolve(cfg.root, parsedBg.src);
+            customBgImage = await loadImage(srcPath);
+          } catch (err) {
+            console.warn(`Failed to load custom background image: ${err}`);
+          }
+        }
+
         const sliceInfo: PanoramaSliceInfo = {
           sliceIndex: first,
           totalSlices: totalTiles,
@@ -121,6 +137,7 @@ export async function renderScreenshots(cfg: LoadedConfig, deviceKey: DeviceKey,
         renderBackground(ctx, background, c.width, c.height, {
           pattern,
           panoramaOffset: cfg.theme.panoramaMode ? sliceInfo : undefined,
+          customImage: customBgImage ?? undefined,
         });
       }
 
@@ -571,12 +588,13 @@ export function drawAuroraGlow(
   height: number,
   panoramaOffset?: PanoramaSliceInfo,
 ) {
+  const totalW = panoramaOffset ? panoramaOffset.totalWidth : width;
   for (const pt of glowPoints) {
     const cx = panoramaOffset
       ? panoramaOffset.totalWidth * pt.x - panoramaOffset.globalX
       : width * pt.x;
     const cy = height * pt.y;
-    const radius = Math.max(width, height) * (pt.radius || 0.6);
+    const radius = Math.max(totalW, height) * (pt.radius || 0.6);
 
     const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
     const glowColor = withOpacity(pt.color, pt.opacity ?? 0.4);
@@ -655,6 +673,57 @@ export function drawPatternOverlay(
 }
 
 /**
+ * Draws a custom background image with cover or contain scaling,
+ * accounting for panorama offsets when present.
+ */
+export function drawCoverImage(
+  ctx: SKRSContext2D,
+  img: Image,
+  width: number,
+  height: number,
+  fit: "cover" | "contain" = "cover",
+  panoramaOffset?: PanoramaSliceInfo,
+) {
+  const targetW = panoramaOffset ? panoramaOffset.totalWidth : width;
+  const targetH = height;
+  const imgRatio = img.width / img.height;
+  const targetRatio = targetW / targetH;
+
+  let scaledW = targetW;
+  let scaledH = targetH;
+  let offX = 0;
+  let offY = 0;
+
+  if (fit === "cover") {
+    if (imgRatio > targetRatio) {
+      scaledH = targetH;
+      scaledW = img.width * (targetH / img.height);
+      offX = (targetW - scaledW) / 2;
+    } else {
+      scaledW = targetW;
+      scaledH = img.height * (targetW / img.width);
+      offY = (targetH - scaledH) / 2;
+    }
+  } else {
+    // contain
+    if (imgRatio > targetRatio) {
+      scaledW = targetW;
+      scaledH = img.height * (targetW / img.width);
+      offY = (targetH - scaledH) / 2;
+    } else {
+      scaledH = targetH;
+      scaledW = img.width * (targetH / img.height);
+      offX = (targetW - scaledW) / 2;
+    }
+  }
+
+  const finalX = panoramaOffset ? offX - panoramaOffset.globalX : offX;
+  const finalY = offY;
+
+  ctx.drawImage(img, finalX, finalY, scaledW, scaledH);
+}
+
+/**
  * Composites the full screenshot background: base fill/gradient, aurora glow,
  * pattern overlay, and panorama coordinate support.
  */
@@ -666,6 +735,7 @@ export function renderBackground(
   options?: {
     pattern?: PatternConfig;
     panoramaOffset?: PanoramaSliceInfo;
+    customImage?: Image;
   },
 ) {
   const bg = parseBackground(background);
@@ -720,8 +790,16 @@ export function renderBackground(
     drawPatternOverlay(ctx, bg.pattern, width, height, options?.panoramaOffset);
   } else if (bg.type === "custom-image") {
     ctx.save();
-    ctx.fillStyle = bg.overlayColor || "#000000";
-    ctx.fillRect(0, 0, width, height);
+    if (options?.customImage) {
+      drawCoverImage(ctx, options.customImage, width, height, bg.fit, options?.panoramaOffset);
+      if (bg.overlayColor && bg.overlayColor !== "transparent") {
+        ctx.fillStyle = bg.overlayColor;
+        ctx.fillRect(0, 0, width, height);
+      }
+    } else {
+      ctx.fillStyle = bg.overlayColor || "#000000";
+      ctx.fillRect(0, 0, width, height);
+    }
     ctx.restore();
   }
 

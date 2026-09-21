@@ -1542,18 +1542,24 @@ export function ScreenshotScene({
                   : theme.backgroundPattern === "isometric-dot"
                     ? `radial-gradient(circle, ${theme.patternColor || "rgba(255,255,255,0.8)"} 1.5px, transparent 1.5px), radial-gradient(circle, ${theme.patternColor || "rgba(255,255,255,0.8)"} 1.5px, transparent 1.5px)`
                     : `radial-gradient(circle, ${theme.patternColor || "rgba(255,255,255,0.8)"} 1.5px, transparent 1.5px)`,
-              backgroundSize:
-                theme.backgroundPattern === "blueprint"
-                  ? "32px 32px"
-                  : theme.backgroundPattern === "isometric-dot"
-                    ? "28px 28px"
-                    : "24px 24px",
+              backgroundSize: "3.5cqw 3.5cqw",
               backgroundPosition:
-                theme.backgroundPattern === "isometric-dot" ? "0 0, 14px 14px" : "0 0",
+                theme.backgroundPattern === "isometric-dot" ? "0 0, 1.75cqw 1.75cqw" : "0 0",
             }}
           />
         ) : null}
+      </div>
 
+      {/* The scene composition: copy, devices, and decor shifted per slice within layout span */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: `${-slice * 100}%`,
+          width: `${spec.span * 100}%`,
+          height: "100%",
+        }}
+      >
         {copy ? (
           <div
             dir={isRtl ? "rtl" : "ltr"}
