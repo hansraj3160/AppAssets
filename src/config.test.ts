@@ -1,57 +1,58 @@
 import { describe, expect, test } from "bun:test";
 import { applyDesign, type LoadedConfig } from "./config.ts";
 
+function makeConfig(): LoadedConfig {
+  return {
+    appRoot: "/tmp",
+    appPath: "/tmp/app",
+    bundleId: "com.test.app",
+    appearance: "light",
+    frame: { variant: "17-pro-blue" },
+    store: {
+      name: "TestApp",
+      subtitle: { "en-US": "Test" },
+      developer: "Dev",
+      category: "Productivity",
+      rating: 4.9,
+      ratingCount: "100",
+      ageRating: "4+",
+      price: "Free",
+      description: { "en-US": "Test Description" },
+    },
+    root: "/tmp",
+    configPath: "/tmp/goldie.config.ts",
+    flowsDir: "/tmp/flows",
+    outDir: "/tmp/out",
+    devices: ["iphone-6.9"],
+    locales: ["en-US"],
+    scenes: [
+      {
+        kind: "screenshot",
+        id: "home",
+        flow: "home",
+        headline: { "en-US": "Welcome" },
+      },
+      {
+        kind: "screenshot",
+        id: "detail",
+        flow: "detail",
+        headline: { "en-US": "Detail" },
+      },
+    ],
+    theme: {
+      background: "#FFFFFF",
+      fontFamily: "system",
+      headlineColor: "#0E1B2A",
+      subheadColor: "#5A6A7D",
+      copyHeightRatio: 0.24,
+      deviceWidthRatio: 0.84,
+      layout: "classic",
+      screenOnly: false,
+    },
+  };
+}
+
 describe("applyDesign Phase 2 features", () => {
-  function makeConfig(): LoadedConfig {
-    return {
-      appRoot: "/tmp",
-      appPath: "/tmp/app",
-      bundleId: "com.test.app",
-      appearance: "light",
-      frame: { variant: "17-pro-blue" },
-      store: {
-        name: "TestApp",
-        subtitle: { "en-US": "Test" },
-        developer: "Dev",
-        category: "Productivity",
-        rating: 4.9,
-        ratingCount: "100",
-        ageRating: "4+",
-        price: "Free",
-        description: { "en-US": "Test Description" },
-      },
-      root: "/tmp",
-      configPath: "/tmp/goldie.config.ts",
-      flowsDir: "/tmp/flows",
-      outDir: "/tmp/out",
-      devices: ["iphone-6.9"],
-      locales: ["en-US"],
-      scenes: [
-        {
-          kind: "screenshot",
-          id: "home",
-          flow: "home",
-          headline: { "en-US": "Welcome" },
-        },
-        {
-          kind: "screenshot",
-          id: "detail",
-          flow: "detail",
-          headline: { "en-US": "Detail" },
-        },
-      ],
-      theme: {
-        background: "#FFFFFF",
-        fontFamily: "system",
-        headlineColor: "#0E1B2A",
-        subheadColor: "#5A6A7D",
-        copyHeightRatio: 0.24,
-        deviceWidthRatio: 0.84,
-        layout: "classic",
-        screenOnly: false,
-      },
-    };
-  }
 
   test("applies headlineColor and subheadColor overrides", () => {
     const cfg = makeConfig();
@@ -274,6 +275,21 @@ describe("Config resolution & shadowing prevention", () => {
 
     await rm(tmpDir, { recursive: true, force: true });
   });
+
+  test("validateLayouts allows single screenshot when multi-device layout is active", async () => {
+    const { validateLayouts } = await import("./config.ts");
+    const cfg: any = {
+      theme: { layout: "duo-tilt" },
+      scenes: [
+        {
+          kind: "screenshot",
+          id: "single",
+          headline: { "en-US": "Single" },
+        },
+      ],
+    };
+    expect(() => validateLayouts(cfg)).not.toThrow();
+  });
 });
 
 describe("Per-scene contrast discrepancy resolution", () => {
@@ -317,4 +333,39 @@ describe("Per-scene contrast discrepancy resolution", () => {
     expect(colors.headlineColor).toBe("#0E1B2A");
     expect(colors.subheadColor).toBe("#5A6A7D");
   });
+
+  test("computes luminance and flips text for layered aurora backgrounds", async () => {
+    const { backgroundLuminance, resolveCopyColors } = await import("./config.ts");
+    const auroraBg =
+      "radial-gradient(circle at 30% 40%, rgba(34, 211, 238, 0.4) 0%, transparent 60%), #090A0F";
+    const lum = backgroundLuminance(auroraBg);
+    expect(lum).not.toBeNull();
+    expect(lum!).toBeLessThan(0.1); // Deep dark obsidian
+
+    const lightTheme: any = {
+      background: "#FFFFFF",
+      headlineColor: "#0E1B2A",
+      subheadColor: "#5A6A7D",
+    };
+    const colors = resolveCopyColors(lightTheme, auroraBg);
+    expect(colors.headlineColor).toBe("#FFFFFF");
+    expect(colors.subheadColor).toBe("#D9E1EA");
+  });
+
+  test("applyDesign applies modern background options", async () => {
+    const cfg = makeConfig();
+    applyDesign(cfg, {
+      backgroundPattern: "dot-grid",
+      patternOpacity: 0.05,
+      patternColor: "#FFFFFF",
+      deviceBacklight: { enabled: true, color: "#22D3EE", intensity: 0.5 },
+      panoramaMode: true,
+    });
+    expect(cfg.theme.backgroundPattern).toBe("dot-grid");
+    expect(cfg.theme.patternOpacity).toBe(0.05);
+    expect(cfg.theme.patternColor).toBe("#FFFFFF");
+    expect(cfg.theme.deviceBacklight).toEqual({ enabled: true, color: "#22D3EE", intensity: 0.5 });
+    expect(cfg.theme.panoramaMode).toBe(true);
+  });
 });
+

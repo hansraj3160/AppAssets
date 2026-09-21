@@ -374,10 +374,20 @@ export function resolveScenes<S extends { id: string; layout?: string; secondSce
       scene.layout ??
       (sequence.length ? sequence[i % sequence.length] : undefined) ??
       fallback;
-    const layout = LAYOUTS[isLayoutKey(key) ? key : "classic"];
+    let layout = LAYOUTS[isLayoutKey(key) ? key : "classic"];
     let secondScene = scene.secondScene;
-    if (needsSecondCapture(layout) && !secondScene && scenes.length > 1) {
-      secondScene = scenes[(i + 1) % scenes.length]!.id;
+    if (needsSecondCapture(layout)) {
+      if (!secondScene || secondScene === scene.id || !scenes.some((s) => s.id === secondScene)) {
+        if (scenes.length > 1) {
+          secondScene = scenes[(i + 1) % scenes.length]!.id;
+          if (secondScene === scene.id) {
+            secondScene = scenes.find((s) => s.id !== scene.id)?.id;
+          }
+        } else {
+          layout = LAYOUTS.classic;
+          secondScene = undefined;
+        }
+      }
     }
     return { scene, layout, secondScene };
   });

@@ -141,19 +141,19 @@ export function EmptyState({
       if (onImportSuccess) {
         onImportSuccess(result);
       } else {
-        if (appName && result.targetPlatform && result.targetDevice) {
-          const key = `appassets.view.${appName}`;
-          const current =
-            localStorage.getItem(key) || localStorage.getItem(`goldie.view.${appName}`);
+        if (result.targetPlatform && result.targetDevice) {
+          const app = appName || "";
+          const key1 = `appassets-studio:${app}`;
+          const key2 = `goldie-studio:${app}`;
+          const current = localStorage.getItem(key1) || localStorage.getItem(key2);
           const parsed = current ? JSON.parse(current) : {};
-          localStorage.setItem(
-            key,
-            JSON.stringify({
-              ...parsed,
-              platform: result.targetPlatform,
-              device: result.targetDevice,
-            }),
-          );
+          const updated = JSON.stringify({
+            ...parsed,
+            platform: result.targetPlatform,
+            device: result.targetDevice,
+          });
+          localStorage.setItem(key1, updated);
+          localStorage.setItem(key2, updated);
         }
         sessionStorage.setItem(
           "appassets_toast",

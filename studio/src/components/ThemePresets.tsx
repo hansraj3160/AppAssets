@@ -1,6 +1,8 @@
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+import type { BacklightConfig, PatternType } from "../../../src/background";
+
 export type ThemePreset = {
   id: string;
   name: string;
@@ -12,37 +14,46 @@ export type ThemePreset = {
   headlineColor: string;
   subheadColor: string;
   fontSizeScale: number;
+  backgroundPattern?: PatternType;
+  patternOpacity?: number;
+  deviceBacklight?: boolean | BacklightConfig;
 };
 
 export const THEME_PRESETS: ThemePreset[] = [
   {
-    id: "minimalist-tech",
-    name: "Minimalist Tech",
-    tagline: "Dark carbon & neon cyan",
-    background: "linear-gradient(160deg, #0B0F19 0%, #111827 60%, #1E293B 100%)",
+    id: "cyber-aurora",
+    name: "Cyber Aurora",
+    tagline: "Obsidian base, cyan & violet aurora",
+    background:
+      "radial-gradient(circle at 35% 35%, rgba(34, 211, 238, 0.38) 0%, transparent 55%), radial-gradient(circle at 75% 65%, rgba(139, 92, 246, 0.35) 0%, transparent 60%), #090A0F",
     frame: "17-pro-silver",
     fontFamily: '-apple-system, "SF Pro Display", system-ui, sans-serif',
     fontName: "SF Pro",
     headlineColor: "#38BDF8",
     subheadColor: "#94A3B8",
     fontSizeScale: 1,
+    backgroundPattern: "dot-grid",
+    patternOpacity: 0.05,
+    deviceBacklight: { enabled: true, color: "#22D3EE", intensity: 0.45 },
   },
   {
-    id: "fintech-crypto",
-    name: "Fintech & Crypto",
-    tagline: "Deep navy, emerald & gold",
-    background: "linear-gradient(160deg, #0A192F 0%, #1E3A8A 55%, #0F172A 100%)",
+    id: "emerald-wealth",
+    name: "Emerald Wealth",
+    tagline: "Deep navy, emerald & gold flare",
+    background:
+      "radial-gradient(circle at 40% 40%, rgba(16, 185, 129, 0.35) 0%, transparent 55%), radial-gradient(circle at 80% 75%, rgba(234, 179, 8, 0.25) 0%, transparent 50%), #0A192F",
     frame: "17-pro-orange",
     fontFamily: '"Montserrat", system-ui, sans-serif',
     fontName: "Montserrat",
-    headlineColor: "#10B981",
+    headlineColor: "#34D399",
     subheadColor: "#FDE047",
     fontSizeScale: 1,
+    deviceBacklight: { enabled: true, color: "#10B981", intensity: 0.4 },
   },
   {
-    id: "health-fitness",
-    name: "Health & Fitness",
-    tagline: "High-energy coral sunset",
+    id: "sunset-kinetic",
+    name: "Sunset Kinetic",
+    tagline: "High-energy coral & hot tangerine",
     background: "linear-gradient(160deg, #FB7185 0%, #F97316 50%, #EF4444 100%)",
     frame: "17-pro-orange",
     fontFamily: '"Montserrat", system-ui, sans-serif',
@@ -50,11 +61,12 @@ export const THEME_PRESETS: ThemePreset[] = [
     headlineColor: "#FFFFFF",
     subheadColor: "#FFF1F2",
     fontSizeScale: 1.15,
+    deviceBacklight: { enabled: true, color: "#FFAA00", intensity: 0.35 },
   },
   {
-    id: "lifestyle-editorial",
-    name: "Lifestyle & Editorial",
-    tagline: "Warm cream & serif elegance",
+    id: "editorial-warm",
+    name: "Editorial Warm",
+    tagline: "Warm alabaster cream & serif elegance",
     background: "linear-gradient(160deg, #FBF8F3 0%, #F5EFEB 60%, #EFE7DF 100%)",
     frame: "17-pro-silver",
     fontFamily: '"Merriweather", Georgia, serif',
@@ -62,11 +74,12 @@ export const THEME_PRESETS: ThemePreset[] = [
     headlineColor: "#1C1917",
     subheadColor: "#78716C",
     fontSizeScale: 1,
+    deviceBacklight: { enabled: true, color: "#D6C7B2", intensity: 0.25 },
   },
   {
-    id: "clean-classic",
-    name: "Clean SaaS",
-    tagline: "Arctic light & high contrast",
+    id: "arctic-saas",
+    name: "Arctic SaaS",
+    tagline: "Ice-blue, blueprint grid & slate",
     background: "linear-gradient(160deg, #E8F1FF 0%, #F7FAFF 55%, #FFFFFF 100%)",
     frame: "17-pro-silver",
     fontFamily: '-apple-system, "SF Pro Display", system-ui, sans-serif',
@@ -74,6 +87,9 @@ export const THEME_PRESETS: ThemePreset[] = [
     headlineColor: "#0E1B2A",
     subheadColor: "#64748B",
     fontSizeScale: 1,
+    backgroundPattern: "blueprint",
+    patternOpacity: 0.04,
+    deviceBacklight: { enabled: true, color: "#60A5FA", intensity: 0.3 },
   },
 ];
 

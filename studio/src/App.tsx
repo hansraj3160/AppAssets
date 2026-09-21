@@ -43,6 +43,7 @@ import {
   type StoreManifest,
   saveDesign,
 } from "./manifest";
+import type { BacklightConfig, PatternType } from "../../src/background";
 
 /** Sentinel for the config's own layout sequence, which the studio can show but not edit. */
 export const CUSTOM_TEMPLATE = "__custom__";
@@ -379,6 +380,11 @@ function Loaded({
     headlineColor: saved.headlineColor ?? "",
     subheadColor: saved.subheadColor ?? "",
     fontSizeScale: saved.fontSizeScale ?? 1,
+    backgroundPattern: saved.backgroundPattern ?? design.theme.backgroundPattern ?? "none",
+    patternOpacity: saved.patternOpacity ?? design.theme.patternOpacity ?? 0.05,
+    patternColor: saved.patternColor ?? design.theme.patternColor,
+    deviceBacklight: saved.deviceBacklight ?? design.theme.deviceBacklight ?? false,
+    panoramaMode: saved.panoramaMode ?? design.theme.panoramaMode ?? false,
     copy: saved.copy ?? {},
     layout: knownLayout(saved.layout) ?? design.layout,
     template: initialTemplate(design, saved),
@@ -395,6 +401,11 @@ function Loaded({
     headlineColor,
     subheadColor,
     fontSizeScale,
+    backgroundPattern,
+    patternOpacity,
+    patternColor,
+    deviceBacklight,
+    panoramaMode,
     copy,
     layout,
     template,
@@ -416,6 +427,11 @@ function Loaded({
   const setHeadlineColor = field("headlineColor");
   const setSubheadColor = field("subheadColor");
   const setFontSizeScale = field("fontSizeScale");
+  const setBackgroundPattern = field("backgroundPattern");
+  const setPatternOpacity = field("patternOpacity");
+  const setPatternColor = field("patternColor");
+  const setDeviceBacklight = field("deviceBacklight");
+  const setPanoramaMode = field("panoramaMode");
   const setLayout = field("layout");
   // Picking a template replaces the strip's layout sequence, so any per-scene
   // overrides made against the previous one are dropped with it.
@@ -561,6 +577,11 @@ function Loaded({
         headlineColor: headlineColor || undefined,
         subheadColor: subheadColor || undefined,
         fontSizeScale: fontSizeScale !== 1 ? fontSizeScale : undefined,
+        backgroundPattern: backgroundPattern !== "none" ? backgroundPattern : undefined,
+        patternOpacity: patternOpacity !== 0.05 ? patternOpacity : undefined,
+        patternColor: patternColor || undefined,
+        deviceBacklight: deviceBacklight || undefined,
+        panoramaMode: panoramaMode || undefined,
         copy: Object.keys(copy).length > 0 ? copy : undefined,
         order: order.length > 0 ? order : undefined,
         template: template === CUSTOM_TEMPLATE ? undefined : template,
@@ -584,6 +605,11 @@ function Loaded({
     headlineColor,
     subheadColor,
     fontSizeScale,
+    backgroundPattern,
+    patternOpacity,
+    patternColor,
+    deviceBacklight,
+    panoramaMode,
     copy,
     order,
     template,
@@ -604,6 +630,11 @@ function Loaded({
         headlineColor: headlineColor || undefined,
         subheadColor: subheadColor || undefined,
         fontSizeScale: fontSizeScale !== 1 ? fontSizeScale : undefined,
+        backgroundPattern: backgroundPattern !== "none" ? backgroundPattern : undefined,
+        patternOpacity: patternOpacity !== 0.05 ? patternOpacity : undefined,
+        patternColor: patternColor || undefined,
+        deviceBacklight: deviceBacklight || undefined,
+        panoramaMode: panoramaMode || undefined,
         copy: Object.keys(copy).length > 0 ? copy : undefined,
         order: order.length > 0 ? order : undefined,
         template: template === CUSTOM_TEMPLATE ? undefined : template,
@@ -857,6 +888,11 @@ function Loaded({
             headlineColor={headlineColor}
             subheadColor={subheadColor}
             fontSizeScale={fontSizeScale}
+            backgroundPattern={backgroundPattern}
+            patternOpacity={patternOpacity}
+            patternColor={patternColor}
+            deviceBacklight={deviceBacklight}
+            panoramaMode={panoramaMode}
             onPlatform={selectPlatform}
             onDevice={setDevice}
             onLocale={setLocale}
@@ -869,6 +905,11 @@ function Loaded({
             onHeadlineColor={setHeadlineColor}
             onSubheadColor={setSubheadColor}
             onFontSizeScale={setFontSizeScale}
+            onBackgroundPattern={setBackgroundPattern}
+            onPatternOpacity={setPatternOpacity}
+            onPatternColor={setPatternColor}
+            onDeviceBacklight={setDeviceBacklight}
+            onPanoramaMode={setPanoramaMode}
             sceneBadges={sceneBadges}
             onSceneBadge={setSceneBadge}
             sceneBackgrounds={sceneBackgrounds}
@@ -902,6 +943,11 @@ function Loaded({
                 headlineColor={headlineColor}
                 subheadColor={subheadColor}
                 fontSizeScale={fontSizeScale}
+                backgroundPattern={backgroundPattern}
+                patternOpacity={patternOpacity}
+                patternColor={patternColor}
+                deviceBacklight={deviceBacklight}
+                panoramaMode={panoramaMode}
                 onPlatform={selectPlatform}
                 onDevice={setDevice}
                 onLocale={setLocale}
@@ -914,6 +960,11 @@ function Loaded({
                 onHeadlineColor={setHeadlineColor}
                 onSubheadColor={setSubheadColor}
                 onFontSizeScale={setFontSizeScale}
+                onBackgroundPattern={setBackgroundPattern}
+                onPatternOpacity={setPatternOpacity}
+                onPatternColor={setPatternColor}
+                onDeviceBacklight={setDeviceBacklight}
+                onPanoramaMode={setPanoramaMode}
                 sceneBadges={sceneBadges}
                 onSceneBadge={setSceneBadge}
                 sceneBackgrounds={sceneBackgrounds}
@@ -1072,6 +1123,11 @@ function Loaded({
                     headlineColor={headlineColor}
                     subheadColor={subheadColor}
                     fontSizeScale={fontSizeScale}
+                    backgroundPattern={backgroundPattern}
+                    patternOpacity={patternOpacity}
+                    patternColor={patternColor}
+                    deviceBacklight={deviceBacklight}
+                    panoramaMode={panoramaMode}
                     copy={copy}
                     onCopy={setSceneCopy}
                     order={order}
@@ -1158,6 +1214,11 @@ type DesignState = {
   headlineColor: string;
   subheadColor: string;
   fontSizeScale: number;
+  backgroundPattern?: PatternType;
+  patternOpacity?: number;
+  patternColor?: string;
+  deviceBacklight?: boolean | BacklightConfig;
+  panoramaMode?: boolean;
   copy: Record<string, SceneCopy>;
   layout: string;
   /** A built-in template key, "" for none, or CUSTOM_TEMPLATE for the config's own sequence. */

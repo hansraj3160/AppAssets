@@ -14,6 +14,7 @@ import {
   type TemplateChoice,
 } from "./layouts.ts";
 import { DEVICES, type DeviceKey } from "./specs.ts";
+import type { BacklightConfig, PatternType } from "./background.ts";
 
 /** Bezel art bundled in goldie's own assets/, one PNG per variant. */
 export const FRAME_VARIANTS = ["17-pro-silver", "17-pro-blue", "17-pro-orange"] as const;
@@ -133,6 +134,16 @@ export type Theme = {
   decorations?: Decoration[];
   /** Scaling multiplier for headline and subhead copy (e.g. 0.85 for Compact, 1 for Normal, 1.2 for Large). */
   fontSizeScale?: number;
+  /** Background pattern overlay (dot-grid, isometric-dot, blueprint). */
+  backgroundPattern?: PatternType;
+  /** Opacity for background pattern (e.g. 0.04). */
+  patternOpacity?: number;
+  /** Custom stroke / dot color for the pattern. */
+  patternColor?: string;
+  /** Device backlight halo settings behind phone frame. */
+  deviceBacklight?: boolean | BacklightConfig;
+  /** Whether backgrounds are rendered as a continuous multi-slice panorama. */
+  panoramaMode?: boolean;
 };
 
 /**
@@ -341,6 +352,16 @@ export type DesignOverrides = {
   >;
   /** Scaling multiplier for headline and subhead copy. */
   fontSizeScale?: number;
+  /** Background pattern overlay (dot-grid, isometric-dot, blueprint). */
+  backgroundPattern?: PatternType;
+  /** Opacity for background pattern. */
+  patternOpacity?: number;
+  /** Custom stroke / dot color for the pattern. */
+  patternColor?: string;
+  /** Device backlight halo settings behind phone frame. */
+  deviceBacklight?: boolean | BacklightConfig;
+  /** Whether backgrounds are rendered as a continuous multi-slice panorama. */
+  panoramaMode?: boolean;
   /** Locales configured or enabled in the studio. */
   locales?: string[];
   /** App icon image (relative path, /icon.png, or data URL). */
@@ -458,6 +479,11 @@ export function applyDesign(cfg: LoadedConfig, design: DesignOverrides): void {
   if (design.locales && Array.isArray(design.locales) && design.locales.length > 0) {
     cfg.locales = Array.from(new Set([...cfg.locales, ...design.locales]));
   }
+  if (design.backgroundPattern !== undefined) cfg.theme.backgroundPattern = design.backgroundPattern;
+  if (design.patternOpacity !== undefined) cfg.theme.patternOpacity = design.patternOpacity;
+  if (design.patternColor !== undefined) cfg.theme.patternColor = design.patternColor;
+  if (design.deviceBacklight !== undefined) cfg.theme.deviceBacklight = design.deviceBacklight;
+  if (design.panoramaMode !== undefined) cfg.theme.panoramaMode = design.panoramaMode;
   if (design.appIcon) {
     cfg.store = cfg.store || ({} as any);
     cfg.store.icon = design.appIcon;
@@ -497,6 +523,7 @@ export function validateLayouts(cfg: LoadedConfig): void {
   if (Array.isArray(template)) for (const key of template) checkedLayout(key);
   else if (template) checkedTemplate(template);
   const shots = cfg.scenes.filter(isScreenshot);
+  if (shots.length <= 1) return;
   for (const { scene, layout, secondScene } of resolvedScenes(cfg)) {
     if (scene.layout) checkedLayout(scene.layout);
     if (!needsSecondCapture(layout)) continue;
@@ -534,9 +561,13 @@ export function reorderScenes(scenes: Scene[], order: string[]): Scene[] {
 /**
  * Mean relative luminance of the value's six-digit hex colors, or null when
  * it has none (keep the config's copy colors then).
+ * For layered aurora/mesh backgrounds, checks the solid base color layer.
  */
 export function backgroundLuminance(css: string): number | null {
-  const hexes = css.match(/#[0-9a-fA-F]{6}/g);
+  const layers = css.split(/,(?![^(]*\))/);
+  const target = layers[layers.length - 1]?.trim() || css;
+
+  const hexes = target.match(/#[0-9a-fA-F]{6}/g) ?? css.match(/#[0-9a-fA-F]{6}/g);
   if (!hexes || hexes.length === 0) return null;
   const luminance = (hex: string) => {
     const channel = (offset: number) => {

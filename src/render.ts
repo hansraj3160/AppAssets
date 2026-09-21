@@ -24,6 +24,16 @@ import { registerFonts, withGlyphFallback } from "./fonts.ts";
 import { pngInfo } from "./image.ts";
 import { BADGE, type Composition, compose, SCREEN_SHADOW, TYPE } from "./layouts.ts";
 import { DEVICES, type DeviceKey, PREVIEW, SCREENSHOT_PIXEL_FORMAT } from "./specs.ts";
+import {
+  type BacklightConfig,
+  type GlowPoint,
+  type PanoramaSliceInfo,
+  type PatternConfig,
+  type StructuredBackground,
+  backgroundToCss,
+  parseBackground,
+  withOpacity,
+} from "./background.ts";
 
 async function readManifest(cfg: LoadedConfig, deviceKey: DeviceKey): Promise<CaptureManifest> {
   const file = join(cfg.outDir, "raw", deviceKey, "manifest.json");
@@ -79,6 +89,9 @@ export async function renderScreenshots(cfg: LoadedConfig, deviceKey: DeviceKey,
     return { ...r, first };
   });
 
+  const totalTiles = jobs.reduce((sum, j) => sum + j.layout.span, 0);
+  const totalWidth = totalTiles * tile.width;
+
   const files = await Promise.all(
     jobs.map(async ({ scene, layout, secondScene, first }) => {
       console.log(`  frame ${scene.id}`);
@@ -89,8 +102,26 @@ export async function renderScreenshots(cfg: LoadedConfig, deviceKey: DeviceKey,
       const background = scene.background ?? cfg.theme.background;
       const transparent = isTransparent(background);
       if (!transparent) {
-        ctx.fillStyle = paint(ctx, background, c.width, c.height);
-        ctx.fillRect(0, 0, c.width, c.height);
+        const sliceInfo: PanoramaSliceInfo = {
+          sliceIndex: first,
+          totalSlices: totalTiles,
+          globalX: first * tile.width,
+          totalWidth: totalWidth,
+          sliceWidth: c.width,
+          sliceHeight: c.height,
+        };
+        const pattern: PatternConfig | undefined = cfg.theme.backgroundPattern
+          ? {
+            type: cfg.theme.backgroundPattern,
+            opacity: cfg.theme.patternOpacity ?? 0.05,
+            color: cfg.theme.patternColor,
+          }
+          : undefined;
+
+        renderBackground(ctx, background, c.width, c.height, {
+          pattern,
+          panoramaOffset: cfg.theme.panoramaMode ? sliceInfo : undefined,
+        });
       }
 
       if (c.copy) {
@@ -120,9 +151,9 @@ export async function renderScreenshots(cfg: LoadedConfig, deviceKey: DeviceKey,
       );
 
       for (const device of c.devices) {
-        const sceneId = device.capture === "secondary" ? secondScene! : scene.id;
+        const sceneId = device.capture === "secondary" ? (secondScene || scene.id) : scene.id;
         const capture = await loadImage(findShot(sceneId).file);
-        drawDevice(ctx, device, capture, bezel, { width: c.designWidth });
+        drawDevice(ctx, device, capture, bezel, { width: c.designWidth }, cfg.theme.deviceBacklight);
       }
 
       const out: string[] = [];
@@ -197,14 +228,14 @@ function drawCopy(
     },
     ...(text.subhead
       ? [
-          {
-            text: text.subhead,
-            font: `${TYPE.subheadWeight} ${tile.width * TYPE.subheadSize * scale}px ${family}`,
-            color: subheadColor,
-            lineHeight: TYPE.subheadLineHeight,
-            letterSpacing: 0,
-          },
-        ]
+        {
+          text: text.subhead,
+          font: `${TYPE.subheadWeight} ${tile.width * TYPE.subheadSize * scale}px ${family}`,
+          color: subheadColor,
+          lineHeight: TYPE.subheadLineHeight,
+          letterSpacing: 0,
+        },
+      ]
       : []),
   ].map((b) => ({ ...b, lines: wrapLines(ctx, b.text, b.font, b.letterSpacing, copy.maxWidth) }));
 
@@ -233,6 +264,7 @@ function drawDevice(
   capture: Image,
   bezel: Image | null,
   tile: { width: number },
+  backlight?: boolean | BacklightConfig,
 ) {
   const { frame, screen } = device;
   ctx.save();
@@ -243,17 +275,14 @@ function drawDevice(
     ctx.rotate((device.rotate * Math.PI) / 180);
     ctx.translate(-cx, -cy);
   }
-  if (!bezel) {
-    ctx.save();
-    ctx.shadowColor = SCREEN_SHADOW.color;
-    ctx.shadowBlur = tile.width * SCREEN_SHADOW.blur;
-    ctx.shadowOffsetY = tile.width * SCREEN_SHADOW.offsetY;
-    ctx.fillStyle = "#000";
-    ctx.beginPath();
-    ctx.roundRect(screen.left, screen.top, screen.width, screen.height, screen.radius);
-    ctx.fill();
-    ctx.restore();
+
+  // 1. Ambient backlight halo behind phone
+  if (backlight) {
+    drawDeviceBacklight(ctx, device, tile, backlight);
   }
+
+  // 2. Realistic shadows behind device
+  drawDeviceShadow(ctx, device, tile, Boolean(bezel));
   ctx.save();
   ctx.beginPath();
   ctx.roundRect(screen.left, screen.top, screen.width, screen.height, screen.radius);
@@ -415,6 +444,294 @@ function isTransparent(css: string): boolean {
 }
 
 /**
+ * Draws an ambient halo backlight behind the device frame.
+ */
+export function drawDeviceBacklight(
+  ctx: SKRSContext2D,
+  device: Composition["devices"][number],
+  _tile: { width: number },
+  backlight?: boolean | BacklightConfig,
+) {
+  if (!backlight) return;
+  if (typeof backlight === "object" && backlight.enabled === false) return;
+
+  const { frame } = device;
+  const cx = frame.left + frame.width / 2;
+  const cy = frame.top + frame.height * 0.45;
+  const rx = frame.width * 0.85;
+  const ry = frame.height * 0.65;
+
+  const haloColor =
+    (typeof backlight === "object" && backlight.color) || "rgba(56, 189, 248, 0.4)";
+  const intensity =
+    typeof backlight === "object" && backlight.intensity !== undefined
+      ? backlight.intensity
+      : 0.45;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(1, ry / rx);
+
+  const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
+  grad.addColorStop(0, withOpacity(haloColor, intensity));
+  grad.addColorStop(0.5, withOpacity(haloColor, intensity * 0.4));
+  grad.addColorStop(1, "rgba(0, 0, 0, 0)");
+
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(0, 0, rx, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+/**
+ * Draws realistic drop shadows behind the device frame (sharp contact + soft ambient).
+ */
+export function drawDeviceShadow(
+  ctx: SKRSContext2D,
+  device: Composition["devices"][number],
+  tile: { width: number },
+  isBezel: boolean,
+) {
+  const { frame, screen } = device;
+  if (!isBezel) {
+    ctx.save();
+    ctx.shadowColor = SCREEN_SHADOW.color;
+    ctx.shadowBlur = tile.width * SCREEN_SHADOW.blur;
+    ctx.shadowOffsetY = tile.width * SCREEN_SHADOW.offsetY;
+    ctx.fillStyle = "#000";
+    ctx.beginPath();
+    ctx.roundRect(screen.left, screen.top, screen.width, screen.height, screen.radius);
+    ctx.fill();
+    ctx.restore();
+    return;
+  }
+
+  // Sharp contact shadow under phone bottom
+  ctx.save();
+  ctx.shadowColor = "rgba(0, 0, 0, 0.35)";
+  ctx.shadowBlur = tile.width * 0.022;
+  ctx.shadowOffsetY = tile.width * 0.016;
+  ctx.fillStyle = "rgba(0, 0, 0, 0.85)";
+  ctx.beginPath();
+  ctx.roundRect(
+    frame.left + 3,
+    frame.top + 3,
+    frame.width - 6,
+    frame.height - 6,
+    screen.radius * 1.12,
+  );
+  ctx.fill();
+  ctx.restore();
+
+  // Diffused ambient elevation blur around phone
+  ctx.save();
+  ctx.shadowColor = "rgba(0, 0, 0, 0.22)";
+  ctx.shadowBlur = tile.width * 0.085;
+  ctx.shadowOffsetY = tile.width * 0.04;
+  ctx.fillStyle = "rgba(0, 0, 0, 0.85)";
+  ctx.beginPath();
+  ctx.roundRect(
+    frame.left + 4,
+    frame.top + 4,
+    frame.width - 8,
+    frame.height - 8,
+    screen.radius * 1.12,
+  );
+  ctx.fill();
+  ctx.restore();
+}
+
+/**
+ * Draws a solid or simple background fill onto the canvas.
+ */
+export function drawBaseBackground(
+  ctx: SKRSContext2D,
+  base: string,
+  width: number,
+  height: number,
+) {
+  ctx.save();
+  if (base.startsWith("linear-gradient")) {
+    ctx.fillStyle = paint(ctx, base, width, height);
+  } else {
+    ctx.fillStyle = base;
+  }
+  ctx.fillRect(0, 0, width, height);
+  ctx.restore();
+}
+
+/**
+ * Renders an Aurora mesh glow with multi-point radial light sources.
+ */
+export function drawAuroraGlow(
+  ctx: SKRSContext2D,
+  glowPoints: GlowPoint[],
+  width: number,
+  height: number,
+  panoramaOffset?: PanoramaSliceInfo,
+) {
+  for (const pt of glowPoints) {
+    const cx = panoramaOffset
+      ? panoramaOffset.totalWidth * pt.x - panoramaOffset.globalX
+      : width * pt.x;
+    const cy = height * pt.y;
+    const radius = Math.max(width, height) * (pt.radius || 0.6);
+
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+    const glowColor = withOpacity(pt.color, pt.opacity ?? 0.4);
+    grad.addColorStop(0, glowColor);
+    grad.addColorStop(0.5, withOpacity(pt.color, (pt.opacity ?? 0.4) * 0.4));
+    grad.addColorStop(1, "rgba(0, 0, 0, 0)");
+
+    ctx.save();
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, width, height);
+    ctx.restore();
+  }
+}
+
+/**
+ * Draws a subtle tech pattern overlay (micro dot grid, isometric dots, or fine blueprint grid lines).
+ */
+export function drawPatternOverlay(
+  ctx: SKRSContext2D,
+  pattern: PatternConfig,
+  width: number,
+  height: number,
+  panoramaOffset?: PanoramaSliceInfo,
+) {
+  if (!pattern || pattern.type === "none" || pattern.opacity <= 0) return;
+
+  ctx.save();
+  ctx.globalAlpha = Math.max(0, Math.min(1, pattern.opacity));
+  const color = pattern.color || "#FFFFFF";
+  const spacing =
+    pattern.spacing && pattern.spacing > 1
+      ? pattern.spacing
+      : Math.round(width * (pattern.spacing || 0.035));
+  const xOffset = panoramaOffset ? -(panoramaOffset.globalX % spacing) : 0;
+
+  if (pattern.type === "dot-grid") {
+    const dotRadius = Math.max(1.5, spacing * 0.04);
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    for (let x = xOffset; x <= width + spacing; x += spacing) {
+      for (let y = 0; y <= height + spacing; y += spacing) {
+        ctx.moveTo(x + dotRadius, y);
+        ctx.arc(x, y, dotRadius, 0, Math.PI * 2);
+      }
+    }
+    ctx.fill();
+  } else if (pattern.type === "isometric-dot") {
+    const dotRadius = Math.max(1.5, spacing * 0.04);
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    let rowIndex = 0;
+    for (let y = 0; y <= height + spacing; y += spacing * 0.866) {
+      const stagger = rowIndex % 2 === 1 ? spacing * 0.5 : 0;
+      for (let x = xOffset + stagger; x <= width + spacing; x += spacing) {
+        ctx.moveTo(x + dotRadius, y);
+        ctx.arc(x, y, dotRadius, 0, Math.PI * 2);
+      }
+      rowIndex++;
+    }
+    ctx.fill();
+  } else if (pattern.type === "blueprint") {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(1, spacing * 0.02);
+    ctx.beginPath();
+    for (let x = xOffset; x <= width + spacing; x += spacing) {
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, height);
+    }
+    for (let y = 0; y <= height + spacing; y += spacing) {
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/**
+ * Composites the full screenshot background: base fill/gradient, aurora glow,
+ * pattern overlay, and panorama coordinate support.
+ */
+export function renderBackground(
+  ctx: SKRSContext2D,
+  background: string | StructuredBackground,
+  width: number,
+  height: number,
+  options?: {
+    pattern?: PatternConfig;
+    panoramaOffset?: PanoramaSliceInfo;
+  },
+) {
+  const bg = parseBackground(background);
+
+  if (bg.type === "solid") {
+    if (bg.color !== "transparent" && bg.color !== "") {
+      ctx.save();
+      ctx.fillStyle = bg.color;
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+    }
+  } else if (bg.type === "linear-gradient") {
+    ctx.save();
+    if (options?.panoramaOffset) {
+      const rad = (bg.angle * Math.PI) / 180;
+      const totalW = options.panoramaOffset.totalWidth;
+      const length = Math.abs(totalW * Math.sin(rad)) + Math.abs(height * Math.cos(rad));
+      const dx = (Math.sin(rad) * length) / 2;
+      const dy = (-Math.cos(rad) * length) / 2;
+      const globalCx = totalW / 2 - options.panoramaOffset.globalX;
+      const globalCy = height / 2;
+      const grad = ctx.createLinearGradient(
+        globalCx - dx,
+        globalCy - dy,
+        globalCx + dx,
+        globalCy + dy,
+      );
+      for (const s of bg.stops) {
+        grad.addColorStop(s.at ?? 0, s.color);
+      }
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, width, height);
+    } else {
+      ctx.fillStyle = paint(ctx, backgroundToCss(bg), width, height);
+      ctx.fillRect(0, 0, width, height);
+    }
+    ctx.restore();
+  } else if (bg.type === "aurora") {
+    drawBaseBackground(ctx, bg.baseColor, width, height);
+    drawAuroraGlow(ctx, bg.glowPoints, width, height, options?.panoramaOffset);
+  } else if (bg.type === "tech-grid") {
+    drawBaseBackground(ctx, bg.baseColor, width, height);
+    if (bg.linearGradient) {
+      ctx.save();
+      ctx.fillStyle = paint(ctx, backgroundToCss(bg.linearGradient), width, height);
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+    }
+    if (bg.glowPoints && bg.glowPoints.length > 0) {
+      drawAuroraGlow(ctx, bg.glowPoints, width, height, options?.panoramaOffset);
+    }
+    drawPatternOverlay(ctx, bg.pattern, width, height, options?.panoramaOffset);
+  } else if (bg.type === "custom-image") {
+    ctx.save();
+    ctx.fillStyle = bg.overlayColor || "#000000";
+    ctx.fillRect(0, 0, width, height);
+    ctx.restore();
+  }
+
+  // Draw standalone pattern overlay if configured via options and not already drawn
+  if (options?.pattern && bg.type !== "tech-grid") {
+    drawPatternOverlay(ctx, options.pattern, width, height, options?.panoramaOffset);
+  }
+}
+
+/**
  * A canvas fill for a CSS background: a plain color, or a `linear-gradient()`
  * with an optional angle / `to <side>` and color stops with optional
  * percentages. Anything else is handed to the canvas as-is.
@@ -540,7 +857,7 @@ export async function renderPreview(cfg: LoadedConfig, deviceKey: DeviceKey, loc
   ) {
     throw new Error(
       `Preview is ${seconds.toFixed(1)}s; Apple requires ${PREVIEW.minSeconds}-${PREVIEW.maxSeconds}s. ` +
-        `Adjust the segment flows or their holdSeconds and re-capture.`,
+      `Adjust the segment flows or their holdSeconds and re-capture.`,
     );
   }
 
@@ -656,8 +973,8 @@ export async function verify(
     ok &&= good;
     console.log(
       `  ${good ? "ok  " : "FAIL"} ${basename(file)}  ${width}x${height}` +
-        `${alpha ? (alphaOk ? "  transparent (not for upload)" : "  alpha channel present") : ""}` +
-        `${good ? "" : `  expected ${spec.screenshot.width}x${spec.screenshot.height}, no alpha`}`,
+      `${alpha ? (alphaOk ? "  transparent (not for upload)" : "  alpha channel present") : ""}` +
+      `${good ? "" : `  expected ${spec.screenshot.width}x${spec.screenshot.height}, no alpha`}`,
     );
   }
 

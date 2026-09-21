@@ -231,6 +231,53 @@ describe("importHandler", () => {
     expect(statusCode).toBe(400);
     expect(JSON.parse(endedWith).error).toBe("No files provided");
   });
+
+  test("importHandler returns 500 if CLI manifest command fails", async () => {
+    // "false" command exits with code 1
+    const handler = importHandler({
+      paths: {
+        configPath: "/tmp/nonexistent-config.ts",
+        configDir: "/tmp",
+        outDir: "/tmp/out",
+        webDir: "/tmp/out/web",
+        designFile: "/tmp/goldie.design.json",
+        exportZip: "/tmp/out/export.zip",
+      },
+      cli: ["false"],
+    });
+
+    let statusCode = 0;
+    let endedWith = "";
+    const listeners: Record<string, (...args: any[]) => void> = {};
+    const req = {
+      method: "POST",
+      headers: {},
+      on: (event: string, cb: (...args: any[]) => void) => {
+        listeners[event] = cb;
+      },
+    } as any;
+    const res = {
+      set statusCode(code: number) {
+        statusCode = code;
+      },
+      setHeader: () => {},
+      end(body: string) {
+        endedWith = body;
+      },
+    } as any;
+
+    handler(req, res);
+    listeners.data?.(
+      JSON.stringify({
+        files: [{ name: "screen.png", dataUrl: "data:image/png;base64,iVBORw0KGgo=" }],
+      }),
+    );
+    listeners.end?.();
+
+    await new Promise((r) => setTimeout(r, 100));
+    expect(statusCode).toBe(500);
+    expect(JSON.parse(endedWith).error).toContain("Manifest generation failed");
+  });
 });
 
 describe("locales helpers and handler", () => {

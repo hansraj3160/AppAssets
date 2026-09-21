@@ -178,8 +178,8 @@ export async function ensureWorkspaceConfig(basePaths: StudioPaths, wsPaths: Stu
       // Fix import path to point to the base src/config.ts
       const srcConfigAbs = resolve(basePaths.configDir, "src", "config.ts");
       baseContent = baseContent.replace(
-        /import\s+type\s+\{\s*GoldieConfig\s*\}\s+from\s+["']\.\/src\/config\.ts["'];?/,
-        `import type { GoldieConfig } from ${JSON.stringify(srcConfigAbs)};`,
+        /import\s+type\s+\{([^}]+)\}\s+from\s+["']\.\/src\/config(?:\.ts)?["'];?/,
+        `import type {$1} from ${JSON.stringify(srcConfigAbs)};`,
       );
       // Ensure workspace config starts with empty scenes
       const scenesIdx = baseContent.indexOf("scenes:");
@@ -758,7 +758,10 @@ export function replaceCaptureHandler(api: StudioApi): Handler {
           console.error("Frame failed after capture replace:", frameErr);
         }
 
-        await exec(bin!, [...prefix, "manifest", "--config", paths.configPath], { quiet: true });
+        const manifestRes = await exec(bin!, [...prefix, "manifest", "--config", paths.configPath], { quiet: true });
+        if (manifestRes.code !== 0) {
+          console.error("Manifest command failed after replace-capture:", manifestRes.stderr || manifestRes.stdout);
+        }
 
         res.statusCode = 200;
         res.setHeader("Content-Type", "application/json");
@@ -829,6 +832,25 @@ export function importHandler(api: StudioApi): Handler {
           }
         }
 
+        // Pre-determine clean, unique scene IDs and labels across files upfront
+        const fileSceneMeta = files.map((f, idx) => {
+          const rawName = f.name.replace(/\.[^.]+$/, "");
+          let baseId = rawName.replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
+          if (!baseId || /^_+$/.test(baseId)) baseId = `screenshot_${idx + 1}`;
+          const label =
+            rawName.replace(/[_-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) ||
+            `Screenshot ${idx + 1}`;
+          return { f, baseId, label };
+        });
+
+        const seenBatchIds = new Map<string, number>();
+        const fileSceneAssignments = fileSceneMeta.map(({ f, baseId, label }) => {
+          const count = seenBatchIds.get(baseId) ?? 0;
+          seenBatchIds.set(baseId, count + 1);
+          const id = count === 0 ? baseId : `${baseId}_${count + 1}`;
+          return { f, id, label };
+        });
+
         const newScenes: Array<{ id: string; label: string }> = [];
 
         for (const [dev, devFiles] of filesByDevice.entries()) {
@@ -850,9 +872,12 @@ export function importHandler(api: StudioApi): Handler {
           );
 
           for (const f of devFiles) {
-            const rawName = f.name.replace(/\.[^.]+$/, "");
-            const id = rawName.replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
-            const label = rawName.replace(/[_-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+            const assignment =
+              fileSceneAssignments.find((a) => a.f === f) ?? {
+                id: "screenshot",
+                label: "Screenshot",
+              };
+            const { id, label } = assignment;
 
             const base64Data = f.dataUrl.includes(";base64,")
               ? f.dataUrl.split(";base64,")[1]!
@@ -891,7 +916,7 @@ export function importHandler(api: StudioApi): Handler {
               !configContent.includes(`id: "${s.id}"`) &&
               !configContent.includes(`id: '${s.id}'`)
             ) {
-              const sceneBlock = `    {\n      kind: "screenshot",\n      id: "${s.id}",\n      flow: "store-${s.id}",\n      headline: { "en-US": "${s.label}" },\n      subhead: { "en-US": "Describe your key benefit here." },\n    },\n`;
+              const sceneBlock = `    {\n      kind: "screenshot",\n      id: ${JSON.stringify(s.id)},\n      flow: "store-${s.id}",\n      headline: { "en-US": ${JSON.stringify(s.label)} },\n      subhead: { "en-US": "Describe your key benefit here." },\n    },\n`;
               const scenesIndex = configContent.indexOf("scenes:");
               if (scenesIndex !== -1) {
                 const openBracket = configContent.indexOf("[", scenesIndex);
@@ -926,7 +951,20 @@ export function importHandler(api: StudioApi): Handler {
 
         // Rebuild store.json via manifest command
         const [bin, ...prefix] = cli;
-        await exec(bin!, [...prefix, "manifest", "--config", paths.configPath], { quiet: true });
+        const manifestRes = await exec(
+          bin!,
+          [...prefix, "manifest", "--config", paths.configPath],
+          { quiet: true },
+        );
+        if (manifestRes.code !== 0) {
+          console.error(
+            "Manifest command failed during import:",
+            manifestRes.stderr || manifestRes.stdout,
+          );
+          throw new Error(
+            `Manifest generation failed: ${manifestRes.stderr || manifestRes.stdout || `Exit code ${manifestRes.code}`}`,
+          );
+        }
 
         const targetDevices = Array.from(filesByDevice.keys());
         const primaryDevice =
@@ -1194,7 +1232,10 @@ export function deleteHandler(api: StudioApi): Handler {
 
         // Rebuild store.json via manifest command
         const [bin, ...prefix] = cli;
-        await exec(bin!, [...prefix, "manifest", "--config", paths.configPath], { quiet: true });
+        const manifestRes = await exec(bin!, [...prefix, "manifest", "--config", paths.configPath], { quiet: true });
+        if (manifestRes.code !== 0) {
+          console.error("Manifest failed in deleteHandler:", manifestRes.stderr || manifestRes.stdout);
+        }
 
         res.statusCode = 200;
         res.setHeader("Content-Type", "application/json");
@@ -1314,7 +1355,10 @@ export function deleteAllHandler(api: StudioApi): Handler {
 
         // Rebuild store.json via manifest command
         const [bin, ...prefix] = cli;
-        await exec(bin!, [...prefix, "manifest", "--config", paths.configPath], { quiet: true });
+        const manifestRes = await exec(bin!, [...prefix, "manifest", "--config", paths.configPath], { quiet: true });
+        if (manifestRes.code !== 0) {
+          console.error("Manifest failed in deleteAllHandler:", manifestRes.stderr || manifestRes.stdout);
+        }
 
         res.statusCode = 200;
         res.setHeader("Content-Type", "application/json");
@@ -2495,7 +2539,10 @@ export function localesHandler(api: StudioApi): Handler {
 
           // Run manifest to refresh out/web/store.json
           const [bin, ...prefix] = cli;
-          await exec(bin!, [...prefix, "manifest", "--config", paths.configPath], { quiet: true });
+          const manifestRes = await exec(bin!, [...prefix, "manifest", "--config", paths.configPath], { quiet: true });
+          if (manifestRes.code !== 0) {
+            console.error("Manifest failed in localesHandler:", manifestRes.stderr || manifestRes.stdout);
+          }
 
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ ok: true, locales: updatedLocales }));

@@ -1,4 +1,5 @@
 import { apiFetch } from "./lib/api";
+import type { BacklightConfig, PatternType } from "../../src/background";
 
 /** Mirrors the StoreManifest that `appassets manifest` writes to out/store.json. */
 
@@ -11,6 +12,11 @@ export type Theme = {
   copyHeightRatio: number;
   /** Fraction of the frame width the device bezel occupies. */
   deviceWidthRatio: number;
+  backgroundPattern?: PatternType;
+  patternOpacity?: number;
+  patternColor?: string;
+  deviceBacklight?: boolean | BacklightConfig;
+  panoramaMode?: boolean;
 };
 
 /** Mirrors Decoration in src/config.ts; image `src` values are urls under out/web. */
@@ -192,6 +198,11 @@ export type SavedDesign = {
       slice?: number;
     }
   >;
+  backgroundPattern?: PatternType;
+  patternOpacity?: number;
+  patternColor?: string;
+  deviceBacklight?: boolean | BacklightConfig;
+  panoramaMode?: boolean;
 };
 
 export type SceneCopy = {

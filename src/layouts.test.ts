@@ -170,6 +170,16 @@ describe("resolveScenes", () => {
     });
     expect(r.map((x) => x.secondScene)).toEqual(["b", "a", "a"]);
     expect(resolveScenes([{ id: "only" }], { template: ["duo"] })[0]!.secondScene).toBeUndefined();
+    expect(resolveScenes([{ id: "only" }], { template: ["duo"] })[0]!.layout.key).toBe("classic");
+    expect(resolveScenes([{ id: "only" }], { layout: "duo-tilt" })[0]!.layout.key).toBe("classic");
+  });
+
+  test("repairs self-referencing or missing secondScene when sibling scenes exist", () => {
+    const r = resolveScenes([{ id: "a", secondScene: "a" }, { id: "b" }], {
+      template: ["duo"],
+    });
+    expect(r[0]!.secondScene).toBe("b");
+    expect(r[0]!.layout.key).toBe("duo");
   });
 
   test("trio-flow and showcase-pro assign new layout sequences", () => {

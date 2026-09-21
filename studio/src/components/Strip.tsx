@@ -24,6 +24,7 @@ import {
   SCREEN_SHADOW,
   TYPE,
 } from "../../../src/layouts";
+import { type BacklightConfig, type PatternType, withOpacity } from "../../../src/background";
 import { CUSTOM_TEMPLATE } from "../App";
 import {
   trackAppImported,
@@ -186,6 +187,11 @@ export function buildScreenshotEntries({
   sceneBackgrounds = {},
   sceneBadges = {},
   onCopy,
+  backgroundPattern,
+  patternOpacity,
+  patternColor,
+  deviceBacklight,
+  panoramaMode,
 }: {
   design: Design;
   captures: DeviceCaptures;
@@ -215,8 +221,20 @@ export function buildScreenshotEntries({
     }
   >;
   onCopy?: (sceneId: string, field: "headline" | "subhead", text: string) => void;
+  backgroundPattern?: PatternType;
+  patternOpacity?: number;
+  patternColor?: string;
+  deviceBacklight?: boolean | BacklightConfig;
+  panoramaMode?: boolean;
 }): ScreenshotEntry[] {
-  const theme = design.theme;
+  const theme: Theme = {
+    ...design.theme,
+    backgroundPattern: backgroundPattern ?? design.theme.backgroundPattern,
+    patternOpacity: patternOpacity ?? design.theme.patternOpacity,
+    patternColor: patternColor ?? design.theme.patternColor,
+    deviceBacklight: deviceBacklight ?? design.theme.deviceBacklight,
+    panoramaMode: panoramaMode ?? design.theme.panoramaMode,
+  };
   const scenes =
     order.length > 0
       ? [...design.scenes].sort((a, b) => rankOf(order, a.id) - rankOf(order, b.id))
@@ -246,6 +264,8 @@ export function buildScreenshotEntries({
   const geom = spec.frame?.geom;
 
   const entries: ScreenshotEntry[] = [];
+  let globalSliceIndex = 0;
+  const totalSlices = shots.reduce((acc, { scene }) => acc + layoutOf(scene).layout.span, 0);
   for (const { scene, capture } of shots) {
     const { layout: layoutSpec, secondScene } = layoutOf(scene);
     const second = secondScene
@@ -260,6 +280,7 @@ export function buildScreenshotEntries({
       themeSubheadColor: theme.subheadColor,
     });
     for (let slice = 0; slice < layoutSpec.span; slice++) {
+      const currentGlobalSlice = globalSliceIndex++;
       const sliceKey = `${scene.id}#${slice + 1}`;
       const userBadge =
         sceneBadges[sliceKey] ??
@@ -289,6 +310,8 @@ export function buildScreenshotEntries({
           <ScreenshotScene
             spec={layoutSpec}
             slice={slice}
+            globalSlice={currentGlobalSlice}
+            totalSlices={totalSlices}
             tile={spec.screenshot}
             theme={theme}
             screenOnly={screenOnly}
@@ -410,6 +433,11 @@ export function Strip({
   headlineColor,
   subheadColor,
   fontSizeScale,
+  backgroundPattern,
+  patternOpacity,
+  patternColor,
+  deviceBacklight,
+  panoramaMode,
   sceneBackgrounds = {},
   onSceneBackground,
   sceneBadges = {},
@@ -434,6 +462,11 @@ export function Strip({
   headlineColor?: string;
   subheadColor?: string;
   fontSizeScale?: number;
+  backgroundPattern?: PatternType;
+  patternOpacity?: number;
+  patternColor?: string;
+  deviceBacklight?: boolean | BacklightConfig;
+  panoramaMode?: boolean;
   sceneBackgrounds?: Record<string, string>;
   onSceneBackground?: (sceneId: string, bg: string | undefined) => void;
   sceneBadges?: Record<
@@ -579,6 +612,11 @@ export function Strip({
     sceneBackgrounds,
     sceneBadges,
     onCopy,
+    backgroundPattern,
+    patternOpacity,
+    patternColor,
+    deviceBacklight,
+    panoramaMode,
   });
 
   for (const item of screenshotItems) {
@@ -1401,6 +1439,8 @@ function Canvas({
 export function ScreenshotScene({
   spec,
   slice,
+  globalSlice,
+  totalSlices,
   tile,
   theme,
   screenOnly,
@@ -1422,6 +1462,8 @@ export function ScreenshotScene({
 }: {
   spec: (typeof LAYOUTS)[keyof typeof LAYOUTS];
   slice: number;
+  globalSlice?: number;
+  totalSlices?: number;
   tile: { width: number; height: number };
   theme: Theme;
   screenOnly: boolean;
@@ -1459,6 +1501,20 @@ export function ScreenshotScene({
         : 0;
   const flexAlign = isRtl && isLeft ? "flex-end" : isLeft ? "flex-start" : "center";
 
+  const isContinuousPanorama = Boolean(theme.panoramaMode && totalSlices && totalSlices > 1);
+  const bgLeft =
+    isContinuousPanorama && globalSlice !== undefined
+      ? `${-globalSlice * 100}%`
+      : `${-slice * 100}%`;
+  const bgWidth =
+    isContinuousPanorama && totalSlices ? `${totalSlices * 100}%` : `${spec.span * 100}%`;
+  const bgFill =
+    background === TRANSPARENT
+      ? CHECKERBOARD
+      : background.startsWith("data:image/") || background.startsWith("http")
+        ? `url("${background}") center/cover no-repeat`
+        : background;
+
   return (
     <Canvas background="transparent" fontFamily={fontFamily}>
       {/* The full composition; the background spans it so a gradient runs across a panorama. */}
@@ -1466,12 +1522,38 @@ export function ScreenshotScene({
         style={{
           position: "absolute",
           top: 0,
-          left: `${-slice * 100}%`,
-          width: `${spec.span * 100}%`,
+          left: bgLeft,
+          width: bgWidth,
           height: "100%",
-          background: background === TRANSPARENT ? CHECKERBOARD : background,
+          background: bgFill,
         }}
       >
+        {/* Subtle Tech Pattern Overlay */}
+        {theme.backgroundPattern && theme.backgroundPattern !== "none" ? (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              pointerEvents: "none",
+              opacity: theme.patternOpacity ?? 0.05,
+              backgroundImage:
+                theme.backgroundPattern === "blueprint"
+                  ? `linear-gradient(to right, ${theme.patternColor || "rgba(255,255,255,0.7)"} 1px, transparent 1px), linear-gradient(to bottom, ${theme.patternColor || "rgba(255,255,255,0.7)"} 1px, transparent 1px)`
+                  : theme.backgroundPattern === "isometric-dot"
+                    ? `radial-gradient(circle, ${theme.patternColor || "rgba(255,255,255,0.8)"} 1.5px, transparent 1.5px), radial-gradient(circle, ${theme.patternColor || "rgba(255,255,255,0.8)"} 1.5px, transparent 1.5px)`
+                    : `radial-gradient(circle, ${theme.patternColor || "rgba(255,255,255,0.8)"} 1.5px, transparent 1.5px)`,
+              backgroundSize:
+                theme.backgroundPattern === "blueprint"
+                  ? "32px 32px"
+                  : theme.backgroundPattern === "isometric-dot"
+                    ? "28px 28px"
+                    : "24px 24px",
+              backgroundPosition:
+                theme.backgroundPattern === "isometric-dot" ? "0 0, 14px 14px" : "0 0",
+            }}
+          />
+        ) : null}
+
         {copy ? (
           <div
             dir={isRtl ? "rtl" : "ltr"}
@@ -1544,6 +1626,7 @@ export function ScreenshotScene({
               frameUrl={screenOnly ? null : frameUrl}
               captureUrl={url}
               missing={url ? undefined : (secondSceneId ?? "secondScene")}
+              backlight={theme.deviceBacklight}
             />
           );
         })}
@@ -1572,6 +1655,7 @@ function DeviceView({
   frameUrl,
   captureUrl,
   missing,
+  backlight,
 }: {
   device: Composition["devices"][number];
   tile: { width: number; height: number };
@@ -1579,11 +1663,24 @@ function DeviceView({
   captureUrl: string | undefined;
   /** Scene id to name in the placeholder when the capture is missing. */
   missing: string | undefined;
+  backlight?: boolean | BacklightConfig;
 }) {
   const { w, h } = cq(tile);
   const { frame, screen } = device;
   // The screen as fractions of the device box, so it rotates with it.
   const pct = (v: number, of: number) => `${(v / of) * 100}%`;
+
+  const haloColor =
+    (typeof backlight === "object" && backlight.color) || "rgba(56, 189, 248, 0.4)";
+  const haloIntensity =
+    typeof backlight === "object" && backlight.intensity !== undefined
+      ? backlight.intensity
+      : 0.45;
+  const blurRatio =
+    typeof backlight === "object" && backlight.blurRatio !== undefined
+      ? backlight.blurRatio
+      : 0.085;
+
   return (
     <div
       style={{
@@ -1595,6 +1692,25 @@ function DeviceView({
         transform: device.rotate ? `rotate(${device.rotate}deg)` : undefined,
       }}
     >
+      {/* 1. Ambient Backlight Halo behind phone */}
+      {backlight ? (
+        <div
+          style={{
+            position: "absolute",
+            left: "-15%",
+            top: "-10%",
+            width: "130%",
+            height: "120%",
+            borderRadius: "50%",
+            background: `radial-gradient(ellipse at center, ${withOpacity(haloColor, haloIntensity)} 0%, ${withOpacity(haloColor, haloIntensity * 0.35)} 45%, transparent 70%)`,
+            filter: `blur(${w(tile.width * blurRatio)})`,
+            pointerEvents: "none",
+            zIndex: 0,
+          }}
+        />
+      ) : null}
+
+      {/* 2. Screen content */}
       <div
         style={{
           position: "absolute",
@@ -1626,12 +1742,20 @@ function DeviceView({
           </div>
         )}
       </div>
+
+      {/* 3. Bezel with realistic multi-layer contact and ambient drop shadow */}
       {frameUrl ? (
         <img
           src={`/${frameUrl}`}
           alt=""
           draggable={false}
-          style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            filter: `drop-shadow(0 ${w(tile.width * 0.016)} ${w(tile.width * 0.022)} rgba(0, 0, 0, 0.35)) drop-shadow(0 ${w(tile.width * 0.04)} ${w(tile.width * 0.085)} rgba(0, 0, 0, 0.22))`,
+          }}
         />
       ) : null}
     </div>

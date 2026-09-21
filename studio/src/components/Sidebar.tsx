@@ -13,6 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { Platform } from "../App";
 import { isRtlLocale, type StoreManifest } from "../manifest";
+import type { BacklightConfig, PatternType } from "../../../src/background";
 import { AdBanner } from "./AdBanner";
 import type { BadgeData } from "./BadgePickerPopover";
 import { DesignPanel } from "./DesignPanel";
@@ -52,6 +53,11 @@ export function Sidebar({
   headlineColor,
   subheadColor,
   fontSizeScale,
+  backgroundPattern,
+  patternOpacity,
+  patternColor,
+  deviceBacklight,
+  panoramaMode,
   onOpenLocaleManager,
   onBackground,
   onFrame,
@@ -62,6 +68,11 @@ export function Sidebar({
   onHeadlineColor,
   onSubheadColor,
   onFontSizeScale,
+  onBackgroundPattern,
+  onPatternOpacity,
+  onPatternColor,
+  onDeviceBacklight,
+  onPanoramaMode,
   sceneBadges,
   onSceneBadge,
   sceneBackgrounds,
@@ -84,6 +95,11 @@ export function Sidebar({
   headlineColor?: string;
   subheadColor?: string;
   fontSizeScale?: number;
+  backgroundPattern?: PatternType;
+  patternOpacity?: number;
+  patternColor?: string;
+  deviceBacklight?: boolean | BacklightConfig;
+  panoramaMode?: boolean;
   onOpenLocaleManager?: () => void;
   onBackground: (v: string) => void;
   onFrame: (v: string) => void;
@@ -94,6 +110,11 @@ export function Sidebar({
   onHeadlineColor: (v: string) => void;
   onSubheadColor: (v: string) => void;
   onFontSizeScale: (v: number) => void;
+  onBackgroundPattern?: (v: PatternType) => void;
+  onPatternOpacity?: (v: number) => void;
+  onPatternColor?: (v: string) => void;
+  onDeviceBacklight?: (v: boolean | BacklightConfig) => void;
+  onPanoramaMode?: (v: boolean) => void;
   sceneBadges?: Record<string, BadgeData>;
   onSceneBadge?: (sceneId: string, badge: BadgeData | undefined) => void;
   sceneBackgrounds?: Record<string, string>;
@@ -235,6 +256,11 @@ export function Sidebar({
           headlineColor={headlineColor}
           subheadColor={subheadColor}
           fontSizeScale={fontSizeScale}
+          backgroundPattern={backgroundPattern}
+          patternOpacity={patternOpacity}
+          patternColor={patternColor}
+          deviceBacklight={deviceBacklight}
+          panoramaMode={panoramaMode}
           onBackground={onBackground}
           onFrame={onFrame}
           onFontFamily={onFontFamily}
@@ -244,6 +270,11 @@ export function Sidebar({
           onHeadlineColor={onHeadlineColor}
           onSubheadColor={onSubheadColor}
           onFontSizeScale={onFontSizeScale}
+          onBackgroundPattern={onBackgroundPattern}
+          onPatternOpacity={onPatternOpacity}
+          onPatternColor={onPatternColor}
+          onDeviceBacklight={onDeviceBacklight}
+          onPanoramaMode={onPanoramaMode}
           sceneBadges={sceneBadges}
           onSceneBadge={onSceneBadge}
           sceneBackgrounds={sceneBackgrounds}
