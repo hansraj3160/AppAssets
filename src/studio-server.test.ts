@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { PassThrough, Writable } from "node:stream";
 import {
   aiCopyHandler,
+  appendScenesToConfig,
+  assignUniqueSceneIds,
   bannerExportHandler,
   createStudioRequestHandler,
   exportHandler,
@@ -277,6 +279,190 @@ describe("importHandler", () => {
     await new Promise((r) => setTimeout(r, 100));
     expect(statusCode).toBe(500);
     expect(JSON.parse(endedWith).error).toContain("Manifest generation failed");
+  });
+
+  test("assignUniqueSceneIds allocates unique IDs and prevents overwriting existing scenes", () => {
+    // 1. First batch with duplicate generic names
+    const batch1 = [{ name: "screenshot.png" }, { name: "screenshot.png" }];
+    const existing = new Set<string>();
+    const res1 = assignUniqueSceneIds(batch1, existing);
+    expect(res1[0]?.id).toBe("screenshot");
+    expect(res1[1]?.id).toBe("screenshot_2");
+
+    // Populate existing with batch 1 IDs
+    for (const r of res1) existing.add(r.id);
+
+    // 2. Second batch with same generic names
+    const batch2 = [{ name: "screenshot.png" }, { name: "screenshot.png" }];
+    const res2 = assignUniqueSceneIds(batch2, existing);
+    expect(res2[0]?.id).toBe("screenshot_3");
+    expect(res2[1]?.id).toBe("screenshot_4");
+
+    // 3. Numbered suffixes (e.g. Screenshot 1.png, Screenshot 2.png)
+    const numberedBatch = [{ name: "Screenshot 1.png" }, { name: "Screenshot 2.png" }];
+    const numberedExisting = new Set(["screenshot_1", "screenshot_2"]);
+    const resNumbered = assignUniqueSceneIds(numberedBatch, numberedExisting);
+    expect(resNumbered[0]?.id).toBe("screenshot_3");
+    expect(resNumbered[1]?.id).toBe("screenshot_4");
+
+    // 4. Empty/underscore fallback
+    const emptyBatch = [{ name: ".png" }, { name: "____.png" }];
+    const resEmpty = assignUniqueSceneIds(emptyBatch, new Set());
+    expect(resEmpty[0]?.id).toBe("screenshot");
+    expect(resEmpty[1]?.id).toBe("screenshot_2");
+  });
+
+  test("appendScenesToConfig appends scenes at the end of the array", () => {
+    // Empty scenes array
+    const emptyConfig = `export default {\n  scenes: [\n  ],\n};\n`;
+    const res1 = appendScenesToConfig(emptyConfig, [
+      { id: "shot_1", label: "Shot 1" },
+      { id: "shot_2", label: "Shot 2" },
+    ]);
+    expect(res1).toContain(`id: "shot_1"`);
+    expect(res1).toContain(`id: "shot_2"`);
+    expect(res1.indexOf(`id: "shot_1"`)).toBeLessThan(res1.indexOf(`id: "shot_2"`));
+
+    // Appending to already populated scenes array
+    const res2 = appendScenesToConfig(res1, [
+      { id: "shot_3", label: "Shot 3" },
+      { id: "shot_4", label: "Shot 4" },
+    ]);
+    expect(res2).toContain(`id: "shot_3"`);
+    expect(res2).toContain(`id: "shot_4"`);
+    // shot_1 < shot_2 < shot_3 < shot_4
+    expect(res2.indexOf(`id: "shot_1"`)).toBeLessThan(res2.indexOf(`id: "shot_2"`));
+    expect(res2.indexOf(`id: "shot_2"`)).toBeLessThan(res2.indexOf(`id: "shot_3"`));
+    expect(res2.indexOf(`id: "shot_3"`)).toBeLessThan(res2.indexOf(`id: "shot_4"`));
+    // Verify trailing scenes array closes cleanly
+    expect(res2.indexOf(`id: "shot_4"`)).toBeLessThan(res2.indexOf(`],\n};`));
+
+    // Duplicate scenes are skipped
+    const res3 = appendScenesToConfig(res2, [{ id: "shot_3", label: "Shot 3 duplicate" }]);
+    expect(res3).toBe(res2);
+  });
+
+  test("importHandler preserves earlier screenshots across multiple sequential imports", async () => {
+    const tmp = await mkdtemp(join(tmpdir(), "goldie-import-test-"));
+    const configPath = join(tmp, "appassets.config.ts");
+    const outDir = join(tmp, "out");
+    const webDir = join(outDir, "web");
+    const designFile = join(tmp, "appassets.design.json");
+
+    await mkdir(tmp, { recursive: true });
+    await mkdir(outDir, { recursive: true });
+    await mkdir(webDir, { recursive: true });
+
+    // Initial empty config
+    await writeFile(
+      configPath,
+      `export default {\n  scenes: [\n  ],\n};\n`,
+    );
+    // Initial design with order
+    await writeFile(
+      designFile,
+      JSON.stringify({ order: [] }, null, 2),
+    );
+
+    const paths = {
+      configPath,
+      configDir: tmp,
+      outDir,
+      webDir,
+      designFile,
+      exportZip: join(outDir, "export.zip"),
+    };
+
+    // Use "true" command as mock CLI so manifest step succeeds
+    const handler = importHandler({ paths, cli: ["true"] });
+
+    // Helper to send import request
+    const sendImport = async (files: Array<{ name: string; dataUrl: string }>) => {
+      let statusCode = 0;
+      let endedWith = "";
+      const listeners: Record<string, (...args: any[]) => void> = {};
+      const req = {
+        method: "POST",
+        headers: {},
+        on: (event: string, cb: (...args: any[]) => void) => {
+          listeners[event] = cb;
+        },
+      } as any;
+      const res = {
+        set statusCode(code: number) {
+          statusCode = code;
+        },
+        setHeader: () => {},
+        end(body: string) {
+          endedWith = body;
+        },
+      } as any;
+
+      handler(req, res);
+      listeners.data?.(JSON.stringify({ files, targetMode: "all", autoRoute: false }));
+      listeners.end?.();
+
+      await new Promise((r) => setTimeout(r, 120));
+      return { statusCode, response: JSON.parse(endedWith || "{}") };
+    };
+
+    // Batch 1: Import 2 screenshots with identical generic names
+    const dummyPng = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+    const res1 = await sendImport([
+      { name: "screenshot.png", dataUrl: dummyPng },
+      { name: "screenshot.png", dataUrl: dummyPng },
+    ]);
+    expect(res1.statusCode).toBe(200);
+    expect(res1.response.ok).toBe(true);
+    expect(res1.response.imported).toBe(2);
+
+    // Verify Batch 1 manifest and config
+    const manifestFile = join(outDir, "raw", "iphone-6.9", "manifest.json");
+    const manifest1 = JSON.parse(await readFile(manifestFile, "utf8"));
+    expect(manifest1.screenshots.length).toBe(2);
+    expect(manifest1.screenshots[0].sceneId).toBe("screenshot");
+    expect(manifest1.screenshots[1].sceneId).toBe("screenshot_2");
+
+    let configContent = await readFile(configPath, "utf8");
+    expect(configContent).toContain(`id: "screenshot"`);
+    expect(configContent).toContain(`id: "screenshot_2"`);
+
+    // Batch 2: Import 2 MORE screenshots with the same generic names
+    const res2 = await sendImport([
+      { name: "screenshot.png", dataUrl: dummyPng },
+      { name: "screenshot.png", dataUrl: dummyPng },
+    ]);
+    expect(res2.statusCode).toBe(200);
+    expect(res2.response.ok).toBe(true);
+    expect(res2.response.imported).toBe(2);
+
+    // VERIFY ALL 4 SCREENSHOTS PERSIST WITHOUT REMOVING THE EARLIER ONES!
+    const manifest2 = JSON.parse(await readFile(manifestFile, "utf8"));
+    expect(manifest2.screenshots.length).toBe(4);
+    expect(manifest2.screenshots.map((s: { sceneId: string }) => s.sceneId)).toEqual([
+      "screenshot",
+      "screenshot_2",
+      "screenshot_3",
+      "screenshot_4",
+    ]);
+
+    configContent = await readFile(configPath, "utf8");
+    expect(configContent).toContain(`id: "screenshot"`);
+    expect(configContent).toContain(`id: "screenshot_2"`);
+    expect(configContent).toContain(`id: "screenshot_3"`);
+    expect(configContent).toContain(`id: "screenshot_4"`);
+
+    // Verify design order updated with all 4 scene IDs
+    const designJson = JSON.parse(await readFile(designFile, "utf8"));
+    expect(designJson.order).toEqual([
+      "screenshot",
+      "screenshot_2",
+      "screenshot_3",
+      "screenshot_4",
+    ]);
+
+    // Clean up temp dir
+    await rm(tmp, { recursive: true, force: true });
   });
 });
 

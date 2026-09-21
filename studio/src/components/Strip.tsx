@@ -237,7 +237,13 @@ export function buildScreenshotEntries({
   };
   const scenes =
     order.length > 0
-      ? [...design.scenes].sort((a, b) => rankOf(order, a.id) - rankOf(order, b.id))
+      ? [...design.scenes].sort((a, b) => {
+          const ra = rankOf(order, a.id);
+          const rb = rankOf(order, b.id);
+          return ra === rb
+            ? design.scenes.indexOf(a) - design.scenes.indexOf(b)
+            : ra - rb;
+        })
       : design.scenes;
   const resolved = resolveScenes(scenes, {
     template: Array.isArray(template)
@@ -505,7 +511,13 @@ export function Strip({
 }) {
   const scenes =
     order.length > 0
-      ? [...design.scenes].sort((a, b) => rankOf(order, a.id) - rankOf(order, b.id))
+      ? [...design.scenes].sort((a, b) => {
+          const ra = rankOf(order, a.id);
+          const rb = rankOf(order, b.id);
+          return ra === rb
+            ? design.scenes.indexOf(a) - design.scenes.indexOf(b)
+            : ra - rb;
+        })
       : design.scenes;
   // The same resolution the CLI runs, on the scenes in their displayed order.
   const resolved = resolveScenes(scenes, {

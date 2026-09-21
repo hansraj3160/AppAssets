@@ -103,6 +103,14 @@ export function resolveScreenFromLocation(): Screen {
 }
 
 export function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
+}
+
+function AppContent() {
   const [loaded, setLoaded] = useState<{ manifest: StoreManifest; design: SavedDesign } | null>(
     null,
   );
@@ -174,7 +182,7 @@ export function App() {
 
   if (screen === "landing") {
     return (
-      <AuthProvider>
+      <>
         <LandingPage
           onStartDesigning={() => navigateTo("studio")}
           onOpenPrivacy={() => navigateTo("privacy")}
@@ -184,44 +192,68 @@ export function App() {
         />
         <AuthModal />
         <UpgradeModal />
-      </AuthProvider>
+      </>
     );
   }
 
   if (screen === "privacy") {
     return (
-      <AuthProvider>
-        <PrivacyPolicy
-          onNavigateHome={() => navigateTo("landing")}
-          onNavigateTerms={() => navigateTo("terms")}
-          onStartDesigning={() => navigateTo("studio")}
-          dark={dark}
-          onToggleDark={() => setDark((prev) => !prev)}
-        />
-      </AuthProvider>
+      <PrivacyPolicy
+        onNavigateHome={() => navigateTo("landing")}
+        onNavigateTerms={() => navigateTo("terms")}
+        onStartDesigning={() => navigateTo("studio")}
+        dark={dark}
+        onToggleDark={() => setDark((prev) => !prev)}
+      />
     );
   }
 
   if (screen === "terms") {
     return (
-      <AuthProvider>
-        <TermsAndConditions
-          onNavigateHome={() => navigateTo("landing")}
-          onNavigatePrivacy={() => navigateTo("privacy")}
-          onStartDesigning={() => navigateTo("studio")}
-          dark={dark}
-          onToggleDark={() => setDark((prev) => !prev)}
-        />
-      </AuthProvider>
+      <TermsAndConditions
+        onNavigateHome={() => navigateTo("landing")}
+        onNavigatePrivacy={() => navigateTo("privacy")}
+        onStartDesigning={() => navigateTo("studio")}
+        dark={dark}
+        onToggleDark={() => setDark((prev) => !prev)}
+      />
     );
   }
 
   if (screen === "not-found") {
     return (
-      <AuthProvider>
-        <div className="min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-zinc-100 flex flex-col font-sans selection:bg-[#FF6B00]/20 selection:text-[#FF6B00]">
-          <header className="sticky top-0 z-50 w-full border-b border-zinc-200/80 dark:border-zinc-800/80 bg-white/85 dark:bg-black/85 backdrop-blur-md px-6 py-3">
-            <div className="max-w-7xl mx-auto flex items-center justify-between">
+      <div className="min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-zinc-100 flex flex-col font-sans selection:bg-[#FF6B00]/20 selection:text-[#FF6B00]">
+        <header className="sticky top-0 z-50 w-full border-b border-zinc-200/80 dark:border-zinc-800/80 bg-white/85 dark:bg-black/85 backdrop-blur-md px-6 py-3">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <a
+              href="/"
+              onClick={(e) => {
+                if (!isModifiedEvent(e)) {
+                  e.preventDefault();
+                  navigateTo("landing");
+                }
+              }}
+              className="flex items-center gap-2.5 group cursor-pointer"
+            >
+              <img src="/logo.png" alt="AppAssets Logo" className="size-8 rounded-lg object-cover" />
+              <span className="text-base font-bold tracking-tight text-zinc-900 dark:text-white">
+                App<span className="text-[#FF6B00]">Assets</span> Studio
+              </span>
+            </a>
+          </div>
+        </header>
+        <main className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+          <div className="max-w-md mx-auto space-y-4">
+            <div className="inline-flex items-center justify-center size-16 rounded-2xl bg-[#FF6B00]/10 text-[#FF6B00] text-2xl font-bold">
+              404
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-zinc-900 dark:text-white">
+              Page Not Found
+            </h1>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
+              The page you are looking for does not exist or has been moved.
+            </p>
+            <div className="pt-2">
               <a
                 href="/"
                 onClick={(e) => {
@@ -230,44 +262,14 @@ export function App() {
                     navigateTo("landing");
                   }
                 }}
-                className="flex items-center gap-2.5 group cursor-pointer"
+                className="inline-flex items-center justify-center h-10 px-6 rounded-full font-semibold text-xs bg-[#FF6B00] hover:bg-[#FF8A00] text-white transition-all shadow-xs cursor-pointer"
               >
-                <img src="/logo.png" alt="AppAssets Logo" className="size-8 rounded-lg object-cover" />
-                <span className="text-base font-bold tracking-tight text-zinc-900 dark:text-white">
-                  App<span className="text-[#FF6B00]">Assets</span> Studio
-                </span>
+                Return to Home
               </a>
             </div>
-          </header>
-          <main className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-            <div className="max-w-md mx-auto space-y-4">
-              <div className="inline-flex items-center justify-center size-16 rounded-2xl bg-[#FF6B00]/10 text-[#FF6B00] text-2xl font-bold">
-                404
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-zinc-900 dark:text-white">
-                Page Not Found
-              </h1>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                The page you are looking for does not exist or has been moved.
-              </p>
-              <div className="pt-2">
-                <a
-                  href="/"
-                  onClick={(e) => {
-                    if (!isModifiedEvent(e)) {
-                      e.preventDefault();
-                      navigateTo("landing");
-                    }
-                  }}
-                  className="inline-flex items-center justify-center h-10 px-6 rounded-full font-semibold text-xs bg-[#FF6B00] hover:bg-[#FF8A00] text-white transition-all shadow-xs cursor-pointer"
-                >
-                  Return to Home
-                </a>
-              </div>
-            </div>
-          </main>
-        </div>
-      </AuthProvider>
+          </div>
+        </main>
+      </div>
     );
   }
 
@@ -290,7 +292,7 @@ export function App() {
       </div>
     );
   return (
-    <AuthProvider>
+    <>
       <Loaded
         manifest={loaded.manifest}
         saved={loaded.design}
@@ -301,7 +303,7 @@ export function App() {
       />
       <AuthModal />
       <UpgradeModal />
-    </AuthProvider>
+    </>
   );
 }
 
@@ -869,6 +871,7 @@ function Loaded({
         onOpenAppDetails={() => setIsAppDetailsModalOpen(true)}
         onNavigateToLanding={onNavigateToLanding}
         onToggleMobileSidebar={() => setIsMobileSidebarOpen((prev) => !prev)}
+        preferredDevice={device}
       />
 
       <div className="flex min-h-0 flex-1 overflow-hidden">

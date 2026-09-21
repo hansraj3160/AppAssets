@@ -775,6 +775,114 @@ export function replaceCaptureHandler(api: StudioApi): Handler {
   };
 }
 
+/**
+ * Assigns clean, collision-free scene IDs to incoming files, ensuring they never
+ * collide with or overwrite existing scenes from prior imports or other scenes in the batch.
+ */
+export function assignUniqueSceneIds<T extends { name: string }>(
+  files: T[],
+  existingSceneIds: Set<string>,
+): Array<{ f: T; id: string; label: string }> {
+  const assignments: Array<{ f: T; id: string; label: string }> = [];
+  const allocatedIds = new Set(existingSceneIds);
+
+  for (const f of files) {
+    const rawName = f.name.replace(/\.[^.]+$/, "");
+    let baseId = rawName.replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
+    baseId = baseId.replace(/^_+|_+$/g, "");
+    if (!baseId) {
+      baseId = "screenshot";
+    }
+
+    const label =
+      rawName
+        .replace(/[_-]/g, " ")
+        .trim()
+        .replace(/\b\w/g, (c) => c.toUpperCase()) || `Screenshot ${allocatedIds.size + 1}`;
+
+    let candidateId = baseId;
+    let counter = 2;
+    const numMatch = baseId.match(/^(.*?)_(\d+)$/);
+    let prefix = baseId;
+    if (numMatch) {
+      prefix = numMatch[1]!;
+      counter = Number.parseInt(numMatch[2]!, 10) + 1;
+    }
+
+    while (allocatedIds.has(candidateId)) {
+      candidateId = `${prefix}_${counter}`;
+      counter++;
+    }
+
+    allocatedIds.add(candidateId);
+    assignments.push({ f, id: candidateId, label });
+  }
+
+  return assignments;
+}
+
+/**
+ * Appends new scene definitions to the end of the scenes array in the config file,
+ * preserving existing scene order and indentation.
+ */
+export function appendScenesToConfig(
+  configContent: string,
+  scenesToAdd: Array<{ id: string; label: string }>,
+): string {
+  if (!scenesToAdd || scenesToAdd.length === 0) return configContent;
+
+  const scenesIdx = configContent.indexOf("scenes:");
+  if (scenesIdx === -1) return configContent;
+
+  const openBracket = configContent.indexOf("[", scenesIdx);
+  if (openBracket === -1) return configContent;
+
+  // Find matching closing bracket for scenes array
+  let depth = 0;
+  let closeBracket = -1;
+  for (let i = openBracket; i < configContent.length; i++) {
+    if (configContent[i] === "[") depth++;
+    else if (configContent[i] === "]") {
+      depth--;
+      if (depth === 0) {
+        closeBracket = i;
+        break;
+      }
+    }
+  }
+
+  if (closeBracket === -1) return configContent;
+
+  // Filter scenes that are not already present in the config
+  const scenesToInsert = scenesToAdd.filter(
+    (s) =>
+      !configContent.includes(`id: "${s.id}"`) &&
+      !configContent.includes(`id: '${s.id}'`),
+  );
+
+  if (scenesToInsert.length === 0) return configContent;
+
+  const blocks = scenesToInsert
+    .map(
+      (s) =>
+        `    {\n      kind: "screenshot",\n      id: ${JSON.stringify(s.id)},\n      flow: "store-${s.id}",\n      headline: { "en-US": ${JSON.stringify(s.label)} },\n      subhead: { "en-US": "Describe your key benefit here." },\n    },`,
+    )
+    .join("\n");
+
+  const scenesInside = configContent.slice(openBracket + 1, closeBracket);
+  const isEmpty = scenesInside.trim().length === 0;
+
+  if (isEmpty) {
+    return `${configContent.slice(0, openBracket + 1)}\n${blocks}\n  ${configContent.slice(closeBracket)}`;
+  }
+
+  const beforeClose = configContent.slice(0, closeBracket);
+  const trimmedBefore = beforeClose.trimEnd();
+  const needsComma = !trimmedBefore.endsWith(",") && !trimmedBefore.endsWith("[");
+
+  return `${trimmedBefore}${needsComma ? "," : ""}\n${blocks}\n  ${configContent.slice(closeBracket).trimStart()}`;
+}
+
 /** Handles POST /api/import for uploading screenshots directly from Studio UI. */
 export function importHandler(api: StudioApi): Handler {
   return (req, res) => {
@@ -797,7 +905,7 @@ export function importHandler(api: StudioApi): Handler {
           files: Array<{ name: string; dataUrl: string; width?: number; height?: number }>;
           autoRoute?: boolean;
           preferredDevice?: string;
-          targetMode?: "current" | "auto" | "all";
+          targetMode?: "current" | "single" | "auto" | "all";
         };
         if (!Array.isArray(files) || files.length === 0) {
           res.statusCode = 400;
@@ -807,11 +915,11 @@ export function importHandler(api: StudioApi): Handler {
         }
 
         const allDevices: DeviceKey[] = ["iphone-6.9", "ipad-13", "pixel-10-pro"];
-        const filesByDevice = new Map<DeviceKey, typeof files>();
 
-        if (targetMode === "current" && preferredDevice) {
-          filesByDevice.set(preferredDevice as DeviceKey, files);
-        } else if (targetMode === "auto" || (autoRoute && targetMode !== "all")) {
+        const filesByDevice = new Map<string, typeof files>();
+        if ((targetMode === "single" || targetMode === "current") && preferredDevice) {
+          filesByDevice.set(preferredDevice, files);
+        } else if (autoRoute) {
           for (const f of files) {
             const base64Data = f.dataUrl.includes(";base64,")
               ? f.dataUrl.split(";base64,")[1]!
@@ -832,24 +940,71 @@ export function importHandler(api: StudioApi): Handler {
           }
         }
 
-        // Pre-determine clean, unique scene IDs and labels across files upfront
-        const fileSceneMeta = files.map((f, idx) => {
-          const rawName = f.name.replace(/\.[^.]+$/, "");
-          let baseId = rawName.replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
-          if (!baseId || /^_+$/.test(baseId)) baseId = `screenshot_${idx + 1}`;
-          const label =
-            rawName.replace(/[_-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) ||
-            `Screenshot ${idx + 1}`;
-          return { f, baseId, label };
-        });
+        // 1. Collect all existing scene IDs across manifests, configs, and design overrides
+        const existingSceneIds = new Set<string>();
 
-        const seenBatchIds = new Map<string, number>();
-        const fileSceneAssignments = fileSceneMeta.map(({ f, baseId, label }) => {
-          const count = seenBatchIds.get(baseId) ?? 0;
-          seenBatchIds.set(baseId, count + 1);
-          const id = count === 0 ? baseId : `${baseId}_${count + 1}`;
-          return { f, id, label };
-        });
+        // From raw directories across devices
+        const rawBaseDir = join(paths.outDir, "raw");
+        if (existsSync(rawBaseDir)) {
+          try {
+            const devEntries = await readdir(rawBaseDir);
+            for (const devEntry of devEntries) {
+              const devRawDir = join(rawBaseDir, devEntry);
+              const mPath = join(devRawDir, "manifest.json");
+              if (existsSync(mPath)) {
+                try {
+                  const m = JSON.parse(await readFile(mPath, "utf8"));
+                  if (Array.isArray(m.screenshots)) {
+                    for (const s of m.screenshots) {
+                      if (s.sceneId) existingSceneIds.add(String(s.sceneId));
+                    }
+                  }
+                } catch {}
+              }
+              try {
+                const rawFiles = await readdir(devRawDir);
+                for (const rf of rawFiles) {
+                  if (rf.endsWith(".png")) {
+                    const rawId = rf.slice(0, -4);
+                    if (rawId) existingSceneIds.add(rawId);
+                  }
+                }
+              } catch {}
+            }
+          } catch {}
+        }
+
+        // From all config files
+        const configFiles = getConfigPaths(paths);
+        for (const cfgPath of configFiles) {
+          if (existsSync(cfgPath)) {
+            try {
+              const content = await readFile(cfgPath, "utf8");
+              const idMatches = content.matchAll(/id:\s*["']([^"']+)["']/g);
+              for (const m of idMatches) {
+                if (m[1]) existingSceneIds.add(m[1]);
+              }
+            } catch {}
+          }
+        }
+
+        // From design file
+        if (existsSync(paths.designFile)) {
+          try {
+            const designJson = JSON.parse(await readFile(paths.designFile, "utf8"));
+            if (Array.isArray(designJson.order)) {
+              for (const id of designJson.order) {
+                if (typeof id === "string" && id) existingSceneIds.add(id);
+              }
+            }
+          } catch {}
+        }
+
+        const fileSceneAssignments = assignUniqueSceneIds(files, existingSceneIds);
+        const assignmentMap = new Map<typeof files[0], { id: string; label: string }>();
+        for (const a of fileSceneAssignments) {
+          assignmentMap.set(a.f, { id: a.id, label: a.label });
+        }
 
         const newScenes: Array<{ id: string; label: string }> = [];
 
@@ -858,7 +1013,10 @@ export function importHandler(api: StudioApi): Handler {
           await mkdir(rawDir, { recursive: true });
 
           const manifestPath = join(rawDir, "manifest.json");
-          let existingManifest: { screenshots: Array<{ sceneId: string; file: string }> } = {
+          let existingManifest: {
+            screenshots: Array<{ sceneId: string; file: string }>;
+            preview?: any;
+          } = {
             screenshots: [],
           };
           if (existsSync(manifestPath)) {
@@ -873,8 +1031,8 @@ export function importHandler(api: StudioApi): Handler {
 
           for (const f of devFiles) {
             const assignment =
-              fileSceneAssignments.find((a) => a.f === f) ?? {
-                id: "screenshot",
+              assignmentMap.get(f) ?? {
+                id: `screenshot_${Date.now()}`,
                 label: "Screenshot",
               };
             const { id, label } = assignment;
@@ -900,53 +1058,39 @@ export function importHandler(api: StudioApi): Handler {
               sceneId,
               file,
             })),
-            preview: null,
+            preview: existingManifest.preview ?? null,
           };
           await writeFile(manifestPath, JSON.stringify(updatedManifest, null, 2));
         }
 
         // Auto-register missing scenes in all config files (appassets.config.ts and/or goldie.config.ts)
-        const configFiles = getConfigPaths(paths);
         for (const cfgPath of configFiles) {
-          let configContent = await readFile(cfgPath, "utf8");
-          let modified = false;
-
-          for (const s of newScenes) {
-            if (
-              !configContent.includes(`id: "${s.id}"`) &&
-              !configContent.includes(`id: '${s.id}'`)
-            ) {
-              const sceneBlock = `    {\n      kind: "screenshot",\n      id: ${JSON.stringify(s.id)},\n      flow: "store-${s.id}",\n      headline: { "en-US": ${JSON.stringify(s.label)} },\n      subhead: { "en-US": "Describe your key benefit here." },\n    },\n`;
-              const scenesIndex = configContent.indexOf("scenes:");
-              if (scenesIndex !== -1) {
-                const openBracket = configContent.indexOf("[", scenesIndex);
-                if (openBracket !== -1) {
-                  const afterBracket = configContent.slice(openBracket + 1);
-                  if (afterBracket.trimStart().startsWith("]")) {
-                    const closeBracket = openBracket + 1 + afterBracket.indexOf("]");
-                    configContent =
-                      configContent.slice(0, openBracket + 1) +
-                      "\n" +
-                      sceneBlock +
-                      "  " +
-                      configContent.slice(closeBracket);
-                  } else {
-                    const insertPos = openBracket + 1 + (afterBracket.startsWith("\n") ? 1 : 0);
-                    configContent =
-                      configContent.slice(0, insertPos) +
-                      (afterBracket.startsWith("\n") ? "" : "\n") +
-                      sceneBlock +
-                      configContent.slice(insertPos);
-                  }
-                  modified = true;
-                }
-              }
+          if (existsSync(cfgPath)) {
+            const configContent = await readFile(cfgPath, "utf8");
+            const updatedConfig = appendScenesToConfig(configContent, newScenes);
+            if (updatedConfig !== configContent) {
+              await writeFile(cfgPath, updatedConfig);
             }
           }
+        }
 
-          if (modified) {
-            await writeFile(cfgPath, configContent);
-          }
+        // If design file has an order array, append newly added scene IDs so design order is preserved
+        if (existsSync(paths.designFile)) {
+          try {
+            const designJson = JSON.parse(await readFile(paths.designFile, "utf8"));
+            if (Array.isArray(designJson.order)) {
+              let orderChanged = false;
+              for (const s of newScenes) {
+                if (!designJson.order.includes(s.id)) {
+                  designJson.order.push(s.id);
+                  orderChanged = true;
+                }
+              }
+              if (orderChanged) {
+                await writeFile(paths.designFile, JSON.stringify(designJson, null, 2));
+              }
+            }
+          } catch {}
         }
 
         // Rebuild store.json via manifest command

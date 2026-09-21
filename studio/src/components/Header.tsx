@@ -46,6 +46,7 @@ export function Header({
   onOpenAppDetails,
   onNavigateToLanding,
   onToggleMobileSidebar,
+  preferredDevice,
 }: {
   manifest: StoreManifest;
   dark: boolean;
@@ -65,6 +66,7 @@ export function Header({
   onOpenAppDetails?: () => void;
   onNavigateToLanding?: () => void;
   onToggleMobileSidebar?: () => void;
+  preferredDevice?: string;
 }) {
   const { user, isPro, aiCreditsRemaining, signOutUser, openAuthModal, openUpgradeModal } =
     useAuth();
@@ -162,7 +164,7 @@ export function Header({
 
     try {
       if (onSaveDesign) {
-        await onSaveDesign().catch(() => {});
+        await onSaveDesign().catch(() => { });
       }
       setExportProgress(12);
       setExportStage("Starting store export engine...");
@@ -190,7 +192,7 @@ export function Header({
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
-      for (;;) {
+      for (; ;) {
         const { done, value } = await reader.read();
         if (done) break;
         text += decoder.decode(value, { stream: true });
@@ -235,11 +237,10 @@ export function Header({
         <button
           type="button"
           onClick={onNavigateToLanding}
-          className={`flex items-center gap-2 sm:gap-2.5 text-left transition-all ${
-            onNavigateToLanding
+          className={`flex items-center gap-2 sm:gap-2.5 text-left transition-all ${onNavigateToLanding
               ? "cursor-pointer hover:opacity-85 group rounded-lg focus-visible:ring-2 focus-visible:ring-primary p-0.5"
               : "cursor-default"
-          }`}
+            }`}
           title={onNavigateToLanding ? "Return to Landing Page" : undefined}
         >
           <img
@@ -331,11 +332,10 @@ export function Header({
         <button
           type="button"
           onClick={() => onViewModeChange?.("editor")}
-          className={`flex items-center whitespace-nowrap rounded-lg px-2 sm:px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
-            viewMode === "editor"
+          className={`flex items-center whitespace-nowrap rounded-lg px-2 sm:px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${viewMode === "editor"
               ? "bg-background text-foreground shadow-xs"
               : "text-muted-foreground hover:text-foreground hover:bg-background/40"
-          }`}
+            }`}
         >
           <span className="hidden sm:inline">Studio Canvas</span>
           <span className="sm:hidden">Studio</span>
@@ -344,11 +344,10 @@ export function Header({
         <button
           type="button"
           onClick={() => onViewModeChange?.("promo")}
-          className={`flex items-center gap-1 sm:gap-1.5 whitespace-nowrap rounded-lg px-2 sm:px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
-            viewMode === "promo"
+          className={`flex items-center gap-1 sm:gap-1.5 whitespace-nowrap rounded-lg px-2 sm:px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${viewMode === "promo"
               ? "bg-background text-foreground shadow-xs"
               : "text-muted-foreground hover:text-foreground hover:bg-background/40"
-          }`}
+            }`}
         >
           <span className="hidden sm:inline">Promo Banner</span>
           <span className="sm:hidden">Promo</span>
@@ -360,11 +359,10 @@ export function Header({
         <button
           type="button"
           onClick={() => onViewModeChange?.("store")}
-          className={`flex items-center gap-1 sm:gap-1.5 whitespace-nowrap rounded-lg px-2 sm:px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
-            viewMode === "store"
+          className={`flex items-center gap-1 sm:gap-1.5 whitespace-nowrap rounded-lg px-2 sm:px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${viewMode === "store"
               ? "bg-background text-foreground shadow-xs"
               : "text-muted-foreground hover:text-foreground hover:bg-background/40"
-          }`}
+            }`}
         >
           <span className="hidden sm:inline">Store Preview</span>
           <span className="sm:hidden">Store</span>
@@ -381,13 +379,12 @@ export function Header({
           type="button"
           onClick={() => setIsAuditModalOpen(true)}
           title={`Store Pre-Flight Audit Score: ${auditResult.score}%\n${auditResult.passedCount}/${auditResult.totalChecks} checks passed.\nClick to view recommendations for Google Play & App Store approval.`}
-          className={`h-8 px-2 sm:px-3 gap-1 sm:gap-1.5 text-xs font-semibold rounded-lg border shadow-2xs cursor-pointer transition-all flex items-center whitespace-nowrap shrink-0 ${
-            auditResult.score >= 90
+          className={`h-8 px-2 sm:px-3 gap-1 sm:gap-1.5 text-xs font-semibold rounded-lg border shadow-2xs cursor-pointer transition-all flex items-center whitespace-nowrap shrink-0 ${auditResult.score >= 90
               ? "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
               : auditResult.score >= 70
                 ? "bg-[#FF6B00]/10 hover:bg-[#FF6B00]/20 text-[#FF6B00] dark:text-[#FF8A00] border-[#FF6B00]/30"
                 : "bg-red-500/10 hover:bg-red-500/20 text-red-700 dark:text-red-400 border-red-500/30"
-          }`}
+            }`}
         >
           <span className="hidden sm:inline">Store Audit</span>
           <span className="sm:hidden">Audit</span>
@@ -433,6 +430,7 @@ export function Header({
           wrapperClassName="shrink-0"
           className="h-8 px-2 sm:px-3 gap-1.5 text-xs font-medium rounded-lg border border-border/80 bg-background hover:bg-muted text-foreground shadow-2xs cursor-pointer transition-colors [&_svg]:size-3.5 whitespace-nowrap shrink-0"
           label="Import"
+          preferredDevice={preferredDevice}
         />
 
         {/* Divider */}
@@ -631,11 +629,10 @@ export function Header({
               <PopoverTrigger asChild>
                 <button
                   type="button"
-                  className={`size-8 rounded-full border font-bold text-xs flex items-center justify-center cursor-pointer shadow-2xs hover:ring-2 hover:ring-foreground/20 transition-all overflow-hidden shrink-0 ${
-                    isPro
+                  className={`size-8 rounded-full border font-bold text-xs flex items-center justify-center cursor-pointer shadow-2xs hover:ring-2 hover:ring-foreground/20 transition-all overflow-hidden shrink-0 ${isPro
                       ? "border-emerald-500 bg-emerald-600 text-white"
                       : "border-[#FF6B00]/30 bg-[#FF6B00]/10 text-[#FF6B00]"
-                  }`}
+                    }`}
                   title={user.displayName || user.email || "Account"}
                 >
                   {user.photoURL ? (
@@ -692,11 +689,10 @@ export function Header({
                       type="button"
                       size="sm"
                       onClick={openUpgradeModal}
-                      className={`w-full justify-center text-xs font-bold rounded-xl cursor-pointer h-8.5 px-2.5 gap-1.5 ${
-                        isPro
+                      className={`w-full justify-center text-xs font-bold rounded-xl cursor-pointer h-8.5 px-2.5 gap-1.5 ${isPro
                           ? "variant-outline border-border hover:bg-muted text-foreground"
                           : "bg-[#FF6B00] hover:bg-[#FF8A00] active:bg-[#e05f00] text-white shadow-xs"
-                      }`}
+                        }`}
                     >
                       <Sparkles className="size-3.5 fill-current text-[#FFB21A]" />
                       <span>{isPro ? "Manage Pro Plan" : "Upgrade to Pro"}</span>

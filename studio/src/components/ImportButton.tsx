@@ -9,12 +9,14 @@ export function ImportButton({
   variant = "outline",
   size = "default",
   label = "Import screenshots",
+  preferredDevice,
 }: {
   className?: string;
   wrapperClassName?: string;
   variant?: "default" | "outline" | "secondary" | "ghost";
   size?: "default" | "sm" | "lg";
   label?: string;
+  preferredDevice?: string;
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,7 +82,12 @@ export function ImportButton({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ files: filePayloads, targetMode: "all", autoRoute: false }),
+        body: JSON.stringify({
+          files: filePayloads,
+          preferredDevice,
+          targetMode: "all",
+          autoRoute: false,
+        }),
       });
 
       if (!response.ok) {

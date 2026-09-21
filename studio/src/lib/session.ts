@@ -36,8 +36,8 @@ export function getSessionId(): string {
     sid = getCookie(COOKIE_NAME);
   }
 
-  // 3. Generate a new guest session if not present
-  if (!sid || sid.trim().length === 0) {
+  // 3. Generate a new guest session if not present or default
+  if (!sid || sid.trim().length === 0 || sid === "default") {
     sid = `guest_${crypto.randomUUID()}`;
   }
 
@@ -55,22 +55,34 @@ export function getSessionId(): string {
 
 /**
  * Bind session to an authenticated user's UID or switch session.
+ *
+ * - When `uid` is present (logged in), binds to `uid_${uid}`.
+ * - When `uid` is null (guest or unauthenticated), preserves any existing guest session
+ *   so that page reloads or auth initialization don't destroy the user's workspace.
+ *   Only generates a fresh guest session if transitioning from an authenticated user
+ *   (logging out) or if no session exists yet.
  */
 export function setAuthSession(uid: string | null): string {
   if (typeof window === "undefined") return "default";
 
-  let newSid: string;
+  let sid = localStorage.getItem(STORAGE_KEY) || getCookie(COOKIE_NAME);
+
   if (uid) {
-    newSid = `uid_${uid}`.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64);
+    sid = `uid_${uid}`.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64);
   } else {
-    // If logging out, generate a fresh guest session
-    newSid = `guest_${crypto.randomUUID()}`;
+    // If unauthenticated, PRESERVE any active guest session!
+    // Never reset a guest's workspace on page reload or when Firebase Auth initializes.
+    if (!sid || sid.trim().length === 0 || sid === "default" || sid.startsWith("uid_")) {
+      sid = `guest_${crypto.randomUUID()}`;
+    }
   }
 
+  sid = sid.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64);
+
   try {
-    localStorage.setItem(STORAGE_KEY, newSid);
-    setCookie(COOKIE_NAME, newSid);
+    localStorage.setItem(STORAGE_KEY, sid);
+    setCookie(COOKIE_NAME, sid);
   } catch {}
 
-  return newSid;
+  return sid;
 }
