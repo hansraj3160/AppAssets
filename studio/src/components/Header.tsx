@@ -26,6 +26,7 @@ import { StoreAuditModal } from "./StoreAuditModal";
 import { Button } from "./ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { apiFetch } from "../lib/api";
+import { getSessionId } from "../lib/session";
 
 export function Header({
   manifest,
@@ -203,7 +204,7 @@ export function Header({
       if (text.includes("[done]")) {
         setExportCompleted(true);
         const appName = manifest.app?.name?.replace(/[^\w.-]/g, "_") || "AppAssets";
-        const downloadUrl = `/api/export/download?filename=${encodeURIComponent(`${appName}-store-package.zip`)}`;
+        const downloadUrl = `/api/export/download?filename=${encodeURIComponent(`${appName}-store-package.zip`)}&sessionId=${encodeURIComponent(getSessionId())}`;
         const a = document.createElement("a");
         a.href = downloadUrl;
         a.download = `${appName}-store-package.zip`;
@@ -567,7 +568,7 @@ export function Header({
                       size="sm"
                       onClick={() => {
                         const appName = manifest.app?.name?.replace(/[^\w.-]/g, "_") || "AppAssets";
-                        const downloadUrl = `/api/export/download?filename=${encodeURIComponent(`${appName}-store-package.zip`)}`;
+                        const downloadUrl = `/api/export/download?filename=${encodeURIComponent(`${appName}-store-package.zip`)}&sessionId=${encodeURIComponent(getSessionId())}`;
                         const a = document.createElement("a");
                         a.href = downloadUrl;
                         a.download = `${appName}-store-package.zip`;
