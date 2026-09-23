@@ -16,6 +16,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { trackAiCopyGenerated, trackToolOpened } from "../lib/analytics";
+import { apiFetch } from "../lib/api";
 import type { AppInfo, StoreManifest } from "../manifest";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -118,7 +119,30 @@ export function AiCopyModal({
       setAppliedIndex(null);
 
       try {
-        const res = await fetch("/api/ai/generate-copy", {
+        let imageBase64: string | undefined;
+        const deviceCaptures = manifest?.design?.captures?.[device];
+        const cleanSceneId = sceneId.split("#")[0];
+        const capture =
+          deviceCaptures?.screenshots?.find((s) => s.sceneId === sceneId) ||
+          deviceCaptures?.screenshots?.find((s) => s.sceneId.split("#")[0] === cleanSceneId);
+
+        if (capture?.url) {
+          try {
+            const imgRes = await apiFetch(capture.url);
+            if (imgRes.ok) {
+              const blob = await imgRes.blob();
+              const reader = new FileReader();
+              imageBase64 = await new Promise<string>((resolve) => {
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.readAsDataURL(blob);
+              });
+            }
+          } catch {
+            // Server-side filesystem lookup will serve as fallback
+          }
+        }
+
+        const res = await apiFetch("/api/ai/generate-copy", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -127,6 +151,7 @@ export function AiCopyModal({
             locale,
             tone: overrideTone ?? selectedTone,
             customPrompt: customPrompt.trim() || undefined,
+            imageBase64,
             appContext:
               appName || appCategory || appDescription
                 ? {
@@ -209,6 +234,7 @@ export function AiCopyModal({
       appName,
       appCategory,
       appDescription,
+      manifest?.design?.captures,
     ],
   );
 

@@ -2196,7 +2196,7 @@ export function getClientIp(req: IncomingMessage): string {
 }
 
 /** Handles POST /api/ai/generate-copy for visual screenshot analysis and ASO copy generation with Gemini Vision. */
-export function aiCopyHandler({ paths }: StudioApi, rateLimiter = aiRateLimiter): Handler {
+export function aiCopyHandler(api: StudioApi, rateLimiter = aiRateLimiter): Handler {
   return (req, res) => {
     if (req.method !== "POST") {
       res.statusCode = 405;
@@ -2230,6 +2230,9 @@ export function aiCopyHandler({ paths }: StudioApi, rateLimiter = aiRateLimiter)
 
     readBody(req).then(async (body) => {
       try {
+        const sessionId = getSessionIdFromRequest(req);
+        const sessionPaths = resolveWorkspacePaths(api, sessionId);
+
         const {
           sceneId,
           device = "iphone-6.9",
@@ -2270,7 +2273,7 @@ export function aiCopyHandler({ paths }: StudioApi, rateLimiter = aiRateLimiter)
           return;
         }
 
-        const apiKey = getGeminiApiKey(paths);
+        const apiKey = getGeminiApiKey(sessionPaths) || getGeminiApiKey(api.paths);
         if (!apiKey) {
           res.statusCode = 400;
           res.setHeader("Content-Type", "application/json");
@@ -2304,27 +2307,37 @@ export function aiCopyHandler({ paths }: StudioApi, rateLimiter = aiRateLimiter)
             new Set([device, "iphone-6.9", "pixel-10-pro", "ipad-13"].filter(Boolean)),
           );
 
+          const outDirsToTry = Array.from(
+            new Set([
+              sessionPaths.outDir,
+              sessionPaths.webDir,
+              api.paths.outDir,
+              api.paths.webDir,
+            ].filter(Boolean)),
+          );
+
           let screenshotPath: string | null = null;
 
-          // 1. Direct match in raw folder
-          for (const dev of devicesToTry) {
-            for (const name of candidateNames) {
-              for (const ext of [".png", ".jpg", ".jpeg", ".webp"]) {
-                const p = join(paths.outDir, "raw", dev, `${name}${ext}`);
-                if (existsSync(p)) {
-                  screenshotPath = p;
-                  break;
+          for (const outDir of outDirsToTry) {
+            // 1. Direct match in raw folder
+            for (const dev of devicesToTry) {
+              for (const name of candidateNames) {
+                for (const ext of [".png", ".jpg", ".jpeg", ".webp"]) {
+                  const p = join(outDir, "raw", dev, `${name}${ext}`);
+                  if (existsSync(p)) {
+                    screenshotPath = p;
+                    break;
+                  }
                 }
+                if (screenshotPath) break;
               }
               if (screenshotPath) break;
             }
             if (screenshotPath) break;
-          }
 
-          // 2. Try screenshots folder for each device
-          if (!screenshotPath) {
+            // 2. Try screenshots folder for each device
             for (const dev of devicesToTry) {
-              const screenshotsDir = join(paths.outDir, "screenshots", dev, locale);
+              const screenshotsDir = join(outDir, "screenshots", dev, locale);
               if (existsSync(screenshotsDir)) {
                 const files = await readdir(screenshotsDir);
                 for (const name of candidateNames) {
@@ -2337,12 +2350,11 @@ export function aiCopyHandler({ paths }: StudioApi, rateLimiter = aiRateLimiter)
               }
               if (screenshotPath) break;
             }
-          }
+            if (screenshotPath) break;
 
-          // 3. Loose fallback in raw folder
-          if (!screenshotPath) {
+            // 3. Loose fallback in raw folder
             for (const dev of devicesToTry) {
-              const rawDir = join(paths.outDir, "raw", dev);
+              const rawDir = join(outDir, "raw", dev);
               if (existsSync(rawDir)) {
                 const files = await readdir(rawDir);
                 for (const name of candidateNames) {
@@ -2362,6 +2374,29 @@ export function aiCopyHandler({ paths }: StudioApi, rateLimiter = aiRateLimiter)
               }
               if (screenshotPath) break;
             }
+            if (screenshotPath) break;
+
+            // 4. Loose fallback directly in outDir/webDir
+            if (existsSync(outDir)) {
+              try {
+                const files = await readdir(outDir);
+                for (const name of candidateNames) {
+                  const matched = files.find(
+                    (f) =>
+                      f.toLowerCase().includes(name.toLowerCase()) &&
+                      (f.endsWith(".png") ||
+                        f.endsWith(".jpg") ||
+                        f.endsWith(".jpeg") ||
+                        f.endsWith(".webp")),
+                  );
+                  if (matched) {
+                    screenshotPath = join(outDir, matched);
+                    break;
+                  }
+                }
+              } catch {}
+            }
+            if (screenshotPath) break;
           }
 
           if (!screenshotPath || !existsSync(screenshotPath)) {
