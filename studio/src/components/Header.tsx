@@ -219,7 +219,7 @@ export function Header({
   }
 
   return (
-    <header className="relative flex h-16 shrink-0 items-center justify-between border-b border-border bg-card/85 px-3 sm:px-6 backdrop-blur-md select-none text-foreground z-30 gap-2 sm:gap-4 overflow-x-auto md:overflow-x-visible">
+    <header className="relative flex h-16 shrink-0 items-center justify-between border-b border-border bg-card/85 px-2 sm:px-4 lg:px-6 backdrop-blur-md select-none text-foreground z-30 gap-1 sm:gap-2.5 lg:gap-4 overflow-x-auto min-w-0">
       {/* Brand & Theme Toggle */}
       <div className="flex items-center gap-2 sm:gap-4 shrink-0">
         {onToggleMobileSidebar ? (
@@ -279,11 +279,11 @@ export function Header({
         {/* Dynamic App Info Button & Badge */}
         {onOpenAppDetails ? (
           <>
-            {/* Desktop / Tablet with text */}
+            {/* Desktop / 2XL with full text */}
             <button
               type="button"
               onClick={onOpenAppDetails}
-              className="hidden sm:flex items-center gap-2 rounded-xl border border-[#FF6B00]/25 hover:border-[#FF6B00]/50 bg-background/90 hover:bg-[#FF6B00]/5 px-2.5 py-1.5 transition-all cursor-pointer shadow-2xs group max-w-[200px]"
+              className="hidden 2xl:flex items-center gap-2 rounded-xl border border-[#FF6B00]/25 hover:border-[#FF6B00]/50 bg-background/90 hover:bg-[#FF6B00]/5 px-2.5 py-1.5 transition-all cursor-pointer shadow-2xs group max-w-[180px]"
               title="Click to edit App Name, Category, Description, and Logo"
             >
               <div className="relative size-7 shrink-0 rounded-lg overflow-hidden bg-gradient-to-br from-[#FF6B00] via-[#FF8A00] to-[#FFB21A] text-white shadow-xs shadow-[#FF6B00]/25 flex items-center justify-center font-bold text-xs border border-white/20">
@@ -307,14 +307,14 @@ export function Header({
               </div>
             </button>
 
-            {/* Mobile icon only */}
+            {/* Laptop / Tablet compact badge */}
             <button
               type="button"
               onClick={onOpenAppDetails}
-              className="flex sm:hidden size-8 rounded-lg border border-[#FF6B00]/25 bg-background/90 hover:bg-[#FF6B00]/5 items-center justify-center cursor-pointer shadow-2xs shrink-0"
+              className="flex 2xl:hidden h-8 px-2 sm:px-2.5 rounded-lg border border-[#FF6B00]/25 hover:border-[#FF6B00]/50 bg-background/90 hover:bg-[#FF6B00]/5 items-center gap-1.5 cursor-pointer shadow-2xs shrink-0 group"
               title="Click to edit App Name, Category, Description, and Logo"
             >
-              <div className="relative size-6 shrink-0 rounded-md overflow-hidden bg-gradient-to-br from-[#FF6B00] via-[#FF8A00] to-[#FFB21A] text-white flex items-center justify-center font-bold text-[10px]">
+              <div className="relative size-5 shrink-0 rounded-md overflow-hidden bg-gradient-to-br from-[#FF6B00] via-[#FF8A00] to-[#FFB21A] text-white flex items-center justify-center font-bold text-[9px]">
                 {appInfo?.icon ? (
                   <img src={appInfo.icon} alt="" className="size-full object-cover" />
                 ) : appInfo?.name ? (
@@ -323,6 +323,9 @@ export function Header({
                   <Sparkles className="size-3 text-white fill-white/30" />
                 )}
               </div>
+              <span className="text-xs font-semibold text-foreground group-hover:text-[#FF6B00] hidden md:inline max-w-[80px] truncate">
+                {appInfo?.name || "Logo"}
+              </span>
             </button>
           </>
         ) : null}
@@ -380,15 +383,15 @@ export function Header({
           type="button"
           onClick={() => setIsAuditModalOpen(true)}
           title={`Store Pre-Flight Audit Score: ${auditResult.score}%\n${auditResult.passedCount}/${auditResult.totalChecks} checks passed.\nClick to view recommendations for Google Play & App Store approval.`}
-          className={`h-8 px-2 sm:px-3 gap-1 sm:gap-1.5 text-xs font-semibold rounded-lg border shadow-2xs cursor-pointer transition-all flex items-center whitespace-nowrap shrink-0 ${auditResult.score >= 90
+          className={`h-8 px-2 sm:px-2.5 gap-1 sm:gap-1.5 text-xs font-semibold rounded-lg border shadow-2xs cursor-pointer transition-all flex items-center whitespace-nowrap shrink-0 ${auditResult.score >= 90
               ? "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
               : auditResult.score >= 70
                 ? "bg-[#FF6B00]/10 hover:bg-[#FF6B00]/20 text-[#FF6B00] dark:text-[#FF8A00] border-[#FF6B00]/30"
                 : "bg-red-500/10 hover:bg-red-500/20 text-red-700 dark:text-red-400 border-red-500/30"
             }`}
         >
-          <span className="hidden sm:inline">Store Audit</span>
-          <span className="sm:hidden">Audit</span>
+          <span className="hidden xl:inline">Store Audit</span>
+          <span className="xl:hidden hidden sm:inline">Audit</span>
           <span className="font-mono text-[11px] font-bold">{auditResult.score}%</span>
           {auditResult.errorCount > 0 && (
             <span
@@ -411,14 +414,14 @@ export function Header({
               onClick={handleClearAll}
               disabled={clearing || !canClear}
               title={canClear ? "Remove all screenshots & reset app details" : "Nothing to remove"}
-              className="h-8 px-2 sm:px-3 gap-1.5 text-xs font-medium rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 hover:bg-red-100/80 dark:bg-red-950/25 dark:hover:bg-red-950/45 text-red-600 dark:text-red-400 shadow-2xs cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shrink-0"
+              className="h-8 px-2 sm:px-2.5 gap-1.5 text-xs font-medium rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 hover:bg-red-100/80 dark:bg-red-950/25 dark:hover:bg-red-950/45 text-red-600 dark:text-red-400 shadow-2xs cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shrink-0"
             >
               {clearing ? (
                 <Loader2Icon className="size-3.5 animate-spin text-red-600 dark:text-red-400" />
               ) : (
                 <Trash2 className="size-3.5 text-red-600 dark:text-red-400" />
               )}
-              <span className="hidden sm:inline">{clearing ? "Removing..." : "Remove all"}</span>
+              <span className="hidden xl:inline">{clearing ? "Removing..." : "Remove all"}</span>
             </Button>
           );
         })()}
@@ -720,9 +723,9 @@ export function Header({
             variant="outline"
             size="sm"
             onClick={openAuthModal}
-            className="h-8 px-3 gap-1.5 text-xs font-semibold rounded-lg border-[#FF6B00]/30 dark:border-[#FF6B00]/40 bg-[#FF6B00]/10 hover:bg-[#FF6B00]/20 text-[#FF6B00] dark:text-[#FF8A00] shadow-2xs cursor-pointer transition-colors"
+            className="h-8 px-2.5 sm:px-3 gap-1.5 text-xs font-bold rounded-lg border border-[#FF6B00]/40 bg-[#FF6B00]/10 hover:bg-[#FF6B00]/20 text-[#FF6B00] dark:text-[#FF8A00] shadow-2xs cursor-pointer transition-colors shrink-0 whitespace-nowrap"
           >
-            <UserIcon className="size-3.5" />
+            <UserIcon className="size-3.5 shrink-0" />
             <span>Sign In</span>
           </Button>
         )}
