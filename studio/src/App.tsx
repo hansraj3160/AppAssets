@@ -10,10 +10,13 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AboutUs } from "./components/AboutUs";
 import { AdBanner } from "./components/AdBanner";
 import { AppDetailsModal } from "./components/AppDetailsModal";
 import { AuthModal } from "./components/AuthModal";
+import { ContactUs } from "./components/ContactUs";
 import { EmptyState } from "./components/EmptyState";
+import { Guidelines } from "./components/Guidelines";
 import { Header } from "./components/Header";
 import { LandingPage } from "./components/LandingPage";
 import { LocaleManagerModal } from "./components/LocaleManagerModal";
@@ -82,13 +85,16 @@ const ENABLE_PLATFORM: Record<
 /** How long the design must sit still before it is written to disk. */
 const SAVE_DEBOUNCE_MS = 500;
 
-export type Screen = "landing" | "studio" | "privacy" | "terms" | "not-found";
+export type Screen = "landing" | "studio" | "privacy" | "terms" | "about" | "contact" | "guidelines" | "not-found";
 
 export function resolveScreenFromLocation(): Screen {
   if (typeof window === "undefined") return "landing";
   const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
   if (pathname === "/privacy") return "privacy";
   if (pathname === "/terms") return "terms";
+  if (pathname === "/about") return "about";
+  if (pathname === "/contact") return "contact";
+  if (pathname === "/guidelines") return "guidelines";
   if (pathname === "/studio") return "studio";
   if (pathname === "/" || pathname === "") {
     const params = new URLSearchParams(window.location.search);
@@ -96,6 +102,9 @@ export function resolveScreenFromLocation(): Screen {
     const hash = window.location.hash;
     if (view === "privacy" || hash === "#privacy") return "privacy";
     if (view === "terms" || hash === "#terms") return "terms";
+    if (view === "about" || hash === "#about") return "about";
+    if (view === "contact" || hash === "#contact") return "contact";
+    if (view === "guidelines" || hash === "#guidelines") return "guidelines";
     if (view === "studio" || hash === "#studio") return "studio";
     return "landing";
   }
@@ -117,18 +126,21 @@ function AppContent() {
   const [error, setError] = useState<Error | null>(null);
   const [screen, setScreen] = useState<Screen>(resolveScreenFromLocation);
 
-  const navigateTo = useCallback((view: "landing" | "studio" | "privacy" | "terms") => {
-    setScreen(view);
-    const url = new URL(window.location.href);
-    url.searchParams.delete("view");
-    url.hash = "";
-    if (view === "landing") {
-      url.pathname = "/";
-    } else {
-      url.pathname = `/${view}`;
-    }
-    window.history.pushState({}, "", url.pathname + (url.search ? url.search : ""));
-  }, []);
+  const navigateTo = useCallback(
+    (view: "landing" | "studio" | "privacy" | "terms" | "about" | "contact" | "guidelines") => {
+      setScreen(view);
+      const url = new URL(window.location.href);
+      url.searchParams.delete("view");
+      url.hash = "";
+      if (view === "landing") {
+        url.pathname = "/";
+      } else {
+        url.pathname = `/${view}`;
+      }
+      window.history.pushState({}, "", url.pathname + (url.search ? url.search : ""));
+    },
+    [],
+  );
 
   useEffect(() => {
     const handlePopState = () => {
@@ -146,6 +158,9 @@ function AppContent() {
       studio: { path: "/studio", title: "AppAssets Studio - Screenshot Editor" },
       privacy: { path: "/privacy", title: "Privacy Policy - AppAssets" },
       terms: { path: "/terms", title: "Terms and Conditions - AppAssets" },
+      about: { path: "/about", title: "About Us - AppAssets Studio" },
+      contact: { path: "/contact", title: "Contact Us - AppAssets Studio" },
+      guidelines: { path: "/guidelines", title: "Store Guidelines & Specifications - AppAssets" },
       "not-found": { path: "/404", title: "404 Not Found - AppAssets" },
     };
     const current = screenToPage[screen];
@@ -187,6 +202,9 @@ function AppContent() {
           onStartDesigning={() => navigateTo("studio")}
           onOpenPrivacy={() => navigateTo("privacy")}
           onOpenTerms={() => navigateTo("terms")}
+          onOpenAbout={() => navigateTo("about")}
+          onOpenContact={() => navigateTo("contact")}
+          onOpenGuidelines={() => navigateTo("guidelines")}
           dark={dark}
           onToggleDark={() => setDark((prev) => !prev)}
         />
@@ -213,6 +231,43 @@ function AppContent() {
       <TermsAndConditions
         onNavigateHome={() => navigateTo("landing")}
         onNavigatePrivacy={() => navigateTo("privacy")}
+        onStartDesigning={() => navigateTo("studio")}
+        dark={dark}
+        onToggleDark={() => setDark((prev) => !prev)}
+      />
+    );
+  }
+
+  if (screen === "about") {
+    return (
+      <AboutUs
+        onNavigateHome={() => navigateTo("landing")}
+        onNavigateContact={() => navigateTo("contact")}
+        onNavigateGuidelines={() => navigateTo("guidelines")}
+        onStartDesigning={() => navigateTo("studio")}
+        dark={dark}
+        onToggleDark={() => setDark((prev) => !prev)}
+      />
+    );
+  }
+
+  if (screen === "contact") {
+    return (
+      <ContactUs
+        onNavigateHome={() => navigateTo("landing")}
+        onNavigateAbout={() => navigateTo("about")}
+        onStartDesigning={() => navigateTo("studio")}
+        dark={dark}
+        onToggleDark={() => setDark((prev) => !prev)}
+      />
+    );
+  }
+
+  if (screen === "guidelines") {
+    return (
+      <Guidelines
+        onNavigateHome={() => navigateTo("landing")}
+        onNavigateContact={() => navigateTo("contact")}
         onStartDesigning={() => navigateTo("studio")}
         dark={dark}
         onToggleDark={() => setDark((prev) => !prev)}

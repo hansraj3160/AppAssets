@@ -1859,7 +1859,7 @@ describe("bannerExportHandler", () => {
         paths: studioPaths(join(import.meta.dirname, "..", "appassets.config.ts")),
         cli: ["echo"],
       });
-      for (const route of ["/", "/privacy", "/terms", "/studio"]) {
+      for (const route of ["/", "/privacy", "/terms", "/about", "/contact", "/guidelines", "/studio"]) {
         const res = await testRequest(handler, route);
         expect(res.statusCode).toBe(200);
         expect(res.headers["content-type"]).toContain("text/html");

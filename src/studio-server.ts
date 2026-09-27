@@ -2817,6 +2817,9 @@ export function createStudioRequestHandler(api: StudioApi): Handler {
       normalizedPath === "/" ||
       normalizedPath === "/privacy" ||
       normalizedPath === "/terms" ||
+      normalizedPath === "/about" ||
+      normalizedPath === "/contact" ||
+      normalizedPath === "/guidelines" ||
       normalizedPath === "/studio";
 
     const indexPath =
