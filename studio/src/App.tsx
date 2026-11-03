@@ -185,10 +185,13 @@ function AppContent() {
     localStorage.setItem("appassets_theme", dark ? "dark" : "light");
   }, [dark]);
 
-  const refresh = useCallback(() => {
-    Promise.all([loadManifest(), loadDesign()])
-      .then(([manifest, design]) => setLoaded({ manifest, design }))
-      .catch((e: Error) => setError(e));
+  const refresh = useCallback(async () => {
+    try {
+      const [manifest, design] = await Promise.all([loadManifest(), loadDesign()]);
+      setLoaded({ manifest, design });
+    } catch (e) {
+      setError(e instanceof Error ? e : new Error(String(e)));
+    }
   }, []);
 
   useEffect(() => {
@@ -386,7 +389,7 @@ function Loaded({
 }: {
   manifest: StoreManifest;
   saved: SavedDesign;
-  onRefresh: () => void;
+  onRefresh: () => Promise<void> | void;
   dark: boolean;
   setDark: (v: boolean | ((prev: boolean) => boolean)) => void;
   onNavigateToLanding?: () => void;
@@ -893,14 +896,20 @@ function Loaded({
           locale,
           dark,
         });
+        if (data.targetPlatform !== platform) {
+          setPlatform(data.targetPlatform);
+        }
+        if (data.targetDevice !== device) {
+          setDevice(data.targetDevice);
+        }
       }
-      sessionStorage.setItem(
-        "appassets_toast",
+      setToastMessage(
         `✨ Successfully imported ${data.imported || files.length} screenshot(s) into ${data.targetDevice || device}!`,
       );
-      window.location.reload();
+      await onRefresh();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to import images");
+    } finally {
       setIsImporting(false);
     }
   };
@@ -927,6 +936,8 @@ function Loaded({
         onNavigateToLanding={onNavigateToLanding}
         onToggleMobileSidebar={() => setIsMobileSidebarOpen((prev) => !prev)}
         preferredDevice={device}
+        onRefresh={onRefresh}
+        onToast={(msg) => setToastMessage(msg)}
       />
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -1204,6 +1215,8 @@ function Loaded({
                     sceneBadges={sceneBadges}
                     onSceneBadge={setSceneBadge}
                     appInfo={appInfo}
+                    onRefresh={onRefresh}
+                    onToast={(msg) => setToastMessage(msg)}
                   />
                 </div>
               )
@@ -1215,12 +1228,52 @@ function Loaded({
                 deviceKey={spec.key}
                 platform={platform}
                 appName={manifest.app.name}
+                onImportSuccess={async (result) => {
+                  if (result.targetPlatform && result.targetDevice) {
+                    storeView(manifest.app.name, {
+                      platform: result.targetPlatform,
+                      device: result.targetDevice,
+                      locale,
+                      dark,
+                    });
+                    if (result.targetPlatform !== platform) {
+                      setPlatform(result.targetPlatform);
+                    }
+                    if (result.targetDevice !== device) {
+                      setDevice(result.targetDevice);
+                    }
+                  }
+                  setToastMessage(
+                    `✨ Successfully imported ${result.imported || 1} screenshot(s)!`,
+                  );
+                  await onRefresh();
+                }}
               />
             ) : (
               <EmptyState
                 {...ENABLE_PLATFORM[platform]}
                 platform={platform}
                 appName={manifest.app.name}
+                onImportSuccess={async (result) => {
+                  if (result.targetPlatform && result.targetDevice) {
+                    storeView(manifest.app.name, {
+                      platform: result.targetPlatform,
+                      device: result.targetDevice,
+                      locale,
+                      dark,
+                    });
+                    if (result.targetPlatform !== platform) {
+                      setPlatform(result.targetPlatform);
+                    }
+                    if (result.targetDevice !== device) {
+                      setDevice(result.targetDevice);
+                    }
+                  }
+                  setToastMessage(
+                    `✨ Successfully imported ${result.imported || 1} screenshot(s)!`,
+                  );
+                  await onRefresh();
+                }}
               />
             )}
           </main>

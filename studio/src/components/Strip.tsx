@@ -195,6 +195,7 @@ export function buildScreenshotEntries({
   patternColor,
   deviceBacklight,
   panoramaMode,
+  assetVersion,
 }: {
   design: Design;
   captures: DeviceCaptures;
@@ -229,6 +230,7 @@ export function buildScreenshotEntries({
   patternColor?: string;
   deviceBacklight?: boolean | BacklightConfig;
   panoramaMode?: boolean;
+  assetVersion?: number;
 }): ScreenshotEntry[] {
   const theme: Theme = {
     ...design.theme,
@@ -339,6 +341,7 @@ export function buildScreenshotEntries({
             decorations={decorations}
             locale={locale}
             onEdit={editable && onCopy ? (field, text) => onCopy(scene.id, field, text) : undefined}
+            assetVersion={assetVersion}
           />
         ),
       });
@@ -459,6 +462,8 @@ export function Strip({
   sceneLayouts,
   onSceneLayout,
   appInfo,
+  onRefresh,
+  onToast,
 }: {
   manifest?: StoreManifest;
   design: Design;
@@ -511,6 +516,8 @@ export function Strip({
   sceneLayouts: Record<string, string>;
   onSceneLayout: (sceneId: string, key: string | undefined) => void;
   appInfo?: AppInfo;
+  onRefresh?: () => Promise<void> | void;
+  onToast?: (message: string) => void;
 }) {
   const scenes =
     order.length > 0
@@ -607,6 +614,8 @@ export function Strip({
       scene: () => <PreviewScene segments={segments} />,
     });
   }
+  const [assetVersion, setAssetVersion] = useState(() => Date.now());
+
   const screenshotItems = buildScreenshotEntries({
     design,
     captures,
@@ -632,6 +641,7 @@ export function Strip({
     patternColor,
     deviceBacklight,
     panoramaMode,
+    assetVersion,
   });
 
   for (const item of screenshotItems) {
@@ -690,7 +700,12 @@ export function Strip({
         body: JSON.stringify({ sceneId }),
       });
       if (res.ok) {
-        window.location.reload();
+        if (onToast) onToast(`Removed screenshot "${sceneId}"`);
+        if (onRefresh) {
+          await onRefresh();
+        } else {
+          window.location.reload();
+        }
       } else {
         const data = await res.json().catch(() => ({}));
         alert(data.error || "Failed to delete screenshot");
@@ -708,7 +723,12 @@ export function Strip({
         headers: { "Content-Type": "application/json" },
       });
       if (res.ok) {
-        window.location.reload();
+        if (onToast) onToast("Removed all screenshots");
+        if (onRefresh) {
+          await onRefresh();
+        } else {
+          window.location.reload();
+        }
       } else {
         const data = await res.json().catch(() => ({}));
         alert(data.error || "Failed to remove screenshots");
@@ -927,14 +947,26 @@ export function Strip({
         import_type: "canvas_card",
         device: tileSpec.key,
       });
-      sessionStorage.setItem(
-        "appassets_toast",
-        `✨ Successfully imported ${resData.imported || filePayloads.length} screenshot(s)!`,
-      );
-      window.location.reload();
+      const count = resData.imported || filePayloads.length;
+      if (onToast) {
+        onToast(`✨ Successfully imported ${count} screenshot(s)!`);
+      }
+      if (onRefresh) {
+        await onRefresh();
+      } else {
+        sessionStorage.setItem(
+          "appassets_toast",
+          `✨ Successfully imported ${count} screenshot(s)!`,
+        );
+        window.location.reload();
+      }
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to import images");
+    } finally {
       setIsImporting(false);
+      if (importInputRef.current) {
+        importInputRef.current.value = "";
+      }
     }
   };
 
@@ -967,13 +999,22 @@ export function Strip({
         device: tileSpec.key,
         scene_id: sceneId,
       });
-      sessionStorage.setItem(
-        "appassets_toast",
-        `✨ Updated capture for scene "${sceneId}" on ${tileSpec.key}`,
-      );
-      window.location.reload();
+      setAssetVersion(Date.now());
+      if (onToast) {
+        onToast(`✨ Updated capture for scene "${sceneId}" on ${tileSpec.key}`);
+      }
+      if (onRefresh) {
+        await onRefresh();
+      } else {
+        sessionStorage.setItem(
+          "appassets_toast",
+          `✨ Updated capture for scene "${sceneId}" on ${tileSpec.key}`,
+        );
+        window.location.reload();
+      }
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to replace capture");
+    } finally {
       setReplacingSceneId(null);
     }
   };
@@ -1963,6 +2004,7 @@ export function ScreenshotScene({
   decorations,
   locale,
   onEdit,
+  assetVersion,
 }: {
   spec: (typeof LAYOUTS)[keyof typeof LAYOUTS];
   slice: number;
@@ -1987,6 +2029,7 @@ export function ScreenshotScene({
   decorations: Decoration[];
   locale: string;
   onEdit?: (field: "headline" | "subhead", text: string) => void;
+  assetVersion?: number;
 }) {
   const c = compose(spec, tile, theme, { screenOnly, geom });
   const { w, h } = cq(tile);
@@ -2137,6 +2180,7 @@ export function ScreenshotScene({
               captureUrl={url}
               missing={url ? undefined : (secondSceneId ?? "secondScene")}
               backlight={theme.deviceBacklight}
+              assetVersion={assetVersion}
             />
           );
         })}
@@ -2166,6 +2210,7 @@ function DeviceView({
   captureUrl,
   missing,
   backlight,
+  assetVersion,
 }: {
   device: Composition["devices"][number];
   tile: { width: number; height: number };
@@ -2174,6 +2219,7 @@ function DeviceView({
   /** Scene id to name in the placeholder when the capture is missing. */
   missing: string | undefined;
   backlight?: boolean | BacklightConfig;
+  assetVersion?: number;
 }) {
   const { w, h } = cq(tile);
   const { frame, screen } = device;
@@ -2238,7 +2284,7 @@ function DeviceView({
       >
         {captureUrl ? (
           <img
-            src={`/${captureUrl}`}
+            src={`/${captureUrl}${assetVersion ? `?v=${assetVersion}` : ""}`}
             alt=""
             draggable={false}
             style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}

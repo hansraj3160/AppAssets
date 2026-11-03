@@ -49,6 +49,8 @@ export function Header({
   onNavigateToLanding,
   onToggleMobileSidebar,
   preferredDevice,
+  onRefresh,
+  onToast,
 }: {
   manifest: StoreManifest;
   dark: boolean;
@@ -69,6 +71,8 @@ export function Header({
   onNavigateToLanding?: () => void;
   onToggleMobileSidebar?: () => void;
   preferredDevice?: string;
+  onRefresh?: () => Promise<void> | void;
+  onToast?: (message: string) => void;
 }) {
   const { user, isPro, aiCreditsRemaining, signOutUser, openAuthModal, openUpgradeModal } =
     useAuth();
@@ -156,14 +160,19 @@ export function Header({
         headers: { "Content-Type": "application/json" },
       });
       if (res.ok) {
-        window.location.reload();
+        if (onToast) onToast("Removed all screenshots");
+        if (onRefresh) {
+          await onRefresh();
+        } else {
+          window.location.reload();
+        }
       } else {
         const data = await res.json().catch(() => ({}));
         alert(data.error || "Failed to remove screenshots");
-        setClearing(false);
       }
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to remove screenshots");
+    } finally {
       setClearing(false);
     }
   };
@@ -488,6 +497,10 @@ export function Header({
           className="h-8 px-2 sm:px-3 gap-1.5 text-xs font-medium rounded-lg border border-border/80 bg-background hover:bg-muted text-foreground shadow-2xs cursor-pointer transition-colors [&_svg]:size-3.5 whitespace-nowrap shrink-0"
           label="Import"
           preferredDevice={preferredDevice}
+          onSuccess={async (count) => {
+            if (onToast) onToast(`✨ Successfully imported ${count} screenshot(s)!`);
+            if (onRefresh) await onRefresh();
+          }}
         />
 
         {/* Divider */}

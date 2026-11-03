@@ -10,6 +10,7 @@ export function ImportButton({
   size = "default",
   label = "Import screenshots",
   preferredDevice,
+  onSuccess,
 }: {
   className?: string;
   wrapperClassName?: string;
@@ -17,6 +18,7 @@ export function ImportButton({
   size?: "default" | "sm" | "lg";
   label?: string;
   preferredDevice?: string;
+  onSuccess?: (count: number) => Promise<void> | void;
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -99,15 +101,20 @@ export function ImportButton({
         imported?: number;
         targetDevice?: string;
       };
-      sessionStorage.setItem(
-        "appassets_toast",
-        `✨ Successfully imported ${resData.imported || filePayloads.length} screenshot(s)!`,
-      );
-      window.location.reload();
+      const count = resData.imported || filePayloads.length;
+      if (onSuccess) {
+        await onSuccess(count);
+      } else {
+        sessionStorage.setItem(
+          "appassets_toast",
+          `✨ Successfully imported ${count} screenshot(s)!`,
+        );
+        window.location.reload();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to import images");
-      setLoading(false);
     } finally {
+      setLoading(false);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
