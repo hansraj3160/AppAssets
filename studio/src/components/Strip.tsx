@@ -1,7 +1,9 @@
 import {
+  Check,
   ChevronLeft,
   ChevronRight,
   Download,
+  FolderArchive,
   Loader2,
   Sparkles,
   Tag,
@@ -719,6 +721,133 @@ export function Strip({
   const [downloadingKey, setDownloadingKey] = useState<string | null>(null);
   const [activeAiSceneId, setActiveAiSceneId] = useState<string | null>(null);
 
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [isBulkDownloading, setIsBulkDownloading] = useState(false);
+  const [bulkMode, setBulkMode] = useState<"png" | "zip" | null>(null);
+  const [bulkDownloadProgress, setBulkDownloadProgress] = useState(0);
+
+  const toggleSelect = (key: string) => {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
+  const selectableEntries = entries.filter((e) => e.key !== "preview");
+  const isAllSelected =
+    selectableEntries.length > 0 && selectableEntries.every((e) => selectedKeys.has(e.key));
+
+  const toggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedKeys(new Set());
+    } else {
+      setSelectedKeys(new Set(selectableEntries.map((e) => e.key)));
+    }
+  };
+
+  const handleDownloadSelectedPngs = async () => {
+    if (selectedKeys.size === 0 || isBulkDownloading) return;
+    setIsBulkDownloading(true);
+    setBulkMode("png");
+    setBulkDownloadProgress(0);
+
+    const targetEntries = entries.filter((e) => selectedKeys.has(e.key));
+    let count = 0;
+    try {
+      for (const entry of targetEntries) {
+        count++;
+        setBulkDownloadProgress(count);
+        const parts = entry.key.split("#");
+        const resolvedSceneId = entry.targetSceneId ?? entry.sceneId ?? parts[0];
+        const slice = parts[1] ? parseInt(parts[1], 10) : undefined;
+        await downloadSingleScreenshot({
+          sceneId: resolvedSceneId,
+          slice,
+          device: tileSpec.key,
+          locale,
+          background: (entry.targetSceneId && sceneBackgrounds[entry.targetSceneId]) || background,
+          frameUrl,
+          fontFamily,
+          template,
+          layout,
+          screenOnly,
+          fontSizeScale,
+          design,
+        });
+        if (count < targetEntries.length) {
+          await new Promise((r) => setTimeout(r, 450));
+        }
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to download selected screenshots");
+    } finally {
+      setIsBulkDownloading(false);
+      setBulkMode(null);
+      setBulkDownloadProgress(0);
+    }
+  };
+
+  const handleDownloadSelectedZip = async () => {
+    if (selectedKeys.size === 0 || isBulkDownloading) return;
+    setIsBulkDownloading(true);
+    setBulkMode("zip");
+    try {
+      const targetEntries = entries.filter((e) => selectedKeys.has(e.key));
+      const items = targetEntries.map((e) => {
+        const parts = e.key.split("#");
+        const resolvedSceneId = e.targetSceneId ?? e.sceneId ?? parts[0];
+        const slice = parts[1] ? parseInt(parts[1], 10) : undefined;
+        return { sceneId: resolvedSceneId, slice };
+      });
+
+      const res = await apiFetch("/api/export-selected-zip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          device: tileSpec.key,
+          locale,
+          items,
+          background,
+          frame: frameUrl ? frameUrl.replace(/^\/?frames\//, "").replace(/\.png$/, "") : undefined,
+          font: design && fontFamily ? fontKey(design, fontFamily) : undefined,
+          template: template === CUSTOM_TEMPLATE ? undefined : template || "none",
+          layout,
+          screenOnly,
+          fontSizeScale,
+        }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `ZIP export failed (HTTP ${res.status})`);
+      }
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const fileName = `selected-screenshots-${tileSpec.key}.zip`;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
+
+      trackExport("completed", { export_type: "selected_zip", count: selectedKeys.size });
+      trackAssetDownloaded({ asset_type: "zip", file_name: fileName });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to download selected screenshots ZIP");
+    } finally {
+      setIsBulkDownloading(false);
+      setBulkMode(null);
+    }
+  };
+
   const readFileData = (
     file: File,
   ): Promise<{ dataUrl: string; width: number; height: number }> => {
@@ -831,6 +960,7 @@ export function Strip({
   const tileAt = (i: number) => {
     const entry = entries[i];
     const isDownloading = downloadingKey === entry.key;
+    const isSelected = selectedKeys.has(entry.key);
     const targetId = entry.targetSceneId ?? entry.sceneId;
     const customBg = targetId ? sceneBackgrounds[targetId] : undefined;
 
@@ -846,12 +976,30 @@ export function Strip({
 
     return (
       <div key={entry.key} className="flex flex-col gap-1.5 w-full">
-        {/* Card Header Toolbar: Slide # + BG + Badge */}
+        {/* Card Header Toolbar: Slide # + Checkbox + BG + Badge */}
         {entry.key !== "preview" && targetId ? (
           <div className="flex items-center justify-between px-0.5 text-xs select-none">
-            <span className="text-[10px] font-bold font-mono tracking-wider text-muted-foreground/70 px-1.5 py-0.5 rounded-md bg-muted/60 border border-border/50">
-              #{i + 1}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleSelect(entry.key);
+                }}
+                className={`size-4 rounded flex items-center justify-center border transition-all cursor-pointer ${
+                  isSelected
+                    ? "bg-[#FF6B00] border-[#FF6B00] text-white shadow-xs"
+                    : "border-border/80 bg-background/80 hover:border-[#FF6B00] text-transparent"
+                }`}
+                aria-label={`Select slide ${i + 1}`}
+                title={isSelected ? "Deselect slide" : "Select slide for export"}
+              >
+                <Check className="size-2.5 stroke-[3]" />
+              </button>
+              <span className="text-[10px] font-bold font-mono tracking-wider text-muted-foreground/70 px-1.5 py-0.5 rounded-md bg-muted/60 border border-border/50">
+                #{i + 1}
+              </span>
+            </div>
             <div className="flex items-center gap-1">
               <SceneBackgroundPopover
                 value={customBg}
@@ -921,6 +1069,8 @@ export function Strip({
           isDownloading={isDownloading}
           onAiCopy={targetId ? () => setActiveAiSceneId(targetId) : undefined}
           sceneId={entry.sceneId}
+          isSelected={isSelected}
+          onToggleSelect={entry.key !== "preview" ? () => toggleSelect(entry.key) : undefined}
           // Named only while the lightbox is closed: once open, the scene inside
           // it carries the name, and a duplicate would abort the transition.
           transitionName={named === i && open === null ? "lightbox-scene" : undefined}
@@ -985,6 +1135,95 @@ export function Strip({
 
   return (
     <div className="flex w-full flex-col gap-3">
+      {/* Quick Select & Multi-Download Header Bar */}
+      {selectableEntries.length > 0 && (
+        <div className="flex items-center justify-between px-1 text-xs select-none">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={toggleSelectAll}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all cursor-pointer ${
+                selectedKeys.size > 0
+                  ? "border-[#FF6B00]/40 bg-[#FF6B00]/10 text-[#FF6B00]"
+                  : "border-border/80 bg-background/80 hover:bg-muted text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <div
+                className={`size-3.5 rounded flex items-center justify-center border transition-all ${
+                  isAllSelected
+                    ? "bg-[#FF6B00] border-[#FF6B00] text-white"
+                    : selectedKeys.size > 0
+                      ? "bg-[#FF6B00]/20 border-[#FF6B00] text-[#FF6B00]"
+                      : "border-muted-foreground/50 bg-transparent text-transparent"
+                }`}
+              >
+                <Check className="size-2.5 stroke-[3]" />
+              </div>
+              <span>
+                {isAllSelected
+                  ? "All Selected"
+                  : selectedKeys.size > 0
+                    ? `${selectedKeys.size} Selected`
+                    : "Select All"}
+              </span>
+            </button>
+
+            {selectedKeys.size > 0 && (
+              <button
+                type="button"
+                onClick={() => setSelectedKeys(new Set())}
+                className="text-xs text-muted-foreground hover:text-foreground cursor-pointer underline px-1"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
+          {selectedKeys.size > 0 && (
+            <div className="flex items-center gap-2 animate-in fade-in duration-150">
+              <Button
+                size="sm"
+                onClick={handleDownloadSelectedPngs}
+                disabled={isBulkDownloading}
+                className="h-7 text-xs px-2.5 gap-1.5 bg-[#FF6B00] hover:bg-[#FF8A00] text-white font-medium cursor-pointer shadow-2xs"
+              >
+                {isBulkDownloading && bulkMode === "png" ? (
+                  <>
+                    <Loader2 className="size-3 animate-spin" />
+                    <span>({bulkDownloadProgress}/{selectedKeys.size})</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="size-3" />
+                    <span>Download PNGs ({selectedKeys.size})</span>
+                  </>
+                )}
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadSelectedZip}
+                disabled={isBulkDownloading}
+                className="h-7 text-xs px-2.5 gap-1.5 border-border hover:bg-muted cursor-pointer"
+              >
+                {isBulkDownloading && bulkMode === "zip" ? (
+                  <>
+                    <Loader2 className="size-3 animate-spin" />
+                    <span>Zipping...</span>
+                  </>
+                ) : (
+                  <>
+                    <FolderArchive className="size-3 text-[#FF6B00]" />
+                    <span>Download ZIP</span>
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="relative">
         {/* Clips only horizontally, so a sliding page vanishes at the strip's
             edge while tile shadows and the hover lift stay visible; the small
@@ -1177,6 +1416,78 @@ export function Strip({
           }}
         />
       ) : null}
+
+      {/* Floating Selection Bar */}
+      {selectedKeys.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 sm:gap-3 px-3.5 py-2.5 rounded-2xl bg-card/95 border border-border shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-bottom-4 duration-200 text-foreground">
+          <div className="flex items-center gap-2 pr-2 border-r border-border">
+            <span className="size-2 rounded-full bg-[#FF6B00] animate-pulse" />
+            <span className="text-xs font-semibold whitespace-nowrap">
+              {selectedKeys.size} {selectedKeys.size === 1 ? "Slide" : "Slides"} Selected
+            </span>
+          </div>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={toggleSelectAll}
+            className="h-8 text-xs px-2.5 text-muted-foreground hover:text-foreground cursor-pointer"
+          >
+            {isAllSelected ? "Deselect All" : "Select All"}
+          </Button>
+
+          <Button
+            size="sm"
+            onClick={handleDownloadSelectedPngs}
+            disabled={isBulkDownloading}
+            className="h-8 text-xs px-3 gap-1.5 bg-[#FF6B00] hover:bg-[#FF8A00] text-white font-medium cursor-pointer shadow-xs"
+            title="Download selected screenshots as PNG files"
+          >
+            {isBulkDownloading && bulkMode === "png" ? (
+              <>
+                <Loader2 className="size-3.5 animate-spin" />
+                <span>Downloading ({bulkDownloadProgress}/{selectedKeys.size})...</span>
+              </>
+            ) : (
+              <>
+                <Download className="size-3.5" />
+                <span>Download PNGs ({selectedKeys.size})</span>
+              </>
+            )}
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDownloadSelectedZip}
+            disabled={isBulkDownloading}
+            className="h-8 text-xs px-3 gap-1.5 border-border hover:bg-muted text-foreground cursor-pointer"
+            title="Download selected screenshots in a ZIP archive"
+          >
+            {isBulkDownloading && bulkMode === "zip" ? (
+              <>
+                <Loader2 className="size-3.5 animate-spin" />
+                <span>Creating ZIP...</span>
+              </>
+            ) : (
+              <>
+                <FolderArchive className="size-3.5 text-[#FF6B00]" />
+                <span>Download ZIP</span>
+              </>
+            )}
+          </Button>
+
+          <button
+            type="button"
+            onClick={() => setSelectedKeys(new Set())}
+            className="size-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer transition-colors ml-1"
+            title="Clear selection"
+            aria-label="Clear selection"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -1915,6 +2226,8 @@ function Tile({
   sceneId,
   transitionName,
   draggable,
+  isSelected,
+  onToggleSelect,
   children,
 }: {
   width: number;
@@ -1931,6 +2244,8 @@ function Tile({
   sceneId?: string;
   transitionName?: string;
   draggable: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
   children: ReactNode;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -2018,13 +2333,37 @@ function Tile({
         }
         title={draggable ? "Drag to reorder" : undefined}
         onClick={onOpen}
-        className={`tile-shadow relative block w-full overflow-hidden rounded-2xl bg-neutral-200 ring-1 ring-black/10 transition-[transform,box-shadow,--tw-ring-color] duration-150 select-none hover:-translate-y-0.5 hover:ring-black/25 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none dark:bg-neutral-800 dark:ring-white/10 dark:hover:ring-white/30 ${
+        className={`tile-shadow relative block w-full overflow-hidden rounded-2xl bg-neutral-200 ring-1 transition-[transform,box-shadow,--tw-ring-color] duration-150 select-none hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none dark:bg-neutral-800 ${
+          isSelected
+            ? "ring-2 ring-[#FF6B00] ring-offset-2 ring-offset-background shadow-md shadow-[#FF6B00]/15"
+            : "ring-black/10 hover:ring-black/25 dark:ring-white/10 dark:hover:ring-white/30"
+        } ${
           draggable ? "cursor-grab active:cursor-grabbing" : "cursor-zoom-in"
         }`}
         style={{ aspectRatio: `${width} / ${height}`, viewTransitionName: transitionName }}
       >
         {children}
       </button>
+
+      {/* Checkbox toggle on top-left inside tile */}
+      {onToggleSelect && !isReplacing ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleSelect();
+          }}
+          className={`absolute top-2 left-2 z-30 flex size-6 cursor-pointer items-center justify-center rounded-lg border shadow-md backdrop-blur-md transition-all ${
+            isSelected
+              ? "bg-[#FF6B00] border-[#FF6B00] text-white opacity-100 scale-100 ring-2 ring-black/20"
+              : "bg-background/85 border-border/90 text-transparent opacity-0 group-hover:opacity-100 hover:border-[#FF6B00] hover:text-muted-foreground"
+          }`}
+          aria-label={isSelected ? "Deselect screenshot" : "Select screenshot"}
+          title={isSelected ? "Deselect screenshot" : "Select screenshot"}
+        >
+          <Check className="size-3.5 stroke-[3]" />
+        </button>
+      ) : null}
 
       {/* Hover menu: Replace image on top-left, Delete on top-right */}
       {onReplace && !isReplacing ? (

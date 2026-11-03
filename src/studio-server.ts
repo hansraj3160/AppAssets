@@ -1746,6 +1746,121 @@ export function singleExportHandler(api: StudioApi): Handler {
   };
 }
 
+/** Handles POST /api/export-selected-zip for packaging selected screenshots into a single ZIP archive */
+export function selectedExportZipHandler(api: StudioApi): Handler {
+  return (req, res) => {
+    if (req.method !== "POST") {
+      res.statusCode = 405;
+      res.end("POST only");
+      return;
+    }
+
+    const sessionId = getSessionIdFromRequest(req);
+    const paths = resolveWorkspacePaths(api, sessionId);
+    const cli = api.cli;
+
+    readBody(req).then(async (rawBody) => {
+      try {
+        const body = JSON.parse(rawBody || "{}");
+        const device = body.device || "iphone-6.9";
+        const locale = body.locale || "en-US";
+        const items: Array<{ sceneId: string; slice?: number }> = Array.isArray(body.items) ? body.items : [];
+
+        if (items.length === 0) {
+          res.statusCode = 400;
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify({ error: "items array cannot be empty" }));
+          return;
+        }
+
+        const flags: string[] = [];
+        if (body.background) flags.push("--background", body.background);
+        if (body.frame) {
+          const cleanFrame = body.frame.replace(/^\/?frames\//, "").replace(/\.png$/, "");
+          flags.push("--frame", cleanFrame);
+        }
+        if (body.font) flags.push("--font", body.font);
+        if (body.template && body.template !== "none") flags.push("--template", body.template);
+        if (body.layout) flags.push("--layout", body.layout);
+        if (body.screenOnly) flags.push("--screen-only");
+        if (body.fontSizeScale) flags.push("--font-size-scale", String(body.fontSizeScale));
+
+        const [bin, ...prefix] = cli;
+        const execRes = await exec(
+          bin!,
+          [
+            ...prefix,
+            "frame",
+            "--config",
+            paths.configPath,
+            "--device",
+            device,
+            "--locale",
+            locale,
+            ...flags,
+          ],
+          { quiet: true },
+        );
+        if (execRes.code !== 0) {
+          res.statusCode = 500;
+          res.setHeader("Content-Type", "application/json");
+          res.end(
+            JSON.stringify({
+              error: `Frame rendering failed: ${execRes.stderr || execRes.stdout || `exit code ${execRes.code}`}`,
+            }),
+          );
+          return;
+        }
+
+        const screenshotsDir = join(paths.outDir, "screenshots", device, locale);
+        if (!existsSync(screenshotsDir)) {
+          res.statusCode = 404;
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify({ error: "No screenshots found for this device" }));
+          return;
+        }
+
+        const files = await readdir(screenshotsDir);
+        const zipList: ZipEntry[] = [];
+
+        for (const item of items) {
+          const matched = findScreenshotFile(files, item.sceneId, item.slice);
+          if (matched) {
+            const filePath = join(screenshotsDir, matched);
+            if (existsSync(filePath)) {
+              zipList.push({
+                name: matched,
+                data: await readFile(filePath),
+                mtime: new Date(),
+              });
+            }
+          }
+        }
+
+        if (zipList.length === 0) {
+          res.statusCode = 404;
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify({ error: "None of the selected screenshots were found" }));
+          return;
+        }
+
+        const zipBuffer = zipEntries(zipList);
+        res.writeHead(200, {
+          "Content-Type": "application/zip",
+          "Content-Length": zipBuffer.length,
+          "Content-Disposition": `attachment; filename="selected-screenshots-${device}.zip"`,
+          "Cache-Control": "no-store",
+        });
+        res.end(zipBuffer);
+      } catch (err) {
+        res.statusCode = 500;
+        res.setHeader("Content-Type", "application/json");
+        res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+      }
+    });
+  };
+}
+
 /** Handles GET /api/export-banner?type=...&sceneId=...&locale=... for downloading individual marketing/store banners */
 export function bannerExportHandler(api: StudioApi): Handler {
   return (req, res) => {
@@ -2755,6 +2870,7 @@ export function createStudioRequestHandler(api: StudioApi): Handler {
   const design = designHandler(api);
   const exp = exportHandler(api);
   const expSingle = singleExportHandler(api);
+  const expSelectedZip = selectedExportZipHandler(api);
   const expBanner = bannerExportHandler(api);
   const expFavicon = faviconExportHandler(api);
   const imp = importHandler(api);
@@ -2775,6 +2891,7 @@ export function createStudioRequestHandler(api: StudioApi): Handler {
     if (path === "/api/locales") return locales(req, res);
     if (path === "/api/ai/generate-copy") return aiCopy(req, res);
     if (path.startsWith("/api/export-single")) return expSingle(req, res);
+    if (path.startsWith("/api/export-selected-zip")) return expSelectedZip(req, res);
     if (path.startsWith("/api/export-banner")) return expBanner(req, res);
     if (path.startsWith("/api/export-favicon")) return expFavicon(req, res);
     if (path.startsWith("/api/export")) return exp(path.slice("/api/export".length))(req, res);

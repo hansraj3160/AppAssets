@@ -24,6 +24,7 @@ import {
   renderAppIconCanvas,
   replaceCaptureHandler,
   resolveDeviceFromDimensions,
+  selectedExportZipHandler,
   singleExportHandler,
   studioPaths,
   updateLocalesInConfig,
@@ -650,6 +651,112 @@ describe("singleExportHandler", () => {
 
     expect(statusCode).toBe(404);
     expect(endedWith).toContain('Screenshot for scene "missing" not found');
+
+    await rm(tmp, { recursive: true, force: true });
+  });
+});
+
+describe("selectedExportZipHandler", () => {
+  test("rejects non-POST requests with 405", () => {
+    const handler = selectedExportZipHandler({
+      paths: studioPaths("goldie.config.ts"),
+      cli: ["echo"],
+    });
+
+    let statusCode = 0;
+    let endedWith = "";
+    const req = { method: "GET" } as any;
+    const res = {
+      set statusCode(code: number) {
+        statusCode = code;
+      },
+      end(body: string) {
+        endedWith = body;
+      },
+    } as any;
+
+    handler(req, res);
+    expect(statusCode).toBe(405);
+    expect(endedWith).toBe("POST only");
+  });
+
+  test("returns 400 when items array is empty", async () => {
+    const handler = selectedExportZipHandler({
+      paths: studioPaths("goldie.config.ts"),
+      cli: ["echo"],
+    });
+
+    let statusCode = 0;
+    let endedWith = "";
+    const req = new PassThrough() as any;
+    req.method = "POST";
+    const res = {
+      set statusCode(code: number) {
+        statusCode = code;
+      },
+      setHeader() {},
+      end(body: string) {
+        endedWith = body;
+      },
+    } as any;
+
+    handler(req, res);
+    req.end(JSON.stringify({ items: [] }));
+    await new Promise((r) => setTimeout(r, 40));
+
+    expect(statusCode).toBe(400);
+    expect(JSON.parse(endedWith).error).toBe("items array cannot be empty");
+  });
+
+  test("packages selected screenshots into ZIP buffer", async () => {
+    const tmp = await mkdtemp(join(tmpdir(), "goldie-sel-test-"));
+    const outDir = join(tmp, "out");
+    const screenshotsDir = join(outDir, "screenshots", "iphone-6.9", "en-US");
+    await mkdir(screenshotsDir, { recursive: true });
+    await writeFile(join(screenshotsDir, "01-home.png"), "home-image-bytes");
+    await writeFile(join(screenshotsDir, "02-features.png"), "features-image-bytes");
+
+    const handler = selectedExportZipHandler({
+      paths: {
+        configPath: join(tmp, "goldie.config.ts"),
+        configDir: tmp,
+        outDir,
+        webDir: join(outDir, "web"),
+        designFile: join(tmp, "goldie.design.json"),
+        exportZip: join(outDir, "export.zip"),
+      },
+      cli: ["echo"],
+    });
+
+    let statusCode = 0;
+    let responseHeaders: Record<string, any> = {};
+    let endBuffer: Buffer | null = null;
+    const req = new PassThrough() as any;
+    req.method = "POST";
+    const res = {
+      writeHead(code: number, headers: any) {
+        statusCode = code;
+        responseHeaders = headers;
+      },
+      end(data: any) {
+        endBuffer = data;
+      },
+    } as any;
+
+    handler(req, res);
+    req.end(
+      JSON.stringify({
+        device: "iphone-6.9",
+        locale: "en-US",
+        items: [{ sceneId: "home" }],
+      }),
+    );
+    await new Promise((r) => setTimeout(r, 60));
+
+    expect(statusCode).toBe(200);
+    expect(responseHeaders["Content-Type"]).toBe("application/zip");
+    expect(responseHeaders["Content-Disposition"]).toContain("selected-screenshots-iphone-6.9.zip");
+    expect(Buffer.isBuffer(endBuffer)).toBe(true);
 
     await rm(tmp, { recursive: true, force: true });
   });
