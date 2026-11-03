@@ -5,6 +5,7 @@ import {
   Download,
   FolderArchive,
   Loader2,
+  Plus,
   Sparkles,
   Tag,
   Trash2,
@@ -886,6 +887,57 @@ export function Strip({
     });
   };
 
+  const [isImporting, setIsImporting] = useState(false);
+  const [importDragOver, setImportDragOver] = useState(false);
+  const importInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImportFiles = async (files: FileList | File[]) => {
+    const fileList = Array.from(files).filter((f) =>
+      /\.(png|jpe?g|webp)$/i.test(f.name),
+    );
+    if (fileList.length === 0 || isImporting) return;
+    setIsImporting(true);
+    try {
+      const filePayloads = await Promise.all(
+        fileList.map(async (file) => {
+          const { dataUrl, width, height } = await readFileData(file);
+          return { name: file.name, dataUrl, width, height };
+        }),
+      );
+
+      const response = await apiFetch("/api/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          files: filePayloads,
+          preferredDevice: tileSpec.key,
+          targetMode: "all",
+          autoRoute: false,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || `Upload failed with status ${response.status}`);
+      }
+
+      const resData = (await response.json().catch(() => ({}))) as { imported?: number };
+      trackAppImported({
+        source: "file_upload",
+        import_type: "canvas_card",
+        device: tileSpec.key,
+      });
+      sessionStorage.setItem(
+        "appassets_toast",
+        `✨ Successfully imported ${resData.imported || filePayloads.length} screenshot(s)!`,
+      );
+      window.location.reload();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to import images");
+      setIsImporting(false);
+    }
+  };
+
   const handleReplaceCapture = async (sceneId: string, file: File) => {
     setReplacingSceneId(sceneId);
     try {
@@ -1101,6 +1153,10 @@ export function Strip({
     if (used + cell.tiles.length > PAGE_SIZE && current.length > 0) pageCells.push([cell]);
     else current.push(cell);
   }
+  const lastPageUsed = pageCells[pageCells.length - 1].reduce((n, c) => n + c.tiles.length, 0);
+  if (lastPageUsed === PAGE_SIZE && entries.length < MAX_SCREENSHOTS) {
+    pageCells.push([]);
+  }
   const pages = pageCells.length;
   const [page, setPage] = useState(0);
   // Which way the last page turn went, so the incoming page slides in from
@@ -1123,10 +1179,15 @@ export function Strip({
 
   if (entries.length === 0) return null;
 
-  const visible = pageCells[Math.min(page, pages - 1)];
+  const visible = pageCells[Math.min(page, pages - 1)] || [];
   const visibleIds = visible.flatMap((c) => (c.sceneId ? [c.sceneId] : []));
   // Always use PAGE_SIZE (5) columns so tiles keep the exact same size even when screenshots are removed.
   const columns = PAGE_SIZE;
+  const tilesUsedOnPage = visible.reduce((n, c) => n + c.tiles.length, 0);
+  const isLastPage = page === pages - 1;
+  const showImportCard =
+    isLastPage && tilesUsedOnPage < columns && entries.length < MAX_SCREENSHOTS;
+
   // The page's scenes in their new order, spliced back into the full order.
   const reorderPage = (ids: string[]) => {
     const queue = [...ids];
@@ -1177,6 +1238,29 @@ export function Strip({
                 Clear
               </button>
             )}
+
+            {/* Quick Import Button */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => importInputRef.current?.click()}
+              disabled={isImporting}
+              className="h-7 text-xs px-2.5 gap-1.5 border-dashed border-[#FF6B00]/40 hover:border-[#FF6B00] bg-[#FF6B00]/5 hover:bg-[#FF6B00]/10 text-[#FF6B00] dark:text-[#FF8A00] font-medium cursor-pointer shadow-2xs transition-all"
+              title="Import additional screenshots"
+            >
+              {isImporting ? (
+                <>
+                  <Loader2 className="size-3 animate-spin" />
+                  <span>Importing...</span>
+                </>
+              ) : (
+                <>
+                  <Plus className="size-3 stroke-[2.5]" />
+                  <span>Import</span>
+                </>
+              )}
+            </Button>
           </div>
 
           {selectedKeys.size > 0 && (
@@ -1273,6 +1357,103 @@ export function Strip({
                 ) : (
                   <li key={entries[cell.tiles[0]].key}>{tileAt(cell.tiles[0])}</li>
                 ),
+              )}
+
+              {/* Import / Add Screenshot Card on right side of screenshots */}
+              {showImportCard && (
+                <li
+                  key="import-card"
+                  className="flex flex-col gap-1.5 w-full list-none"
+                >
+                  {/* Card Header Spacer to align with screenshot card toolbars */}
+                  <div className="flex items-center justify-between px-0.5 text-xs select-none h-7">
+                    <span className="text-[10px] font-bold font-mono tracking-wider text-muted-foreground/60 px-1.5 py-0.5 rounded-md bg-muted/40 border border-border/40">
+                      #{entries.length + 1}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground/60 font-medium">
+                      Add Screen
+                    </span>
+                  </div>
+
+                  {/* Dropzone / Clickable Import Card */}
+                  <button
+                    type="button"
+                    aria-label="Import or add screenshots"
+                    onClick={() => importInputRef.current?.click()}
+                    onDragEnter={(e) => {
+                      e.preventDefault();
+                      setImportDragOver(true);
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setImportDragOver(true);
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setImportDragOver(false);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setImportDragOver(false);
+                      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                        void handleImportFiles(e.dataTransfer.files);
+                      }
+                    }}
+                    style={{
+                      aspectRatio: `${tileSpec.screenshot.width} / ${tileSpec.screenshot.height}`,
+                    }}
+                    className={`relative flex flex-col items-center justify-center gap-3.5 p-4 sm:p-6 rounded-2xl border-2 border-dashed transition-all duration-200 cursor-pointer text-center select-none group shadow-2xs w-full ${
+                      importDragOver
+                        ? "border-[#FF6B00] bg-[#FF6B00]/15 ring-4 ring-[#FF6B00]/25 scale-[1.02]"
+                        : "border-border/80 hover:border-[#FF6B00] bg-card/40 hover:bg-[#FF6B00]/5 hover:shadow-md hover:shadow-[#FF6B00]/10 hover:-translate-y-0.5"
+                    }`}
+                  >
+                    <input
+                      ref={importInputRef}
+                      type="file"
+                      multiple
+                      accept="image/png,image/jpeg,image/webp"
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files.length > 0) {
+                          void handleImportFiles(e.target.files);
+                        }
+                      }}
+                    />
+
+                    {isImporting ? (
+                      <div className="flex flex-col items-center gap-2.5">
+                        <Loader2 className="size-10 sm:size-12 animate-spin text-[#FF6B00]" />
+                        <span className="text-xs font-semibold text-foreground">
+                          Importing images...
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">
+                          Please wait a moment
+                        </span>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="size-16 sm:size-20 rounded-full border-2 border-dashed border-border group-hover:border-[#FF6B00] bg-background/80 group-hover:bg-[#FF6B00]/15 flex items-center justify-center transition-all duration-200 group-hover:scale-110 shadow-xs">
+                          <Plus className="size-8 sm:size-10 text-muted-foreground group-hover:text-[#FF6B00] transition-colors stroke-[2.2]" />
+                        </div>
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="font-bold text-sm sm:text-base text-foreground group-hover:text-[#FF6B00] transition-colors tracking-tight">
+                            Import
+                          </span>
+                          <span className="text-[11px] text-muted-foreground font-medium max-w-[150px] leading-snug">
+                            Drag & drop or click to add screenshot
+                          </span>
+                        </div>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-semibold bg-muted/80 text-muted-foreground/80 border border-border/50 group-hover:border-[#FF6B00]/40 group-hover:text-[#FF6B00] transition-colors">
+                          PNG &bull; JPG &bull; WebP
+                        </span>
+                      </>
+                    )}
+                  </button>
+                </li>
               )}
             </Reorder.Group>
           </AnimatePresence>
