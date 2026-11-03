@@ -87,6 +87,14 @@ export function getConfigPaths(paths: StudioPaths): string[] {
   return Array.from(files);
 }
 
+export type ExportTargets = {
+  iphone?: boolean;
+  ipad?: boolean;
+  googlePlay?: boolean;
+  marketing?: boolean;
+  guidelines?: boolean;
+};
+
 export type ExportOptions = {
   background?: string;
   frame?: string;
@@ -95,6 +103,8 @@ export type ExportOptions = {
   layout?: string;
   screenOnly?: boolean;
   fontSizeScale?: number;
+  targets?: ExportTargets;
+  selectedScenes?: string[];
 };
 
 export type StudioApi = {
@@ -487,17 +497,31 @@ export function exportHandler(api: StudioApi): (sub: string) => Handler {
         });
 
         // 4. Build store ZIP package with guide, Google Play Feature Graphic, and Marketing Banners
+        const targets = opts.targets || {};
+        const includeIPhone = targets.iphone !== false;
+        const includeIPad = targets.ipad !== false;
+        const includeGooglePlay = targets.googlePlay !== false;
+        const includeMarketing = targets.marketing !== false;
+        const includeGuidelines = targets.guidelines !== false;
+
         res.write(
-          "$ zip store package (including Google Play Feature Graphic & Marketing Banners)\n",
+          `$ zip store package (selected: ${[
+            includeIPhone ? "iPhone" : "",
+            includeIPad ? "iPad" : "",
+            includeGooglePlay ? "Google Play" : "",
+            includeMarketing ? "Marketing" : "",
+            includeGuidelines ? "Guidelines" : "",
+          ].filter(Boolean).join(", ") || "none"})\n`,
         );
         await rm(paths.exportZip, { force: true });
-        const extraEntries: ZipEntry[] = [
-          {
+        const extraEntries: ZipEntry[] = [];
+        if (includeGuidelines) {
+          extraEntries.push({
             name: "STORE_GUIDE.txt",
             data: Buffer.from(createStoreGuideContent(), "utf8"),
             mtime: new Date(),
-          },
-        ];
+          });
+        }
 
         try {
           const cfg = await loadConfig(paths.configPath);
@@ -508,6 +532,10 @@ export function exportHandler(api: StudioApi): (sub: string) => Handler {
             } catch {}
           }
           for (const [bType, bSpec] of Object.entries(BANNER_SPECS)) {
+            const isGooglePlayBanner = bSpec.storePath.startsWith("GooglePlay/");
+            if (isGooglePlayBanner && !includeGooglePlay) continue;
+            if (!isGooglePlayBanner && !includeMarketing) continue;
+
             try {
               const buf = await renderBannerCanvas({
                 cfg,
@@ -535,25 +563,67 @@ export function exportHandler(api: StudioApi): (sub: string) => Handler {
 
         if (iconPath) {
           try {
-            const icon512 = await renderAppIconCanvas(iconPath, 512);
-            extraEntries.push({
-              name: "GooglePlay/app-icon-512x512.png",
-              data: icon512,
-              mtime: new Date(),
-            });
-            const icon1024 = await renderAppIconCanvas(iconPath, 1024);
-            extraEntries.push({
-              name: "AppStore/app-icon-1024x1024.png",
-              data: icon1024,
-              mtime: new Date(),
-            });
-            res.write(
-              "  app icons packaged (GooglePlay/app-icon-512x512.png & AppStore/app-icon-1024x1024.png)\n",
-            );
+            const iconDesc: string[] = [];
+            if (includeGooglePlay) {
+              const icon512 = await renderAppIconCanvas(iconPath, 512);
+              extraEntries.push({
+                name: "GooglePlay/app-icon-512x512.png",
+                data: icon512,
+                mtime: new Date(),
+              });
+              iconDesc.push("GooglePlay 512x512");
+            }
+            if (includeIPhone || includeIPad) {
+              const icon1024 = await renderAppIconCanvas(iconPath, 1024);
+              extraEntries.push({
+                name: "AppStore/app-icon-1024x1024.png",
+                data: icon1024,
+                mtime: new Date(),
+              });
+              iconDesc.push("AppStore 1024x1024");
+            }
+            if (iconDesc.length > 0) {
+              res.write(`  app icons packaged (${iconDesc.join(" & ")})\n`);
+            }
           } catch (err) {
             res.write(`  warning: could not package app icons: ${err}\n`);
           }
         }
+
+        const filter = (relName: string) => {
+          if (!includeIPhone) {
+            if (relName.startsWith("AppStore/iPhone") || relName.startsWith("AppStore/Previews/iPhone")) {
+              return false;
+            }
+          }
+          if (!includeIPad) {
+            if (relName.startsWith("AppStore/iPad") || relName.startsWith("AppStore/Previews/iPad")) {
+              return false;
+            }
+          }
+          if (!includeGooglePlay) {
+            if (relName.startsWith("GooglePlay/Phone") || relName.startsWith("GooglePlay/PromoVideo")) {
+              return false;
+            }
+          }
+          if (opts.selectedScenes && opts.selectedScenes.length > 0) {
+            const fileName = relName.split("/").pop() || "";
+            const isScreenshotOrPreview =
+              relName.startsWith("AppStore/") || relName.startsWith("GooglePlay/Phone");
+            if (isScreenshotOrPreview) {
+              const matches = opts.selectedScenes.some((sId) => {
+                return (
+                  fileName === `${sId}.png` ||
+                  fileName.startsWith(`${sId}.`) ||
+                  fileName.includes(`-${sId}.`) ||
+                  fileName.includes(`-${sId}-`)
+                );
+              });
+              if (!matches) return false;
+            }
+          }
+          return true;
+        };
 
         const count = await zipDirs(
           paths.outDir,
@@ -561,6 +631,7 @@ export function exportHandler(api: StudioApi): (sub: string) => Handler {
           paths.exportZip,
           storeZipPath,
           extraEntries,
+          filter,
         );
         res.write(`  ${count} files packaged into store layout\n`);
         res.write("[done]\n");

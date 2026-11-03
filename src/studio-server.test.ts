@@ -1242,6 +1242,94 @@ describe("exportHandler", () => {
 
     await rm(tmp, { recursive: true, force: true });
   });
+
+  test("exportHandler respects targets filtering to exclude unselected platforms and files", async () => {
+    const tmp = await mkdtemp(join(tmpdir(), "goldie-exp-filtered-"));
+    const paths = studioPaths(join(tmp, "goldie.config.ts"));
+    await mkdir(join(paths.outDir, "screenshots", "iphone-6.9", "en-US"), { recursive: true });
+    await mkdir(join(paths.outDir, "screenshots", "pixel-10-pro", "en-US"), { recursive: true });
+    await writeFile(
+      join(paths.outDir, "screenshots", "iphone-6.9", "en-US", "01-home.png"),
+      Buffer.from("mock-png"),
+    );
+    await writeFile(
+      join(paths.outDir, "screenshots", "pixel-10-pro", "en-US", "01-home.png"),
+      Buffer.from("mock-png"),
+    );
+    const testIconPng = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+      "base64",
+    );
+    await writeFile(join(paths.outDir, "icon.png"), testIconPng);
+
+    const cliScript = join(tmp, "mock-cli.js");
+    await writeFile(
+      cliScript,
+      `
+      console.log("ok");
+      process.exit(0);
+      `,
+    );
+
+    const handler = exportHandler({
+      paths,
+      cli: ["node", cliScript],
+    });
+
+    let output = "";
+    const listeners: Record<string, (...args: any[]) => void> = {};
+    const req = {
+      method: "POST",
+      on: (event: string, cb: (...args: any[]) => void) => {
+        listeners[event] = cb;
+      },
+    } as any;
+    const res = {
+      writeHead: () => {},
+      write: (chunk: string) => {
+        output += chunk;
+      },
+      end: () => {},
+    } as any;
+
+    handler("")(req, res);
+    // Request ONLY iPhone, excluding Google Play, guidelines, and marketing
+    listeners.data?.(
+      JSON.stringify({
+        targets: {
+          iphone: true,
+          ipad: false,
+          googlePlay: false,
+          marketing: false,
+          guidelines: false,
+        },
+      }),
+    );
+    listeners.end?.();
+
+    await new Promise((resolve) => {
+      const check = setInterval(() => {
+        if (output.includes("[done]") || output.includes("[failed]")) {
+          clearInterval(check);
+          resolve(null);
+        }
+      }, 50);
+    });
+
+    expect(output).toContain("[done]");
+
+    const { exec } = await import("./exec.ts");
+    const listing = await exec("unzip", ["-l", paths.exportZip], { quiet: true });
+    if (listing.code === 0) {
+      expect(listing.stdout).toContain("AppStore/iPhone-6.9/en-US/01-home.png");
+      expect(listing.stdout).toContain("AppStore/app-icon-1024x1024.png");
+      expect(listing.stdout).not.toContain("GooglePlay/Phone/en-US/01-home.png");
+      expect(listing.stdout).not.toContain("GooglePlay/app-icon-512x512.png");
+      expect(listing.stdout).not.toContain("STORE_GUIDE.txt");
+    }
+
+    await rm(tmp, { recursive: true, force: true });
+  });
 });
 
 describe("iconHandler", () => {

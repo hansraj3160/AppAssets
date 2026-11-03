@@ -3,6 +3,7 @@ import {
   ChevronDown,
   ChevronUp,
   FileText,
+  Filter,
   FolderArchive,
   Loader2Icon,
   LogOut,
@@ -84,6 +85,52 @@ export function Header({
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
   const logRef = useRef<HTMLPreElement>(null);
 
+  // Selective export targets
+  const [exportTargets, setExportTargets] = useState<{
+    iphone: boolean;
+    ipad: boolean;
+    googlePlay: boolean;
+    marketing: boolean;
+    guidelines: boolean;
+  }>({
+    iphone: true,
+    ipad: true,
+    googlePlay: true,
+    marketing: true,
+    guidelines: true,
+  });
+  const [selectedSceneIds, setSelectedSceneIds] = useState<string[]>([]);
+  const [filterScenesOpen, setFilterScenesOpen] = useState(false);
+
+  const scenes = manifest?.design?.scenes || [];
+  const allScenesSelected =
+    selectedSceneIds.length === 0 || selectedSceneIds.length === scenes.length;
+  const activeSceneCount = allScenesSelected ? (scenes.length || 1) : selectedSceneIds.length;
+  const hasAnyTarget = Object.values(exportTargets).some(Boolean);
+
+  const estimatedFileCount = useMemo(() => {
+    let count = 0;
+    if (exportTargets.iphone) count += activeSceneCount;
+    if (exportTargets.ipad) count += activeSceneCount;
+    if (exportTargets.googlePlay) count += activeSceneCount + 1; // phone + feature graphic
+    if (exportTargets.marketing) count += 3; // product hunt, twitter, ig
+    if (exportTargets.guidelines) count += 1; // store guide
+    if (exportTargets.iphone || exportTargets.ipad) count += 1; // 1024x1024 app icon
+    if (exportTargets.googlePlay) count += 1; // 512x512 app icon
+    return count;
+  }, [exportTargets, activeSceneCount]);
+
+  const getDownloadFilename = () => {
+    const appName = manifest.app?.name?.replace(/[^\w.-]/g, "_") || "AppAssets";
+    const { iphone, ipad, googlePlay, marketing } = exportTargets;
+    if (iphone && !ipad && !googlePlay && !marketing) return `${appName}-AppStore-iPhone.zip`;
+    if (!iphone && ipad && !googlePlay && !marketing) return `${appName}-AppStore-iPad.zip`;
+    if (!iphone && !ipad && googlePlay && !marketing) return `${appName}-GooglePlay.zip`;
+    if (!iphone && !ipad && !googlePlay && marketing) return `${appName}-Marketing-Banners.zip`;
+    if (iphone && ipad && !googlePlay && !marketing) return `${appName}-AppStore-All.zip`;
+    return `${appName}-store-package.zip`;
+  };
+
   // Live Store Pre-Flight Audit checks (Apple App Store + Google Play)
   const auditResult = useMemo(() => {
     return runStoreAudit({
@@ -155,6 +202,7 @@ export function Header({
 
   async function exportZip() {
     if (exportBusy || !hasScreenshots) return;
+    if (!hasAnyTarget) return;
     setExportBusy(true);
     setExportCompleted(false);
     setExportProgress(5);
@@ -182,6 +230,11 @@ export function Header({
           layout,
           screenOnly,
           fontSizeScale,
+          targets: exportTargets,
+          selectedScenes:
+            selectedSceneIds.length > 0 && selectedSceneIds.length < scenes.length
+              ? selectedSceneIds
+              : undefined,
         }),
       });
 
@@ -203,11 +256,11 @@ export function Header({
 
       if (text.includes("[done]")) {
         setExportCompleted(true);
-        const appName = manifest.app?.name?.replace(/[^\w.-]/g, "_") || "AppAssets";
-        const downloadUrl = `/api/export/download?filename=${encodeURIComponent(`${appName}-store-package.zip`)}&sessionId=${encodeURIComponent(getSessionId())}`;
+        const filename = getDownloadFilename();
+        const downloadUrl = `/api/export/download?filename=${encodeURIComponent(filename)}&sessionId=${encodeURIComponent(getSessionId())}`;
         const a = document.createElement("a");
         a.href = downloadUrl;
-        a.download = `${appName}-store-package.zip`;
+        a.download = filename;
         a.click();
       }
     } catch (err) {
@@ -512,30 +565,202 @@ export function Header({
                 </span>
               </div>
 
-              {/* Target Stores Breakdown Box */}
-              <div className="flex flex-col gap-1.5 rounded-xl border border-border/50 bg-muted/40 p-2.5 text-[11px]">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-foreground flex items-center gap-1">
-                    🍏 App Store
+              {/* Target Stores Breakdown Box with interactive checkboxes */}
+              <div className="flex flex-col gap-2 rounded-xl border border-border/60 bg-muted/30 p-2.5 text-[11px]">
+                <div className="flex items-center justify-between pb-1 border-b border-border/40">
+                  <span className="font-semibold text-foreground text-[11px] tracking-tight">
+                    Select Stores & Assets
                   </span>
-                  <span className="text-muted-foreground text-[10px]">
-                    iPhone 6.9" &bull; iPad 13"
-                  </span>
+                  <div className="flex items-center gap-1.5 text-[10px]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setExportTargets({
+                          iphone: true,
+                          ipad: true,
+                          googlePlay: true,
+                          marketing: true,
+                          guidelines: true,
+                        });
+                        setExportCompleted(false);
+                      }}
+                      className="text-[#FF6B00] hover:underline font-medium cursor-pointer"
+                    >
+                      All
+                    </button>
+                    <span className="text-muted-foreground/50">&bull;</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setExportTargets({
+                          iphone: false,
+                          ipad: false,
+                          googlePlay: false,
+                          marketing: false,
+                          guidelines: false,
+                        });
+                        setExportCompleted(false);
+                      }}
+                      className="text-muted-foreground hover:text-foreground font-medium cursor-pointer"
+                    >
+                      None
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-foreground flex items-center gap-1">
-                    🤖 Google Play
+
+                {/* iPhone Checkbox */}
+                <label className="flex items-center justify-between py-1 px-1.5 rounded-lg hover:bg-muted/60 cursor-pointer transition-colors group select-none">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={exportTargets.iphone}
+                      onChange={(e) => {
+                        setExportTargets((prev) => ({ ...prev, iphone: e.target.checked }));
+                        setExportCompleted(false);
+                      }}
+                      className="size-3.5 rounded border-border text-[#FF6B00] accent-[#FF6B00] cursor-pointer"
+                    />
+                    <span className="font-medium text-foreground flex items-center gap-1 text-[11px]">
+                      🍏 App Store (iPhone)
+                    </span>
+                  </div>
+                  <span className="text-muted-foreground text-[10px] group-hover:text-foreground/80">
+                    6.9" &bull; 6.7" ({activeSceneCount} screens)
                   </span>
-                  <span className="text-muted-foreground text-[10px]">Phone (1080×1920)</span>
-                </div>
-                <div className="flex items-center justify-between border-t border-border/40 pt-1 text-[10px] text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <FileText className="size-3" /> Store Guidelines Included
+                </label>
+
+                {/* iPad Checkbox */}
+                <label className="flex items-center justify-between py-1 px-1.5 rounded-lg hover:bg-muted/60 cursor-pointer transition-colors group select-none">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={exportTargets.ipad}
+                      onChange={(e) => {
+                        setExportTargets((prev) => ({ ...prev, ipad: e.target.checked }));
+                        setExportCompleted(false);
+                      }}
+                      className="size-3.5 rounded border-border text-[#FF6B00] accent-[#FF6B00] cursor-pointer"
+                    />
+                    <span className="font-medium text-foreground flex items-center gap-1 text-[11px]">
+                      🍏 iPad Pro (13")
+                    </span>
+                  </div>
+                  <span className="text-muted-foreground text-[10px] group-hover:text-foreground/80">
+                    13" &bull; 12.9" ({activeSceneCount} screens)
                   </span>
-                  <span className="font-mono text-[9px] bg-background/80 px-1 py-0.5 rounded border border-border/50">
+                </label>
+
+                {/* Google Play Checkbox */}
+                <label className="flex items-center justify-between py-1 px-1.5 rounded-lg hover:bg-muted/60 cursor-pointer transition-colors group select-none">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={exportTargets.googlePlay}
+                      onChange={(e) => {
+                        setExportTargets((prev) => ({ ...prev, googlePlay: e.target.checked }));
+                        setExportCompleted(false);
+                      }}
+                      className="size-3.5 rounded border-border text-[#FF6B00] accent-[#FF6B00] cursor-pointer"
+                    />
+                    <span className="font-medium text-foreground flex items-center gap-1 text-[11px]">
+                      🤖 Google Play
+                    </span>
+                  </div>
+                  <span className="text-muted-foreground text-[10px] group-hover:text-foreground/80">
+                    Phone & Feature Graphic
+                  </span>
+                </label>
+
+                {/* Marketing Promo Banners */}
+                <label className="flex items-center justify-between py-1 px-1.5 rounded-lg hover:bg-muted/60 cursor-pointer transition-colors group select-none">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={exportTargets.marketing}
+                      onChange={(e) => {
+                        setExportTargets((prev) => ({ ...prev, marketing: e.target.checked }));
+                        setExportCompleted(false);
+                      }}
+                      className="size-3.5 rounded border-border text-[#FF6B00] accent-[#FF6B00] cursor-pointer"
+                    />
+                    <span className="font-medium text-foreground flex items-center gap-1 text-[11px]">
+                      🎨 Promo Banners
+                    </span>
+                  </div>
+                  <span className="text-muted-foreground text-[10px] group-hover:text-foreground/80">
+                    Product Hunt, X, IG
+                  </span>
+                </label>
+
+                {/* Guidelines Checkbox */}
+                <label className="flex items-center justify-between py-1 px-1.5 rounded-lg hover:bg-muted/60 cursor-pointer transition-colors group select-none border-t border-border/40 pt-1.5">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={exportTargets.guidelines}
+                      onChange={(e) => {
+                        setExportTargets((prev) => ({ ...prev, guidelines: e.target.checked }));
+                        setExportCompleted(false);
+                      }}
+                      className="size-3.5 rounded border-border text-[#FF6B00] accent-[#FF6B00] cursor-pointer"
+                    />
+                    <span className="font-medium text-foreground flex items-center gap-1 text-[11px]">
+                      <FileText className="size-3 text-muted-foreground" /> Guidelines & Icons
+                    </span>
+                  </div>
+                  <span className="font-mono text-[9px] bg-background/80 px-1 py-0.5 rounded border border-border/50 text-muted-foreground">
                     STORE_GUIDE.txt
                   </span>
-                </div>
+                </label>
+
+                {/* Optional Individual Screen Filter */}
+                {scenes.length > 1 && (
+                  <div className="flex flex-col gap-1 border-t border-border/40 pt-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setFilterScenesOpen((prev) => !prev)}
+                      className="flex items-center justify-between text-[10px] font-medium text-muted-foreground hover:text-foreground cursor-pointer py-0.5"
+                    >
+                      <span className="flex items-center gap-1">
+                        <Filter className="size-3 text-[#FF6B00]" />
+                        Filter Screens ({allScenesSelected ? `All ${scenes.length}` : `${selectedSceneIds.length} of ${scenes.length}`})
+                      </span>
+                      {filterScenesOpen ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+                    </button>
+                    {filterScenesOpen && (
+                      <div className="flex flex-col gap-1 max-h-28 overflow-y-auto pl-1 pr-1 py-1 rounded-lg bg-background/70 border border-border/40">
+                        {scenes.map((scene, idx) => {
+                          const isChecked = selectedSceneIds.length === 0 || selectedSceneIds.includes(scene.id);
+                          const title = scene.headline?.["en-US"] || scene.id || `Screen ${idx + 1}`;
+                          return (
+                            <label
+                              key={scene.id}
+                              className="flex items-center gap-1.5 text-[10px] text-foreground hover:bg-muted/50 p-1 rounded cursor-pointer select-none"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  setExportCompleted(false);
+                                  const current = selectedSceneIds.length === 0 ? scenes.map((s) => s.id) : [...selectedSceneIds];
+                                  if (e.target.checked) {
+                                    if (!current.includes(scene.id)) current.push(scene.id);
+                                  } else {
+                                    const index = current.indexOf(scene.id);
+                                    if (index > -1) current.splice(index, 1);
+                                  }
+                                  setSelectedSceneIds(current.length === scenes.length ? [] : current);
+                                }}
+                                className="size-3 rounded border-border text-[#FF6B00] accent-[#FF6B00] cursor-pointer"
+                              />
+                              <span className="truncate">{idx + 1}. {title}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Progress Bar */}
@@ -570,11 +795,11 @@ export function Header({
                       type="button"
                       size="sm"
                       onClick={() => {
-                        const appName = manifest.app?.name?.replace(/[^\w.-]/g, "_") || "AppAssets";
-                        const downloadUrl = `/api/export/download?filename=${encodeURIComponent(`${appName}-store-package.zip`)}&sessionId=${encodeURIComponent(getSessionId())}`;
+                        const filename = getDownloadFilename();
+                        const downloadUrl = `/api/export/download?filename=${encodeURIComponent(filename)}&sessionId=${encodeURIComponent(getSessionId())}`;
                         const a = document.createElement("a");
                         a.href = downloadUrl;
-                        a.download = `${appName}-store-package.zip`;
+                        a.download = filename;
                         a.click();
                       }}
                       className="h-8.5 text-xs font-semibold gap-2 w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs cursor-pointer"
@@ -586,11 +811,16 @@ export function Header({
                     <Button
                       type="button"
                       size="sm"
+                      disabled={!hasAnyTarget}
                       onClick={() => void exportZip()}
-                      className="h-8.5 text-xs font-semibold gap-2 w-full bg-[#FF6B00] hover:bg-[#FF8A00] active:bg-[#e05f00] text-white rounded-xl shadow-xs shadow-[#FF6B00]/20 cursor-pointer"
+                      className="h-8.5 text-xs font-semibold gap-2 w-full bg-[#FF6B00] hover:bg-[#FF8A00] active:bg-[#e05f00] text-white rounded-xl shadow-xs shadow-[#FF6B00]/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Package className="size-3.5" />
-                      <span>Generate Store Package</span>
+                      <span>
+                        {!hasAnyTarget
+                          ? "Select at least 1 asset"
+                          : `Generate Store Package (${estimatedFileCount} files)`}
+                      </span>
                     </Button>
                   )}
                 </div>

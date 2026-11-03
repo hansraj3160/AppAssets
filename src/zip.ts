@@ -206,6 +206,7 @@ export async function zipDirs(
   out: string,
   transformName?: (name: string) => string,
   extraEntries?: ZipEntry[],
+  filter?: (name: string, absPath: string) => boolean,
 ): Promise<number> {
   const entries: ZipEntry[] = [];
   if (extraEntries) {
@@ -216,6 +217,9 @@ export async function zipDirs(
       let relName = relative(root, file).split("\\").join("/");
       if (transformName) {
         relName = transformName(relName);
+      }
+      if (filter && !filter(relName, file)) {
+        continue;
       }
       entries.push({
         name: relName,

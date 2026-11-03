@@ -83,4 +83,29 @@ describe("zip", () => {
       expect(listing.stdout).toContain("screenshots/test.png");
     }
   });
+
+  test("zipDirs filters entries with custom filter function", async () => {
+    const root = await mkdtemp(join(tmpdir(), "goldie-zip-filter-"));
+    await mkdir(join(root, "screenshots", "iphone-6.9"), { recursive: true });
+    await mkdir(join(root, "screenshots", "pixel-10-pro"), { recursive: true });
+    await writeFile(join(root, "screenshots", "iphone-6.9", "1.png"), "iphone");
+    await writeFile(join(root, "screenshots", "pixel-10-pro", "1.png"), "android");
+    const out = join(root, "export.zip");
+
+    const count = await zipDirs(
+      root,
+      ["screenshots"],
+      out,
+      (p) => p.replace(/^screenshots\/iphone-6\.9\//, "AppStore/"),
+      undefined,
+      (relName) => !relName.includes("pixel-10-pro"),
+    );
+    expect(count).toBe(1);
+
+    const listing = await exec("unzip", ["-l", out], { quiet: true });
+    if (listing.code === 0) {
+      expect(listing.stdout).toContain("AppStore/1.png");
+      expect(listing.stdout).not.toContain("pixel-10-pro");
+    }
+  });
 });
