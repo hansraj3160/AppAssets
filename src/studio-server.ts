@@ -12,7 +12,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { dirname, extname, join, normalize, resolve } from "node:path";
+import { basename, dirname, extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createCanvas, loadImage } from "@napi-rs/canvas";
 import { BANNER_SPECS, type BannerType, renderBannerCanvas } from "./banner.ts";
@@ -754,11 +754,13 @@ export function replaceCaptureHandler(api: StudioApi): Handler {
           sceneId,
           device: preferredDevice,
           autoRoute,
+          targetMode,
           file,
         } = JSON.parse(body) as {
           sceneId: string;
           device?: string;
           autoRoute?: boolean;
+          targetMode?: "current" | "single" | "all";
           file: { name: string; dataUrl: string; width?: number; height?: number };
         };
 
@@ -778,55 +780,65 @@ export function replaceCaptureHandler(api: StudioApi): Handler {
         const width = file.width ?? bufDim?.width ?? 0;
         const height = file.height ?? bufDim?.height ?? 0;
 
-        let targetDevice: DeviceKey;
-        if (autoRoute || !preferredDevice) {
-          targetDevice = resolveDeviceFromDimensions(width, height, preferredDevice);
+        let targetDevices: DeviceKey[];
+        if (targetMode === "single" || targetMode === "current") {
+          let singleDev: DeviceKey;
+          if (autoRoute || !preferredDevice) {
+            singleDev = resolveDeviceFromDimensions(width, height, preferredDevice);
+          } else {
+            singleDev = (preferredDevice as DeviceKey) || "iphone-6.9";
+          }
+          targetDevices = [singleDev];
         } else {
-          targetDevice = (preferredDevice as DeviceKey) || "iphone-6.9";
+          // Default: apply to all configured devices (iphone-6.9, ipad-13, pixel-10-pro)
+          targetDevices = ["iphone-6.9", "ipad-13", "pixel-10-pro"];
         }
 
-        const rawDir = join(paths.outDir, "raw", targetDevice);
-        await mkdir(rawDir, { recursive: true });
-
-        const targetFile = join(rawDir, `${sceneId}.png`);
-        await writeFile(targetFile, buffer);
-
-        // Update raw/<targetDevice>/manifest.json
-        const manifestPath = join(rawDir, "manifest.json");
-        let existingManifest: { screenshots: Array<{ sceneId: string; file: string }> } = {
-          screenshots: [],
-        };
-        if (existsSync(manifestPath)) {
-          try {
-            existingManifest = JSON.parse(await readFile(manifestPath, "utf8"));
-          } catch {}
-        }
-
-        const screenshotMap = new Map(existingManifest.screenshots.map((s) => [s.sceneId, s.file]));
-        screenshotMap.set(sceneId, targetFile);
-
-        const updatedManifest = {
-          device: targetDevice,
-          udid: "manual",
-          capturedAt: new Date().toISOString(),
-          screenshots: Array.from(screenshotMap.entries()).map(([sId, fPath]) => ({
-            sceneId: sId,
-            file: fPath,
-          })),
-          preview: null,
-        };
-        await writeFile(manifestPath, JSON.stringify(updatedManifest, null, 2));
-
-        // Re-frame the screenshot for this device and rebuild store manifest
         const [bin, ...prefix] = cli;
-        try {
-          await exec(
-            bin!,
-            [...prefix, "frame", "--config", paths.configPath, "--device", targetDevice],
-            { quiet: true },
-          );
-        } catch (frameErr) {
-          console.error("Frame failed after capture replace:", frameErr);
+
+        for (const targetDev of targetDevices) {
+          const rawDir = join(paths.outDir, "raw", targetDev);
+          await mkdir(rawDir, { recursive: true });
+
+          const targetFile = join(rawDir, `${sceneId}.png`);
+          await writeFile(targetFile, buffer);
+
+          // Update raw/<targetDev>/manifest.json
+          const manifestPath = join(rawDir, "manifest.json");
+          let existingManifest: { screenshots: Array<{ sceneId: string; file: string }> } = {
+            screenshots: [],
+          };
+          if (existsSync(manifestPath)) {
+            try {
+              existingManifest = JSON.parse(await readFile(manifestPath, "utf8"));
+            } catch {}
+          }
+
+          const screenshotMap = new Map(existingManifest.screenshots.map((s) => [s.sceneId, s.file]));
+          screenshotMap.set(sceneId, targetFile);
+
+          const updatedManifest = {
+            device: targetDev,
+            udid: "manual",
+            capturedAt: new Date().toISOString(),
+            screenshots: Array.from(screenshotMap.entries()).map(([sId, fPath]) => ({
+              sceneId: sId,
+              file: fPath,
+            })),
+            preview: null,
+          };
+          await writeFile(manifestPath, JSON.stringify(updatedManifest, null, 2));
+
+          // Re-frame the screenshot for this device
+          try {
+            await exec(
+              bin!,
+              [...prefix, "frame", "--config", paths.configPath, "--device", targetDev],
+              { quiet: true },
+            );
+          } catch (frameErr) {
+            console.error(`Frame failed after capture replace for ${targetDev}:`, frameErr);
+          }
         }
 
         const manifestRes = await exec(bin!, [...prefix, "manifest", "--config", paths.configPath], { quiet: true });
@@ -836,7 +848,159 @@ export function replaceCaptureHandler(api: StudioApi): Handler {
 
         res.statusCode = 200;
         res.setHeader("Content-Type", "application/json");
-        res.end(JSON.stringify({ ok: true, device: targetDevice, sceneId }));
+        res.end(JSON.stringify({ ok: true, device: targetDevices[0], devices: targetDevices, sceneId }));
+      } catch (err) {
+        res.statusCode = 500;
+        res.setHeader("Content-Type", "application/json");
+        res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+      }
+    });
+  };
+}
+
+/** Handles POST /api/sync-captures to synchronize captures from a source device (e.g. iphone-6.9) across other devices (pixel-10-pro, ipad-13). */
+export function syncCapturesHandler(api: StudioApi): Handler {
+  return (req, res) => {
+    if (req.method !== "POST") {
+      res.statusCode = 405;
+      res.end("POST only");
+      return;
+    }
+
+    const sessionId = getSessionIdFromRequest(req);
+    const paths = resolveWorkspacePaths(api, sessionId);
+    const cli = api.cli;
+
+    readBody(req).then(async (body) => {
+      try {
+        if (sessionId !== "default") {
+          await ensureWorkspaceConfig(api.paths, paths);
+        }
+
+        let parsed: { sourceDevice?: string; targetDevices?: string[] } = {};
+        if (body) {
+          try {
+            parsed = JSON.parse(body);
+          } catch {}
+        }
+        const sourceDevice = (parsed.sourceDevice as DeviceKey) || "iphone-6.9";
+        const allSupported: DeviceKey[] = ["iphone-6.9", "ipad-13", "pixel-10-pro"];
+        const resolvedTargets = (
+          parsed.targetDevices && Array.isArray(parsed.targetDevices) && parsed.targetDevices.length > 0
+            ? parsed.targetDevices
+            : allSupported.filter((d) => d !== sourceDevice)
+        ) as DeviceKey[];
+
+        const sourceRawDir = join(paths.outDir, "raw", sourceDevice);
+        if (!existsSync(sourceRawDir)) {
+          res.statusCode = 404;
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify({ error: `Source device ${sourceDevice} has no raw captures directory` }));
+          return;
+        }
+
+        const sourceManifestPath = join(sourceRawDir, "manifest.json");
+        let sourceManifest: { screenshots: Array<{ sceneId: string; file: string }> } = {
+          screenshots: [],
+        };
+        if (existsSync(sourceManifestPath)) {
+          try {
+            sourceManifest = JSON.parse(await readFile(sourceManifestPath, "utf8"));
+          } catch {}
+        }
+
+        if (sourceManifest.screenshots.length === 0) {
+          try {
+            const rawFiles = await readdir(sourceRawDir);
+            for (const rf of rawFiles) {
+              if (rf.endsWith(".png")) {
+                const sId = rf.slice(0, -4);
+                sourceManifest.screenshots.push({
+                  sceneId: sId,
+                  file: join(sourceRawDir, rf),
+                });
+              }
+            }
+          } catch {}
+        }
+
+        if (sourceManifest.screenshots.length === 0) {
+          res.statusCode = 400;
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify({ error: `No captures found on ${sourceDevice} to sync` }));
+          return;
+        }
+
+        const [bin, ...prefix] = cli;
+        let syncedCount = 0;
+
+        for (const targetDev of resolvedTargets) {
+          const targetRawDir = join(paths.outDir, "raw", targetDev);
+          await mkdir(targetRawDir, { recursive: true });
+
+          const targetManifestPath = join(targetRawDir, "manifest.json");
+          let targetManifest: { screenshots: Array<{ sceneId: string; file: string }> } = {
+            screenshots: [],
+          };
+          if (existsSync(targetManifestPath)) {
+            try {
+              targetManifest = JSON.parse(await readFile(targetManifestPath, "utf8"));
+            } catch {}
+          }
+
+          const targetMap = new Map(targetManifest.screenshots.map((s) => [s.sceneId, s.file]));
+
+          for (const s of sourceManifest.screenshots) {
+            const sourceFilePath = existsSync(s.file)
+              ? s.file
+              : join(sourceRawDir, basename(s.file));
+
+            if (existsSync(sourceFilePath)) {
+              const targetFilePath = join(targetRawDir, `${s.sceneId}.png`);
+              await cp(sourceFilePath, targetFilePath, { force: true });
+              targetMap.set(s.sceneId, targetFilePath);
+              syncedCount++;
+            }
+          }
+
+          const updatedTargetManifest = {
+            device: targetDev,
+            udid: "manual",
+            capturedAt: new Date().toISOString(),
+            screenshots: Array.from(targetMap.entries()).map(([sId, fPath]) => ({
+              sceneId: sId,
+              file: fPath,
+            })),
+            preview: null,
+          };
+          await writeFile(targetManifestPath, JSON.stringify(updatedTargetManifest, null, 2));
+
+          try {
+            await exec(
+              bin!,
+              [...prefix, "frame", "--config", paths.configPath, "--device", targetDev],
+              { quiet: true },
+            );
+          } catch (frameErr) {
+            console.error(`Frame failed for ${targetDev} during sync:`, frameErr);
+          }
+        }
+
+        const manifestRes = await exec(bin!, [...prefix, "manifest", "--config", paths.configPath], { quiet: true });
+        if (manifestRes.code !== 0) {
+          console.error("Manifest command failed after sync-captures:", manifestRes.stderr || manifestRes.stdout);
+        }
+
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "application/json");
+        res.end(
+          JSON.stringify({
+            ok: true,
+            syncedCount,
+            sourceDevice,
+            targetDevices: resolvedTargets,
+          }),
+        );
       } catch (err) {
         res.statusCode = 500;
         res.setHeader("Content-Type", "application/json");
@@ -2946,6 +3110,7 @@ export function createStudioRequestHandler(api: StudioApi): Handler {
   const expFavicon = faviconExportHandler(api);
   const imp = importHandler(api);
   const repCapture = replaceCaptureHandler(api);
+  const syncCaptures = syncCapturesHandler(api);
   const del = deleteHandler(api);
   const delAll = deleteAllHandler(api);
   const locales = localesHandler(api);
@@ -2968,6 +3133,7 @@ export function createStudioRequestHandler(api: StudioApi): Handler {
     if (path.startsWith("/api/export")) return exp(path.slice("/api/export".length))(req, res);
     if (path === "/api/import") return imp(req, res);
     if (path === "/api/replace-capture") return repCapture(req, res);
+    if (path === "/api/sync-captures") return syncCaptures(req, res);
     if (path === "/api/delete") return del(req, res);
     if (path === "/api/delete-all") return delAll(req, res);
 

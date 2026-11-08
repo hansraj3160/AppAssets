@@ -984,6 +984,8 @@ function Loaded({
             sceneBackgrounds={sceneBackgrounds}
             onSceneBackground={setSceneBackground}
             onOpenLocaleManager={() => setIsLocaleModalOpen(true)}
+            onRefresh={onRefresh}
+            onToast={(msg) => setToastMessage(msg)}
           />
         </div>
 
@@ -1040,6 +1042,8 @@ function Loaded({
                 onSceneBackground={setSceneBackground}
                 onOpenLocaleManager={() => setIsLocaleModalOpen(true)}
                 onCloseMobile={() => setIsMobileSidebarOpen(false)}
+                onRefresh={onRefresh}
+                onToast={(msg) => setToastMessage(msg)}
               />
             </div>
           </div>

@@ -6,6 +6,7 @@ import {
   FolderArchive,
   Loader2,
   Plus,
+  RefreshCw,
   Sparkles,
   Tag,
   Trash2,
@@ -970,6 +971,8 @@ export function Strip({
     }
   };
 
+  const [isSyncing, setIsSyncing] = useState(false);
+
   const handleReplaceCapture = async (sceneId: string, file: File) => {
     setReplacingSceneId(sceneId);
     try {
@@ -980,7 +983,8 @@ export function Strip({
         body: JSON.stringify({
           sceneId,
           device: tileSpec.key,
-          autoRoute: true,
+          targetMode: "all",
+          autoRoute: false,
           file: {
             name: file.name,
             dataUrl,
@@ -1001,14 +1005,14 @@ export function Strip({
       });
       setAssetVersion(Date.now());
       if (onToast) {
-        onToast(`✨ Updated capture for scene "${sceneId}" on ${tileSpec.key}`);
+        onToast(`✨ Updated screenshot for "${sceneId}" across iPhone, iPad, and Android!`);
       }
       if (onRefresh) {
         await onRefresh();
       } else {
         sessionStorage.setItem(
           "appassets_toast",
-          `✨ Updated capture for scene "${sceneId}" on ${tileSpec.key}`,
+          `✨ Updated screenshot for "${sceneId}" across iPhone, iPad, and Android!`,
         );
         window.location.reload();
       }
@@ -1016,6 +1020,46 @@ export function Strip({
       alert(err instanceof Error ? err.message : "Failed to replace capture");
     } finally {
       setReplacingSceneId(null);
+    }
+  };
+
+  const handleSyncCaptures = async () => {
+    setIsSyncing(true);
+    try {
+      const sourceDevice = "iphone-6.9";
+      const targetDevices =
+        tileSpec.platform === "android"
+          ? ["pixel-10-pro"]
+          : tileSpec.platform === "ipad"
+            ? ["ipad-13"]
+            : ["pixel-10-pro", "ipad-13"];
+
+      const res = await apiFetch("/api/sync-captures", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sourceDevice, targetDevices }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Failed to sync captures (${res.status})`);
+      }
+      setAssetVersion(Date.now());
+      const label =
+        tileSpec.platform === "android"
+          ? "Android"
+          : tileSpec.platform === "ipad"
+            ? "iPad"
+            : "Android & iPad";
+      if (onToast) {
+        onToast(`✨ Synced screenshots from iPhone to ${label}!`);
+      }
+      if (onRefresh) {
+        await onRefresh();
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to sync captures");
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -1299,6 +1343,41 @@ export function Strip({
                 <>
                   <Plus className="size-3 stroke-[2.5]" />
                   <span>Import</span>
+                </>
+              )}
+            </Button>
+
+            {/* Quick Sync Across Platforms Button */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleSyncCaptures}
+              disabled={isSyncing}
+              className="h-7 text-xs px-2.5 gap-1.5 border-border/80 hover:border-[#FF6B00]/60 bg-background/80 hover:bg-muted text-muted-foreground hover:text-foreground font-medium cursor-pointer shadow-2xs transition-all"
+              title={
+                tileSpec.platform === "android"
+                  ? "Sync latest screenshots from iPhone to Android"
+                  : tileSpec.platform === "ipad"
+                    ? "Sync latest screenshots from iPhone to iPad"
+                    : "Sync iPhone screenshots to Android and iPad"
+              }
+            >
+              {isSyncing ? (
+                <>
+                  <Loader2 className="size-3 animate-spin text-[#FF6B00]" />
+                  <span>Syncing...</span>
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="size-3" />
+                  <span>
+                    {tileSpec.platform === "android"
+                      ? "Sync from iPhone"
+                      : tileSpec.platform === "ipad"
+                        ? "Sync from iPhone"
+                        : "Sync to Android/iPad"}
+                  </span>
                 </>
               )}
             </Button>

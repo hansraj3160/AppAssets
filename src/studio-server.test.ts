@@ -23,6 +23,7 @@ import {
   MIME,
   renderAppIconCanvas,
   replaceCaptureHandler,
+  syncCapturesHandler,
   resolveDeviceFromDimensions,
   selectedExportZipHandler,
   singleExportHandler,
@@ -160,6 +161,115 @@ describe("replaceCaptureHandler", () => {
     handler(req, res);
     expect(statusCode).toBe(405);
     expect(endedWith).toBe("POST only");
+  });
+});
+
+describe("syncCapturesHandler", () => {
+  test("rejects non-POST requests with 405", () => {
+    const handler = syncCapturesHandler({
+      paths: {
+        configPath: "goldie.config.ts",
+        configDir: ".",
+        outDir: "out",
+        webDir: "out/web",
+        designFile: "goldie.design.json",
+        exportZip: "out/export.zip",
+      },
+      cli: ["echo"],
+    });
+
+    let statusCode = 0;
+    let endedWith = "";
+    const req = { method: "GET" } as any;
+    const res = {
+      set statusCode(code: number) {
+        statusCode = code;
+      },
+      end(body: string) {
+        endedWith = body;
+      },
+    } as any;
+
+    handler(req, res);
+    expect(statusCode).toBe(405);
+    expect(endedWith).toBe("POST only");
+  });
+
+  test("synchronizes raw captures from source to target devices", async () => {
+    const tmp = await mkdtemp(join(tmpdir(), "sync-captures-test-"));
+    const outDir = join(tmp, "out");
+    const iphoneDir = join(outDir, "raw", "iphone-6.9");
+    const pixelDir = join(outDir, "raw", "pixel-10-pro");
+    await mkdir(iphoneDir, { recursive: true });
+    await mkdir(pixelDir, { recursive: true });
+
+    // Create a mock screenshot in iphone-6.9
+    const testPngPath = join(iphoneDir, "scene-1.png");
+    await writeFile(testPngPath, "mock-png-data");
+    await writeFile(
+      join(iphoneDir, "manifest.json"),
+      JSON.stringify({
+        device: "iphone-6.9",
+        screenshots: [{ sceneId: "scene-1", file: testPngPath }],
+      }),
+    );
+
+    const handler = syncCapturesHandler({
+      paths: {
+        configPath: join(tmp, "goldie.config.ts"),
+        configDir: tmp,
+        outDir,
+        webDir: join(outDir, "web"),
+        designFile: join(tmp, "goldie.design.json"),
+        exportZip: join(outDir, "export.zip"),
+      },
+      cli: ["echo"],
+    });
+
+    let statusCode = 200;
+    let responseBody = "";
+    const req = new PassThrough() as any;
+    req.method = "POST";
+    req.headers = {};
+    req.url = "/api/sync-captures";
+
+    const res = {
+      set statusCode(code: number) {
+        statusCode = code;
+      },
+      setHeader() {},
+      end(body: string) {
+        responseBody = body;
+      },
+    } as any;
+
+    const promise = new Promise<void>((resolve) => {
+      res.end = (body: string) => {
+        responseBody = body;
+        resolve();
+      };
+    });
+
+    handler(req, res);
+    req.end(
+      JSON.stringify({
+        sourceDevice: "iphone-6.9",
+        targetDevices: ["pixel-10-pro"],
+      }),
+    );
+
+    await promise;
+    expect(statusCode).toBe(200);
+    const parsed = JSON.parse(responseBody);
+    expect(parsed.ok).toBe(true);
+    expect(parsed.syncedCount).toBeGreaterThan(0);
+
+    // Verify file was copied to pixel-10-pro
+    const targetFile = join(pixelDir, "scene-1.png");
+    const content = await readFile(targetFile, "utf8");
+    expect(content).toBe("mock-png-data");
+
+    await rm(tmp, { recursive: true, force: true });
   });
 });
 

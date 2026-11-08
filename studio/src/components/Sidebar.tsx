@@ -1,6 +1,6 @@
-import { Languages, type LucideIcon, PlayIcon, SmartphoneIcon, TabletIcon, X } from "lucide-react";
+import { Languages, type LucideIcon, PlayIcon, RefreshCw, SmartphoneIcon, TabletIcon, X } from "lucide-react";
 import { RadioGroup as RadioGroupPrimitive } from "radix-ui";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import type { Platform } from "../App";
 import { isRtlLocale, type StoreManifest } from "../manifest";
 import type { BacklightConfig, PatternType } from "../../../src/background";
+import { apiFetch } from "../lib/api";
 import { AdBanner } from "./AdBanner";
 import type { BadgeData } from "./BadgePickerPopover";
 import { DesignPanel } from "./DesignPanel";
@@ -78,6 +79,8 @@ export function Sidebar({
   sceneBackgrounds,
   onSceneBackground,
   onCloseMobile,
+  onRefresh,
+  onToast,
 }: {
   manifest: StoreManifest;
   platform: Platform;
@@ -120,8 +123,50 @@ export function Sidebar({
   sceneBackgrounds?: Record<string, string>;
   onSceneBackground?: (sceneId: string, bg: string | undefined) => void;
   onCloseMobile?: () => void;
+  onRefresh?: () => Promise<void> | void;
+  onToast?: (message: string) => void;
 }) {
   const platformDevices = manifest.devices.filter((d) => d.platform === platform);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleSyncAcrossPlatforms = async () => {
+    setIsSyncing(true);
+    try {
+      const sourceDevice = "iphone-6.9";
+      const targetDevices =
+        platform === "android"
+          ? ["pixel-10-pro"]
+          : platform === "ipad"
+            ? ["ipad-13"]
+            : ["pixel-10-pro", "ipad-13"];
+
+      const res = await apiFetch("/api/sync-captures", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sourceDevice, targetDevices }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Failed to sync captures (${res.status})`);
+      }
+      const label =
+        platform === "android"
+          ? "Android"
+          : platform === "ipad"
+            ? "iPad"
+            : "Android & iPad";
+      if (onToast) {
+        onToast(`✨ Synced screenshots from iPhone to ${label}!`);
+      }
+      if (onRefresh) {
+        await onRefresh();
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to sync captures");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   return (
     <aside className="flex w-full md:w-[310px] shrink-0 flex-col overflow-hidden border-r border-border bg-sidebar text-sidebar-foreground h-full">
@@ -183,6 +228,33 @@ export function Sidebar({
                   </RadioGroupPrimitive.Item>
                 ))}
               </RadioGroupPrimitive.Root>
+
+              {/* Quick Cross-Platform Sync Action */}
+              <div className="flex items-center justify-between px-0.5 pt-0.5">
+                <span className="text-[10px] text-muted-foreground/80 font-medium">Screenshots</span>
+                <button
+                  type="button"
+                  onClick={handleSyncAcrossPlatforms}
+                  disabled={isSyncing}
+                  className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[#FF6B00] hover:text-[#FF8A00] hover:underline cursor-pointer disabled:opacity-50 transition-colors"
+                  title={
+                    platform === "android"
+                      ? "Sync latest screenshots from iPhone to Android"
+                      : platform === "ipad"
+                        ? "Sync latest screenshots from iPhone to iPad"
+                        : "Sync screenshots from iPhone to Android and iPad"
+                  }
+                >
+                  <RefreshCw className={cn("size-2.5", isSyncing && "animate-spin")} />
+                  <span>
+                    {platform === "android"
+                      ? "Sync from iPhone"
+                      : platform === "ipad"
+                        ? "Sync from iPhone"
+                        : "Sync to Android/iPad"}
+                  </span>
+                </button>
+              </div>
             </div>
 
             {platformDevices.length > 1 ? (
