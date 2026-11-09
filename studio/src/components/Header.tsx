@@ -74,8 +74,15 @@ export function Header({
   onRefresh?: () => Promise<void> | void;
   onToast?: (message: string) => void;
 }) {
-  const { user, isPro, aiCreditsRemaining, signOutUser, openAuthModal, openUpgradeModal } =
-    useAuth();
+  const {
+    user,
+    isPro,
+    isEmailVerified,
+    aiCreditsRemaining,
+    signOutUser,
+    openAuthModal,
+    openUpgradeModal,
+  } = useAuth();
   const [clearing, setClearing] = useState(false);
 
   // Export pipeline state
@@ -946,6 +953,14 @@ export function Header({
                           <span className="text-purple-600 dark:text-purple-400 font-bold">
                             Unlimited
                           </span>
+                        ) : !isEmailVerified ? (
+                          <button
+                            type="button"
+                            onClick={openAuthModal}
+                            className="text-amber-500 hover:text-amber-600 font-semibold text-[11px] underline cursor-pointer"
+                          >
+                            Verify to Unlock
+                          </button>
                         ) : (
                           <span className="text-[#FF6B00]">{aiCreditsRemaining} remaining</span>
                         )}
@@ -955,6 +970,16 @@ export function Header({
 
                   {/* Pro Plan CTA & Signout */}
                   <div className="flex flex-col gap-1 pt-1 border-t border-border/40">
+                    {!isEmailVerified && !isPro && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={openAuthModal}
+                        className="w-full justify-center text-xs font-semibold rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white cursor-pointer h-8 px-2.5 mb-1"
+                      >
+                        Verify Email to Unlock Credits
+                      </Button>
+                    )}
                     <Button
                       type="button"
                       size="sm"

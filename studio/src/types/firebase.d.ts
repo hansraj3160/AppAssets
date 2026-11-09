@@ -14,6 +14,9 @@ declare module "firebase/auth" {
     email: string | null;
     displayName: string | null;
     photoURL: string | null;
+    emailVerified?: boolean;
+    providerData?: Array<{ providerId: string }>;
+    reload?: () => Promise<void>;
   }
   export interface Auth {
     currentUser: User | null;
@@ -38,6 +41,7 @@ declare module "firebase/auth" {
   ): Promise<any>;
   export function signOut(auth: Auth): Promise<void>;
   export function sendPasswordResetEmail(auth: Auth, email: string): Promise<void>;
+  export function sendEmailVerification(user: User): Promise<void>;
 }
 
 declare module "firebase/firestore" {

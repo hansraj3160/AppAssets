@@ -1,6 +1,7 @@
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
+  sendEmailVerification,
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
@@ -32,11 +33,14 @@ interface AuthContextValue {
   profile: UserProfile | null;
   loading: boolean;
   isPro: boolean;
+  isEmailVerified: boolean;
   aiCreditsRemaining: number;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, pass: string) => Promise<void>;
-  signUpWithEmail: (email: string, pass: string) => Promise<void>;
+  signUpWithEmail: (email: string, pass: string) => Promise<User | null>;
   signOutUser: () => Promise<void>;
+  sendVerificationEmail: () => Promise<void>;
+  reloadUserVerification: () => Promise<boolean>;
   consumeAiCredit: () => Promise<boolean>;
   isAuthModalOpen: boolean;
   openAuthModal: () => void;
@@ -140,9 +144,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsAuthModalOpen(false);
   };
 
-  const signUpWithEmail = async (email: string, pass: string) => {
-    await createUserWithEmailAndPassword(auth, email, pass);
-    setIsAuthModalOpen(false);
+  const signUpWithEmail = async (email: string, pass: string): Promise<User | null> => {
+    const cred = await createUserWithEmailAndPassword(auth, email, pass);
+    if (cred.user) {
+      try {
+        await sendEmailVerification(cred.user);
+      } catch (err) {
+        console.warn("Could not dispatch verification email on signup:", err);
+      }
+    }
+    return cred.user ?? null;
+  };
+
+  const sendVerificationEmail = async () => {
+    if (auth.currentUser) {
+      await sendEmailVerification(auth.currentUser);
+    }
+  };
+
+  const reloadUserVerification = async (): Promise<boolean> => {
+    if (auth.currentUser) {
+      if (typeof auth.currentUser.reload === "function") {
+        await auth.currentUser.reload();
+      }
+      const updated = auth.currentUser;
+      setUser(updated ? { ...updated } : null);
+      return Boolean(updated?.emailVerified);
+    }
+    return false;
   };
 
   const signOutUser = async () => {
@@ -150,17 +179,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setProfile(null);
   };
 
+  // Google OAuth accounts are pre-verified; email/pass users must verify email to unlock free credits
+  const isEmailVerified = Boolean(
+    user?.emailVerified ||
+      user?.providerData?.some((p) => p.providerId === "google.com") ||
+      profile?.isPro,
+  );
+
   const isPro = profile?.isPro ?? false;
   const aiCreditsRemaining = isPro
     ? 9999
-    : Math.max(
-        0,
-        (profile?.aiCreditsLimit ?? DEFAULT_FREE_CREDITS) - (profile?.aiCreditsUsed ?? 0),
-      );
+    : !isEmailVerified
+      ? 0
+      : Math.max(
+          0,
+          (profile?.aiCreditsLimit ?? DEFAULT_FREE_CREDITS) - (profile?.aiCreditsUsed ?? 0),
+        );
 
   const consumeAiCredit = async (): Promise<boolean> => {
     if (isPro) return true;
     if (!user) {
+      setIsAuthModalOpen(true);
+      return false;
+    }
+    if (!isEmailVerified) {
       setIsAuthModalOpen(true);
       return false;
     }
@@ -210,11 +252,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         profile,
         loading,
         isPro,
+        isEmailVerified,
         aiCreditsRemaining,
         signInWithGoogle,
         signInWithEmail,
         signUpWithEmail,
         signOutUser,
+        sendVerificationEmail,
+        reloadUserVerification,
         consumeAiCredit,
         isAuthModalOpen,
         openAuthModal: () => setIsAuthModalOpen(true),
