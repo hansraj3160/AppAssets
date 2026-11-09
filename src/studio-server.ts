@@ -625,6 +625,13 @@ export function exportHandler(api: StudioApi): (sub: string) => Handler {
         }
 
         const filter = (relName: string) => {
+          // Exclude iPhone-6.9 (1320x2868) from AppStore package since App Store Connect requires 6.3" (1206x2622)
+          if (
+            relName.startsWith("AppStore/iPhone-6.9/") ||
+            relName.startsWith("AppStore/Previews/iPhone-6.9/")
+          ) {
+            return false;
+          }
           if (!includeIPhone) {
             if (
               relName.startsWith("AppStore/iPhone") ||
@@ -1993,8 +2000,13 @@ export function singleExportHandler(api: StudioApi): Handler {
     const sceneId = url.searchParams.get("sceneId");
     const rawDevice = url.searchParams.get("device") || "iphone-6.9";
     const sizeParam = url.searchParams.get("size");
-    const isIphone63 = rawDevice === "iphone-6.3" || sizeParam === "1206x2622";
-    const device = isIphone63 ? "iphone-6.9" : rawDevice;
+    const isIphone =
+      rawDevice === "iphone-6.9" ||
+      rawDevice === "iphone-6.3" ||
+      rawDevice === "iphone" ||
+      sizeParam === "1206x2622";
+    const isIphone63 = isIphone && sizeParam !== "1320x2868";
+    const device = isIphone ? "iphone-6.9" : rawDevice;
     const locale = url.searchParams.get("locale") || "en-US";
     const sliceParam = url.searchParams.get("slice");
     const sliceNum = sliceParam !== null ? parseInt(sliceParam, 10) : undefined;
@@ -2137,8 +2149,13 @@ export function selectedExportZipHandler(api: StudioApi): Handler {
       try {
         const body = JSON.parse(rawBody || "{}");
         const rawDevice = body.device || "iphone-6.9";
-        const isIphone63 = rawDevice === "iphone-6.3" || body.size === "1206x2622";
-        const device = isIphone63 ? "iphone-6.9" : rawDevice;
+        const isIphone =
+          rawDevice === "iphone-6.9" ||
+          rawDevice === "iphone-6.3" ||
+          rawDevice === "iphone" ||
+          body.size === "1206x2622";
+        const isIphone63 = isIphone && body.size !== "1320x2868";
+        const device = isIphone ? "iphone-6.9" : rawDevice;
         const locale = body.locale || "en-US";
         const items: Array<{ sceneId: string; slice?: number }> = Array.isArray(body.items)
           ? body.items

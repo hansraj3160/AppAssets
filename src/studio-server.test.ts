@@ -679,7 +679,7 @@ describe("singleExportHandler", () => {
   test("serves existing screenshot with proper headers when up-to-date", async () => {
     const tmp = await mkdtemp(join(tmpdir(), "goldie-test-"));
     const outDir = join(tmp, "out");
-    const screenshotsDir = join(outDir, "screenshots", "iphone-6.9", "en-US");
+    const screenshotsDir = join(outDir, "screenshots", "pixel-10-pro", "en-US");
     await mkdir(screenshotsDir, { recursive: true });
     const imgPath = join(screenshotsDir, "01-home.png");
     await writeFile(imgPath, "fake-png-content");
@@ -701,7 +701,7 @@ describe("singleExportHandler", () => {
 
     const req = {
       method: "GET",
-      url: "/api/export-single?sceneId=home&device=iphone-6.9&locale=en-US",
+      url: "/api/export-single?sceneId=home&device=pixel-10-pro&locale=en-US",
     } as any;
     const res = new PassThrough() as any;
     res.writeHead = (code: number, h: Record<string, string | number>) => {
@@ -714,7 +714,7 @@ describe("singleExportHandler", () => {
 
     expect(statusCode).toBe(200);
     expect(headers["Content-Type"]).toBe("image/png");
-    expect(headers["Content-Disposition"]).toContain('filename="home-iphone-6.9.png"');
+    expect(headers["Content-Disposition"]).toContain('filename="home-pixel-10-pro.png"');
     expect(headers["Cache-Control"]).toBe("no-store");
 
     await rm(tmp, { recursive: true, force: true });
@@ -874,7 +874,7 @@ describe("selectedExportZipHandler", () => {
   test("packages selected screenshots into ZIP buffer", async () => {
     const tmp = await mkdtemp(join(tmpdir(), "goldie-sel-test-"));
     const outDir = join(tmp, "out");
-    const screenshotsDir = join(outDir, "screenshots", "iphone-6.9", "en-US");
+    const screenshotsDir = join(outDir, "screenshots", "pixel-10-pro", "en-US");
     await mkdir(screenshotsDir, { recursive: true });
     await writeFile(join(screenshotsDir, "01-home.png"), "home-image-bytes");
     await writeFile(join(screenshotsDir, "02-features.png"), "features-image-bytes");
@@ -909,7 +909,7 @@ describe("selectedExportZipHandler", () => {
     handler(req, res);
     req.end(
       JSON.stringify({
-        device: "iphone-6.9",
+        device: "pixel-10-pro",
         locale: "en-US",
         items: [{ sceneId: "home" }],
       }),
@@ -918,7 +918,7 @@ describe("selectedExportZipHandler", () => {
 
     expect(statusCode).toBe(200);
     expect(responseHeaders["Content-Type"]).toBe("application/zip");
-    expect(responseHeaders["Content-Disposition"]).toContain("selected-screenshots-iphone-6.9.zip");
+    expect(responseHeaders["Content-Disposition"]).toContain("selected-screenshots-pixel-10-pro.zip");
     expect(Buffer.isBuffer(endBuffer)).toBe(true);
 
     await rm(tmp, { recursive: true, force: true });
@@ -1384,13 +1384,13 @@ describe("exportHandler", () => {
     const tmp = await mkdtemp(join(tmpdir(), "goldie-exp-stream-"));
     const paths = studioPaths(join(tmp, "goldie.config.ts"));
     await mkdir(join(paths.outDir, "screenshots", "iphone-6.9", "en-US"), { recursive: true });
-    await writeFile(
-      join(paths.outDir, "screenshots", "iphone-6.9", "en-US", "01-home.png"),
-      Buffer.from("mock-png"),
-    );
     const testIconPng = Buffer.from(
       "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
       "base64",
+    );
+    await writeFile(
+      join(paths.outDir, "screenshots", "iphone-6.9", "en-US", "01-home.png"),
+      testIconPng,
     );
     await writeFile(join(paths.outDir, "icon.png"), testIconPng);
 
@@ -1453,7 +1453,8 @@ describe("exportHandler", () => {
     const { exec } = await import("./exec.ts");
     const listing = await exec("unzip", ["-l", paths.exportZip], { quiet: true });
     if (listing.code === 0) {
-      expect(listing.stdout).toContain("AppStore/iPhone-6.9/en-US/01-home.png");
+      expect(listing.stdout).toContain("AppStore/iPhone-6.3/en-US/01-home.png");
+      expect(listing.stdout).not.toContain("AppStore/iPhone-6.9/");
       expect(listing.stdout).toContain("STORE_GUIDE.txt");
       expect(listing.stdout).toContain("GooglePlay/app-icon-512x512.png");
       expect(listing.stdout).toContain("AppStore/app-icon-1024x1024.png");
@@ -1467,17 +1468,17 @@ describe("exportHandler", () => {
     const paths = studioPaths(join(tmp, "goldie.config.ts"));
     await mkdir(join(paths.outDir, "screenshots", "iphone-6.9", "en-US"), { recursive: true });
     await mkdir(join(paths.outDir, "screenshots", "pixel-10-pro", "en-US"), { recursive: true });
+    const testIconPng = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+      "base64",
+    );
     await writeFile(
       join(paths.outDir, "screenshots", "iphone-6.9", "en-US", "01-home.png"),
-      Buffer.from("mock-png"),
+      testIconPng,
     );
     await writeFile(
       join(paths.outDir, "screenshots", "pixel-10-pro", "en-US", "01-home.png"),
       Buffer.from("mock-png"),
-    );
-    const testIconPng = Buffer.from(
-      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
-      "base64",
     );
     await writeFile(join(paths.outDir, "icon.png"), testIconPng);
 
@@ -1540,7 +1541,8 @@ describe("exportHandler", () => {
     const { exec } = await import("./exec.ts");
     const listing = await exec("unzip", ["-l", paths.exportZip], { quiet: true });
     if (listing.code === 0) {
-      expect(listing.stdout).toContain("AppStore/iPhone-6.9/en-US/01-home.png");
+      expect(listing.stdout).toContain("AppStore/iPhone-6.3/en-US/01-home.png");
+      expect(listing.stdout).not.toContain("AppStore/iPhone-6.9/");
       expect(listing.stdout).toContain("AppStore/app-icon-1024x1024.png");
       expect(listing.stdout).not.toContain("GooglePlay/Phone/en-US/01-home.png");
       expect(listing.stdout).not.toContain("GooglePlay/app-icon-512x512.png");

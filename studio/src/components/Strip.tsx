@@ -1388,11 +1388,7 @@ export function Strip({
             {tileSpec.key === "iphone-6.9" && (
               <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                 <span className="size-1.5 rounded-full bg-emerald-500" />
-                <span>
-                  {iphoneSize === "1206x2622"
-                    ? '6.3" · 1206 × 2622 (App Store Required)'
-                    : '6.9" · 1320 × 2868'}
-                </span>
+                <span>6.3" · 1206 × 2622 px (App Store Required)</span>
               </span>
             )}
           </div>

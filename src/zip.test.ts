@@ -50,8 +50,9 @@ describe("zip", () => {
   test("createStoreGuideContent provides App Store and Google Play specifications", async () => {
     const { createStoreGuideContent } = await import("./zip.ts");
     const guide = createStoreGuideContent();
-    expect(guide).toContain("AppStore/iPhone-6.9/");
-    expect(guide).toContain("1320 x 2868");
+    expect(guide).toContain("AppStore/iPhone-6.3/");
+    expect(guide).toContain("1206 x 2622");
+    expect(guide).not.toContain("AppStore/iPhone-6.9/");
     expect(guide).toContain("AppStore/iPad-13/");
     expect(guide).toContain("2064 x 2752");
     expect(guide).toContain("GooglePlay/Phone/");

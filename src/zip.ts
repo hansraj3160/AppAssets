@@ -159,11 +159,6 @@ AppAssets - App Store & Google Play Screenshot Package
      * Resolution: 1206 x 2622 px (Portrait)
      * Upload: App Store Connect > iOS App > Screenshots > 6.3" Display
 
-   - AppStore/iPhone-6.9/
-     * Target: iPhone 16 Pro Max, 15 Pro Max (6.9" & 6.7" Super Retina XDR)
-     * Resolution: 1320 x 2868 px (Portrait)
-     * Upload: App Store Connect > iOS App > Screenshots > 6.9" Display
-
    - AppStore/iPad-13/
      * Target: iPad Pro 13-inch (M4), iPad Pro 12.9-inch
      * Resolution: 2064 x 2752 px (Portrait)
