@@ -434,6 +434,7 @@ function Loaded({
       ? view.locale
       : (manifest.locales[0] ?? ""),
   );
+  const [iphoneSize, setIphoneSize] = useState<"1206x2622" | "1320x2868">("1206x2622");
   const [canvasView, setCanvasView] = useState<"editor" | "store" | "promo">("editor");
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [showMobileTip, setShowMobileTip] = useState(() => {
@@ -977,6 +978,8 @@ function Loaded({
             onPlatform={selectPlatform}
             onDevice={setDevice}
             onLocale={setLocale}
+            iphoneSize={iphoneSize}
+            onIphoneSize={setIphoneSize}
             onBackground={setBackground}
             onFrame={setFrame}
             onFontFamily={setFontFamily}
@@ -1034,6 +1037,8 @@ function Loaded({
                 onPlatform={selectPlatform}
                 onDevice={setDevice}
                 onLocale={setLocale}
+                iphoneSize={iphoneSize}
+                onIphoneSize={setIphoneSize}
                 onBackground={setBackground}
                 onFrame={setFrame}
                 onFontFamily={setFontFamily}
@@ -1230,6 +1235,7 @@ function Loaded({
                     onSceneBackground={setSceneBackground}
                     sceneBadges={sceneBadges}
                     onSceneBadge={setSceneBadge}
+                    iphoneSize={iphoneSize}
                     appInfo={appInfo}
                     onRefresh={onRefresh}
                     onToast={(msg) => setToastMessage(msg)}

@@ -86,6 +86,8 @@ export function Sidebar({
   onSceneBadge,
   sceneBackgrounds,
   onSceneBackground,
+  iphoneSize = "1206x2622",
+  onIphoneSize,
   onCloseMobile,
   onRefresh,
   onToast,
@@ -97,6 +99,8 @@ export function Sidebar({
   onPlatform: (v: Platform) => void;
   onDevice: (v: string) => void;
   onLocale: (v: string) => void;
+  iphoneSize?: "1206x2622" | "1320x2868";
+  onIphoneSize?: (v: "1206x2622" | "1320x2868") => void;
   background: string;
   frame: string;
   fontFamily: string;
@@ -261,6 +265,43 @@ export function Sidebar({
                   </span>
                 </button>
               </div>
+
+              {platform === "ios" && (
+                <div className="flex flex-col gap-1.5 pt-1 border-t border-border/40">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-medium text-muted-foreground">iPhone Display Size</Label>
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">App Store Ready</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5 bg-muted/50 p-1 rounded-xl border border-border/60">
+                    <button
+                      type="button"
+                      onClick={() => onIphoneSize?.("1206x2622")}
+                      className={cn(
+                        "flex flex-col items-center justify-center py-1.5 px-2 rounded-lg text-xs font-medium transition-all cursor-pointer",
+                        iphoneSize === "1206x2622"
+                          ? "bg-background text-foreground shadow-xs border border-border/60"
+                          : "text-muted-foreground hover:bg-background/50 hover:text-foreground",
+                      )}
+                    >
+                      <span className="font-semibold text-[11px]">6.3" (Required)</span>
+                      <span className="font-mono text-[9px] text-muted-foreground">1206 × 2622</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onIphoneSize?.("1320x2868")}
+                      className={cn(
+                        "flex flex-col items-center justify-center py-1.5 px-2 rounded-lg text-xs font-medium transition-all cursor-pointer",
+                        iphoneSize === "1320x2868"
+                          ? "bg-background text-foreground shadow-xs border border-border/60"
+                          : "text-muted-foreground hover:bg-background/50 hover:text-foreground",
+                      )}
+                    >
+                      <span className="font-semibold text-[11px]">6.9" Pro Max</span>
+                      <span className="font-mono text-[9px] text-muted-foreground">1320 × 2868</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {platformDevices.length > 1 ? (

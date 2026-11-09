@@ -114,7 +114,7 @@ export function Header({
 
   const estimatedFileCount = useMemo(() => {
     let count = 0;
-    if (exportTargets.iphone) count += activeSceneCount;
+    if (exportTargets.iphone) count += activeSceneCount * 2; // iPhone 6.3" (1206x2622) + 6.9" (1320x2868)
     if (exportTargets.ipad) count += activeSceneCount;
     if (exportTargets.googlePlay) count += activeSceneCount + 1; // phone + feature graphic
     if (exportTargets.marketing) count += 3; // product hunt, twitter, ig
@@ -643,7 +643,7 @@ export function Header({
                     </span>
                   </div>
                   <span className="text-muted-foreground text-[10px] group-hover:text-foreground/80">
-                    6.9" &bull; 6.7" ({activeSceneCount} screens)
+                    6.3" (1206×2622) & 6.9" ({activeSceneCount} screens)
                   </span>
                 </label>
 

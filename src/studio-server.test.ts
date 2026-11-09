@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough, Writable } from "node:stream";
+import { createCanvas } from "@napi-rs/canvas";
 import {
   aiCopyHandler,
   appendScenesToConfig,
@@ -719,6 +720,63 @@ describe("singleExportHandler", () => {
     await rm(tmp, { recursive: true, force: true });
   });
 
+  test("serves 1206x2622 screenshot when size=1206x2622 is requested", async () => {
+    const tmp = await mkdtemp(join(tmpdir(), "goldie-test-"));
+    const outDir = join(tmp, "out");
+    const screenshotsDir = join(outDir, "screenshots", "iphone-6.9", "en-US");
+    await mkdir(screenshotsDir, { recursive: true });
+    const imgPath = join(screenshotsDir, "01-home.png");
+
+    const canvas = createCanvas(100, 200);
+    const testPngBuf = await canvas.encode("png");
+    await writeFile(imgPath, testPngBuf);
+
+    const handler = singleExportHandler({
+      paths: {
+        configPath: join(tmp, "goldie.config.ts"),
+        configDir: tmp,
+        outDir,
+        webDir: join(outDir, "web"),
+        designFile: join(tmp, "goldie.design.json"),
+        exportZip: join(outDir, "export.zip"),
+      },
+      cli: ["echo"],
+    });
+
+    let statusCode = 0;
+    const headers: Record<string, string | number> = {};
+    let responseData: Buffer | null = null;
+
+    const req = {
+      method: "GET",
+      url: "/api/export-single?sceneId=home&device=iphone-6.9&size=1206x2622&locale=en-US",
+    } as any;
+    const res = new PassThrough() as any;
+    res.writeHead = (code: number, h: Record<string, string | number>) => {
+      statusCode = code;
+      Object.assign(headers, h);
+    };
+    const done = new Promise<void>((resolve) => {
+      res.end = (buf: Buffer) => {
+        responseData = buf;
+        resolve();
+      };
+    });
+
+    handler(req, res);
+    await done;
+
+    expect(statusCode).toBe(200);
+    expect(headers["Content-Type"]).toBe("image/png");
+    expect(headers["Content-Disposition"]).toContain("1206x2622.png");
+    expect(responseData).toBeDefined();
+    const dims = getDimensionsFromBuffer(responseData!);
+    expect(dims?.width).toBe(1206);
+    expect(dims?.height).toBe(2622);
+
+    await rm(tmp, { recursive: true, force: true });
+  });
+
   test("returns 404 if screenshot not found and frame CLI does not generate it", async () => {
     const tmp = await mkdtemp(join(tmpdir(), "goldie-test-"));
     const outDir = join(tmp, "out");
@@ -861,6 +919,62 @@ describe("selectedExportZipHandler", () => {
     expect(statusCode).toBe(200);
     expect(responseHeaders["Content-Type"]).toBe("application/zip");
     expect(responseHeaders["Content-Disposition"]).toContain("selected-screenshots-iphone-6.9.zip");
+    expect(Buffer.isBuffer(endBuffer)).toBe(true);
+
+    await rm(tmp, { recursive: true, force: true });
+  });
+
+  test("packages selected screenshots into 1206x2622 ZIP when size=1206x2622", async () => {
+    const tmp = await mkdtemp(join(tmpdir(), "goldie-sel-63-test-"));
+    const outDir = join(tmp, "out");
+    const screenshotsDir = join(outDir, "screenshots", "iphone-6.9", "en-US");
+    await mkdir(screenshotsDir, { recursive: true });
+
+    const canvas = createCanvas(100, 200);
+    const testPngBuf = await canvas.encode("png");
+    await writeFile(join(screenshotsDir, "01-home.png"), testPngBuf);
+
+    const handler = selectedExportZipHandler({
+      paths: {
+        configPath: join(tmp, "goldie.config.ts"),
+        configDir: tmp,
+        outDir,
+        webDir: join(outDir, "web"),
+        designFile: join(tmp, "goldie.design.json"),
+        exportZip: join(outDir, "export.zip"),
+      },
+      cli: ["echo"],
+    });
+
+    let statusCode = 0;
+    let responseHeaders: Record<string, any> = {};
+    let endBuffer: Buffer | null = null;
+    const req = new PassThrough() as any;
+    req.method = "POST";
+    const res = {
+      writeHead(code: number, headers: any) {
+        statusCode = code;
+        responseHeaders = headers;
+      },
+      end(data: any) {
+        endBuffer = data;
+      },
+    } as any;
+
+    handler(req, res);
+    req.end(
+      JSON.stringify({
+        device: "iphone-6.9",
+        size: "1206x2622",
+        locale: "en-US",
+        items: [{ sceneId: "home" }],
+      }),
+    );
+    await new Promise((r) => setTimeout(r, 150));
+
+    expect(statusCode).toBe(200);
+    expect(responseHeaders["Content-Type"]).toBe("application/zip");
+    expect(responseHeaders["Content-Disposition"]).toContain("iphone-6.3-1206x2622.zip");
     expect(Buffer.isBuffer(endBuffer)).toBe(true);
 
     await rm(tmp, { recursive: true, force: true });

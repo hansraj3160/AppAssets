@@ -354,6 +354,7 @@ export async function downloadSingleScreenshot({
   sceneId,
   slice,
   device,
+  size,
   locale,
   background,
   frameUrl,
@@ -367,6 +368,7 @@ export async function downloadSingleScreenshot({
   sceneId: string;
   slice?: number;
   device: string;
+  size?: string;
   locale: string;
   background?: string;
   frameUrl?: string;
@@ -383,6 +385,7 @@ export async function downloadSingleScreenshot({
     locale,
     force: "1",
   });
+  if (size) params.set("size", size);
   if (slice !== undefined) params.set("slice", String(slice));
   if (background) params.set("background", background);
   const cleanFrame =
@@ -418,7 +421,8 @@ export async function downloadSingleScreenshot({
   const a = document.createElement("a");
   a.href = url;
   const sliceSuffix = slice && slice > 1 ? `-${slice}` : "";
-  const fileName = `${sceneId}${sliceSuffix}-${device}.png`;
+  const sizeSuffix = size === "1206x2622" ? "-1206x2622" : "";
+  const fileName = `${sceneId}${sliceSuffix}-${device}${sizeSuffix}.png`;
   a.download = fileName;
   document.body.appendChild(a);
   a.click();
@@ -460,6 +464,7 @@ export function Strip({
   screenOnly,
   sceneLayouts,
   onSceneLayout,
+  iphoneSize = "1206x2622",
   appInfo,
   onRefresh,
   onToast,
@@ -514,6 +519,7 @@ export function Strip({
   screenOnly: boolean;
   sceneLayouts: Record<string, string>;
   onSceneLayout: (sceneId: string, key: string | undefined) => void;
+  iphoneSize?: "1206x2622" | "1320x2868";
   appInfo?: AppInfo;
   onRefresh?: () => Promise<void> | void;
   onToast?: (message: string) => void;
@@ -787,6 +793,7 @@ export function Strip({
           sceneId: resolvedSceneId,
           slice,
           device: tileSpec.key,
+          size: tileSpec.key === "iphone-6.9" ? iphoneSize : undefined,
           locale,
           background: (entry.targetSceneId && sceneBackgrounds[entry.targetSceneId]) || background,
           frameUrl,
@@ -828,6 +835,7 @@ export function Strip({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           device: tileSpec.key,
+          size: tileSpec.key === "iphone-6.9" ? iphoneSize : undefined,
           locale,
           items,
           background,
@@ -1071,6 +1079,7 @@ export function Strip({
         sceneId: resolvedSceneId,
         slice,
         device: tileSpec.key,
+        size: tileSpec.key === "iphone-6.9" ? iphoneSize : undefined,
         locale,
         background: (targetSceneId && sceneBackgrounds[targetSceneId]) || background,
         frameUrl,
@@ -1375,6 +1384,17 @@ export function Strip({
                 </>
               )}
             </Button>
+
+            {tileSpec.key === "iphone-6.9" && (
+              <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                <span className="size-1.5 rounded-full bg-emerald-500" />
+                <span>
+                  {iphoneSize === "1206x2622"
+                    ? '6.3" · 1206 × 2622 (App Store Required)'
+                    : '6.9" · 1320 × 2868'}
+                </span>
+              </span>
+            )}
           </div>
 
           {selectedKeys.size > 0 && (

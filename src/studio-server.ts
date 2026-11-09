@@ -18,6 +18,7 @@ import { createCanvas, loadImage } from "@napi-rs/canvas";
 import { BANNER_SPECS, type BannerType, renderBannerCanvas } from "./banner.ts";
 import { applyDesign, loadConfig } from "./config.ts";
 import { exec } from "./exec.ts";
+import { resizePngBuffer } from "./image.ts";
 import { DEVICES, type DeviceKey } from "./specs.ts";
 import {
   createStoreGuideContent,
@@ -666,6 +667,49 @@ export function exportHandler(api: StudioApi): (sub: string) => Handler {
           }
           return true;
         };
+
+        // 4c. Generate AppStore/iPhone-6.3 (1206x2622) package entries alongside iPhone-6.9 (1320x2868)
+        if (includeIPhone) {
+          const iphone69Dir = join(paths.outDir, "screenshots", "iphone-6.9");
+          if (existsSync(iphone69Dir)) {
+            try {
+              const locales = await readdir(iphone69Dir);
+              for (const loc of locales) {
+                const locDir = join(iphone69Dir, loc);
+                if (!existsSync(locDir)) continue;
+                const locStat = await stat(locDir);
+                if (!locStat.isDirectory()) continue;
+
+                const shotFiles = (await readdir(locDir)).filter((f) => f.endsWith(".png"));
+                for (const sf of shotFiles) {
+                  if (opts.selectedScenes && opts.selectedScenes.length > 0) {
+                    const matches = opts.selectedScenes.some((sId) => {
+                      return (
+                        sf === `${sId}.png` ||
+                        sf.startsWith(`${sId}.`) ||
+                        sf.includes(`-${sId}.`) ||
+                        sf.includes(`-${sId}-`)
+                      );
+                    });
+                    if (!matches) continue;
+                  }
+
+                  try {
+                    const origBuf = await readFile(join(locDir, sf));
+                    const scaled63 = await resizePngBuffer(origBuf, 1206, 2622);
+                    extraEntries.push({
+                      name: `AppStore/iPhone-6.3/${loc}/${sf}`,
+                      data: scaled63,
+                      mtime: new Date(),
+                    });
+                  } catch (err) {
+                    res.write(`  warning: failed to generate 6.3" screenshot ${sf}: ${err}\n`);
+                  }
+                }
+              }
+            } catch {}
+          }
+        }
 
         const count = await zipDirs(
           paths.outDir,
@@ -1938,7 +1982,7 @@ export function findScreenshotFile(
   );
 }
 
-/** Handles GET /api/export-single?sceneId=...&device=...&locale=...&slice=... for downloading a single screenshot. */
+/** Handles GET /api/export-single?sceneId=...&device=...&size=...&locale=...&slice=... for downloading a single screenshot. */
 export function singleExportHandler(api: StudioApi): Handler {
   return (req, res) => {
     const sessionId = getSessionIdFromRequest(req);
@@ -1947,7 +1991,10 @@ export function singleExportHandler(api: StudioApi): Handler {
 
     const url = new URL(req.url ?? "/", "http://localhost");
     const sceneId = url.searchParams.get("sceneId");
-    const device = url.searchParams.get("device") || "iphone-6.9";
+    const rawDevice = url.searchParams.get("device") || "iphone-6.9";
+    const sizeParam = url.searchParams.get("size");
+    const isIphone63 = rawDevice === "iphone-6.3" || sizeParam === "1206x2622";
+    const device = isIphone63 ? "iphone-6.9" : rawDevice;
     const locale = url.searchParams.get("locale") || "en-US";
     const sliceParam = url.searchParams.get("slice");
     const sliceNum = sliceParam !== null ? parseInt(sliceParam, 10) : undefined;
@@ -2035,7 +2082,6 @@ export function singleExportHandler(api: StudioApi): Handler {
           return;
         }
 
-        const stat = statSync(targetFile);
         const targetSlice =
           sliceNum !== undefined && !Number.isNaN(sliceNum)
             ? sliceNum === 0
@@ -2043,6 +2089,22 @@ export function singleExportHandler(api: StudioApi): Handler {
               : sliceNum
             : undefined;
         const sliceSuffix = targetSlice && targetSlice > 1 ? `-${targetSlice}` : "";
+
+        if (isIphone63) {
+          const rawBuf = await readFile(targetFile);
+          const scaledBuf = await resizePngBuffer(rawBuf, 1206, 2622);
+          const dlName = `${sceneId}${sliceSuffix}-iphone-6.3-1206x2622.png`;
+          res.writeHead(200, {
+            "Content-Type": "image/png",
+            "Content-Length": scaledBuf.length,
+            "Content-Disposition": `attachment; filename="${dlName}"`,
+            "Cache-Control": "no-store",
+          });
+          res.end(scaledBuf);
+          return;
+        }
+
+        const stat = statSync(targetFile);
         res.writeHead(200, {
           "Content-Type": "image/png",
           "Content-Length": stat.size,
@@ -2074,7 +2136,9 @@ export function selectedExportZipHandler(api: StudioApi): Handler {
     readBody(req).then(async (rawBody) => {
       try {
         const body = JSON.parse(rawBody || "{}");
-        const device = body.device || "iphone-6.9";
+        const rawDevice = body.device || "iphone-6.9";
+        const isIphone63 = rawDevice === "iphone-6.3" || body.size === "1206x2622";
+        const device = isIphone63 ? "iphone-6.9" : rawDevice;
         const locale = body.locale || "en-US";
         const items: Array<{ sceneId: string; slice?: number }> = Array.isArray(body.items)
           ? body.items
@@ -2142,9 +2206,15 @@ export function selectedExportZipHandler(api: StudioApi): Handler {
           if (matched) {
             const filePath = join(screenshotsDir, matched);
             if (existsSync(filePath)) {
+              let data: Buffer = await readFile(filePath);
+              let entryName = matched;
+              if (isIphone63) {
+                data = Buffer.from(await resizePngBuffer(data, 1206, 2622));
+                entryName = matched.replace(/\.png$/, "-1206x2622.png");
+              }
               zipList.push({
-                name: matched,
-                data: await readFile(filePath),
+                name: entryName,
+                data,
                 mtime: new Date(),
               });
             }
@@ -2158,11 +2228,14 @@ export function selectedExportZipHandler(api: StudioApi): Handler {
           return;
         }
 
+        const zipFileName = isIphone63
+          ? "selected-screenshots-iphone-6.3-1206x2622.zip"
+          : `selected-screenshots-${device}.zip`;
         const zipBuffer = zipEntries(zipList);
         res.writeHead(200, {
           "Content-Type": "application/zip",
           "Content-Length": zipBuffer.length,
-          "Content-Disposition": `attachment; filename="selected-screenshots-${device}.zip"`,
+          "Content-Disposition": `attachment; filename="${zipFileName}"`,
           "Cache-Control": "no-store",
         });
         res.end(zipBuffer);
