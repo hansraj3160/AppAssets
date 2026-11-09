@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { CUSTOM_TEMPLATE } from "../App";
 import { trackAssetDownloaded, trackExport } from "../lib/analytics";
+import { getSessionId } from "../lib/session";
 
 /**
  * The Export panel re-renders framed screenshots and preview video with
@@ -137,7 +138,7 @@ export function ExportPanel({
           file_name: "AppAssets-export.zip",
         });
         const a = document.createElement("a");
-        a.href = "/api/export/download";
+        a.href = `/api/export/download?filename=AppAssets-export.zip&sessionId=${encodeURIComponent(getSessionId())}`;
         a.download = "AppAssets-export.zip";
         a.click();
       }

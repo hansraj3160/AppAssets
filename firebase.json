@@ -11,7 +11,9 @@
       "localhost",
       "127.0.0.1",
       "appassets-studio.firebaseapp.com",
-      "appassets-studio.web.app"
+      "appassets-studio.web.app",
+      "appassetstudio.com",
+      "www.appassetstudio.com"
     ]
   },
   "firestore": {

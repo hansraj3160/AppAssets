@@ -53,7 +53,6 @@ function makeConfig(): LoadedConfig {
 }
 
 describe("applyDesign Phase 2 features", () => {
-
   test("applies headlineColor and subheadColor overrides", () => {
     const cfg = makeConfig();
     applyDesign(cfg, {
@@ -367,5 +366,29 @@ describe("Per-scene contrast discrepancy resolution", () => {
     expect(cfg.theme.deviceBacklight).toEqual({ enabled: true, color: "#22D3EE", intensity: 0.5 });
     expect(cfg.theme.panoramaMode).toBe(true);
   });
-});
 
+  test("applyDesign applies appInfo store identity overrides", () => {
+    const cfg = makeConfig();
+    cfg.locales = ["en-US", "es-ES"];
+    applyDesign(cfg, {
+      appInfo: {
+        name: "SavvyDivvy",
+        subtitle: "Track Your Finances",
+        category: "Finance & Banking",
+        developer: "Zunava Tech Solution",
+        description: "All your income, expenses & balance in one place",
+        icon: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+      },
+    });
+
+    expect(cfg.store?.name).toBe("SavvyDivvy");
+    expect(cfg.store?.category).toBe("Finance & Banking");
+    expect(cfg.store?.developer).toBe("Zunava Tech Solution");
+    expect(cfg.store?.subtitle?.["en-US"]).toBe("Track Your Finances");
+    expect(cfg.store?.subtitle?.["es-ES"]).toBe("Track Your Finances");
+    expect(cfg.store?.description?.["en-US"]).toBe(
+      "All your income, expenses & balance in one place",
+    );
+    expect(cfg.store?.icon).toContain("data:image/png;base64");
+  });
+});

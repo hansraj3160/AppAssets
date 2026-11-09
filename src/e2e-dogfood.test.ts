@@ -338,7 +338,8 @@ export default {
 
     // Read ZIP content and verify standard files are present
     const zipString = zipBytes.toString("binary");
-    expect(zipString).toContain("AppStore/iPhone-6.9/en-US/hero.png");
+    expect(zipString).toContain("AppStore/iPhone-6.3/en-US/hero.png");
+    expect(zipString).not.toContain("AppStore/iPhone-6.9/");
     expect(zipString).toContain("GooglePlay/Phone/en-US/hero.png");
     expect(zipString).toContain("GooglePlay/feature-graphic.png");
     expect(zipString).toContain("GooglePlay/app-icon-512x512.png");

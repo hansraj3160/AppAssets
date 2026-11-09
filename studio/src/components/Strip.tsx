@@ -1,8 +1,12 @@
 import {
+  Check,
   ChevronLeft,
   ChevronRight,
   Download,
+  FolderArchive,
   Loader2,
+  Plus,
+  RefreshCw,
   Sparkles,
   Tag,
   Trash2,
@@ -13,6 +17,7 @@ import { AnimatePresence, Reorder } from "motion/react";
 import type React from "react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
+import { type BacklightConfig, type PatternType, withOpacity } from "../../../src/background";
 import {
   BADGE,
   type Composition,
@@ -24,7 +29,6 @@ import {
   SCREEN_SHADOW,
   TYPE,
 } from "../../../src/layouts";
-import { type BacklightConfig, type PatternType, withOpacity } from "../../../src/background";
 import { CUSTOM_TEMPLATE } from "../App";
 import {
   trackAppImported,
@@ -32,6 +36,7 @@ import {
   trackExport,
   trackScreenshotGeneration,
 } from "../lib/analytics";
+import { apiFetch } from "../lib/api";
 import {
   type AppInfo,
   type Decoration,
@@ -52,7 +57,6 @@ import { CHECKERBOARD, layoutOptions, TRANSPARENT } from "./DesignPanel";
 import { SceneBackgroundPopover } from "./SceneBackgroundPopover";
 import { Select } from "./Sidebar";
 import { Button } from "./ui/button";
-import { apiFetch } from "../lib/api";
 
 /** Tiles shown at once; the App Store product page shows this many before scrolling. */
 const PAGE_SIZE = 5;
@@ -192,6 +196,7 @@ export function buildScreenshotEntries({
   patternColor,
   deviceBacklight,
   panoramaMode,
+  assetVersion,
 }: {
   design: Design;
   captures: DeviceCaptures;
@@ -226,6 +231,7 @@ export function buildScreenshotEntries({
   patternColor?: string;
   deviceBacklight?: boolean | BacklightConfig;
   panoramaMode?: boolean;
+  assetVersion?: number;
 }): ScreenshotEntry[] {
   const theme: Theme = {
     ...design.theme,
@@ -237,7 +243,11 @@ export function buildScreenshotEntries({
   };
   const scenes =
     order.length > 0
-      ? [...design.scenes].sort((a, b) => rankOf(order, a.id) - rankOf(order, b.id))
+      ? [...design.scenes].sort((a, b) => {
+          const ra = rankOf(order, a.id);
+          const rb = rankOf(order, b.id);
+          return ra === rb ? design.scenes.indexOf(a) - design.scenes.indexOf(b) : ra - rb;
+        })
       : design.scenes;
   const resolved = resolveScenes(scenes, {
     template: Array.isArray(template)
@@ -330,6 +340,7 @@ export function buildScreenshotEntries({
             decorations={decorations}
             locale={locale}
             onEdit={editable && onCopy ? (field, text) => onCopy(scene.id, field, text) : undefined}
+            assetVersion={assetVersion}
           />
         ),
       });
@@ -343,6 +354,7 @@ export async function downloadSingleScreenshot({
   sceneId,
   slice,
   device,
+  size,
   locale,
   background,
   frameUrl,
@@ -356,6 +368,7 @@ export async function downloadSingleScreenshot({
   sceneId: string;
   slice?: number;
   device: string;
+  size?: string;
   locale: string;
   background?: string;
   frameUrl?: string;
@@ -372,6 +385,7 @@ export async function downloadSingleScreenshot({
     locale,
     force: "1",
   });
+  if (size) params.set("size", size);
   if (slice !== undefined) params.set("slice", String(slice));
   if (background) params.set("background", background);
   const cleanFrame =
@@ -407,7 +421,8 @@ export async function downloadSingleScreenshot({
   const a = document.createElement("a");
   a.href = url;
   const sliceSuffix = slice && slice > 1 ? `-${slice}` : "";
-  const fileName = `${sceneId}${sliceSuffix}-${device}.png`;
+  const sizeSuffix = size === "1206x2622" ? "-1206x2622" : "";
+  const fileName = `${sceneId}${sliceSuffix}-${device}${sizeSuffix}.png`;
   a.download = fileName;
   document.body.appendChild(a);
   a.click();
@@ -449,7 +464,10 @@ export function Strip({
   screenOnly,
   sceneLayouts,
   onSceneLayout,
+  iphoneSize = "1206x2622",
   appInfo,
+  onRefresh,
+  onToast,
 }: {
   manifest?: StoreManifest;
   design: Design;
@@ -501,11 +519,18 @@ export function Strip({
   screenOnly: boolean;
   sceneLayouts: Record<string, string>;
   onSceneLayout: (sceneId: string, key: string | undefined) => void;
+  iphoneSize?: "1206x2622" | "1320x2868";
   appInfo?: AppInfo;
+  onRefresh?: () => Promise<void> | void;
+  onToast?: (message: string) => void;
 }) {
   const scenes =
     order.length > 0
-      ? [...design.scenes].sort((a, b) => rankOf(order, a.id) - rankOf(order, b.id))
+      ? [...design.scenes].sort((a, b) => {
+          const ra = rankOf(order, a.id);
+          const rb = rankOf(order, b.id);
+          return ra === rb ? design.scenes.indexOf(a) - design.scenes.indexOf(b) : ra - rb;
+        })
       : design.scenes;
   // The same resolution the CLI runs, on the scenes in their displayed order.
   const resolved = resolveScenes(scenes, {
@@ -592,6 +617,8 @@ export function Strip({
       scene: () => <PreviewScene segments={segments} />,
     });
   }
+  const [assetVersion, setAssetVersion] = useState(() => Date.now());
+
   const screenshotItems = buildScreenshotEntries({
     design,
     captures,
@@ -617,6 +644,7 @@ export function Strip({
     patternColor,
     deviceBacklight,
     panoramaMode,
+    assetVersion,
   });
 
   for (const item of screenshotItems) {
@@ -675,7 +703,12 @@ export function Strip({
         body: JSON.stringify({ sceneId }),
       });
       if (res.ok) {
-        window.location.reload();
+        if (onToast) onToast(`Removed screenshot "${sceneId}"`);
+        if (onRefresh) {
+          await onRefresh();
+        } else {
+          window.location.reload();
+        }
       } else {
         const data = await res.json().catch(() => ({}));
         alert(data.error || "Failed to delete screenshot");
@@ -693,7 +726,12 @@ export function Strip({
         headers: { "Content-Type": "application/json" },
       });
       if (res.ok) {
-        window.location.reload();
+        if (onToast) onToast("Removed all screenshots");
+        if (onRefresh) {
+          await onRefresh();
+        } else {
+          window.location.reload();
+        }
       } else {
         const data = await res.json().catch(() => ({}));
         alert(data.error || "Failed to remove screenshots");
@@ -706,6 +744,135 @@ export function Strip({
   const [replacingSceneId, setReplacingSceneId] = useState<string | null>(null);
   const [downloadingKey, setDownloadingKey] = useState<string | null>(null);
   const [activeAiSceneId, setActiveAiSceneId] = useState<string | null>(null);
+
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [isBulkDownloading, setIsBulkDownloading] = useState(false);
+  const [bulkMode, setBulkMode] = useState<"png" | "zip" | null>(null);
+  const [bulkDownloadProgress, setBulkDownloadProgress] = useState(0);
+
+  const toggleSelect = (key: string) => {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
+  const selectableEntries = entries.filter((e) => e.key !== "preview");
+  const isAllSelected =
+    selectableEntries.length > 0 && selectableEntries.every((e) => selectedKeys.has(e.key));
+
+  const toggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedKeys(new Set());
+    } else {
+      setSelectedKeys(new Set(selectableEntries.map((e) => e.key)));
+    }
+  };
+
+  const handleDownloadSelectedPngs = async () => {
+    if (selectedKeys.size === 0 || isBulkDownloading) return;
+    setIsBulkDownloading(true);
+    setBulkMode("png");
+    setBulkDownloadProgress(0);
+
+    const targetEntries = entries.filter((e) => selectedKeys.has(e.key));
+    let count = 0;
+    try {
+      for (const entry of targetEntries) {
+        count++;
+        setBulkDownloadProgress(count);
+        const parts = entry.key.split("#");
+        const resolvedSceneId = entry.targetSceneId ?? entry.sceneId ?? parts[0];
+        const slice = parts[1] ? parseInt(parts[1], 10) : undefined;
+        await downloadSingleScreenshot({
+          sceneId: resolvedSceneId,
+          slice,
+          device: tileSpec.key,
+          size: tileSpec.key === "iphone-6.9" ? iphoneSize : undefined,
+          locale,
+          background: (entry.targetSceneId && sceneBackgrounds[entry.targetSceneId]) || background,
+          frameUrl,
+          fontFamily,
+          template,
+          layout,
+          screenOnly,
+          fontSizeScale,
+          design,
+        });
+        if (count < targetEntries.length) {
+          await new Promise((r) => setTimeout(r, 450));
+        }
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to download selected screenshots");
+    } finally {
+      setIsBulkDownloading(false);
+      setBulkMode(null);
+      setBulkDownloadProgress(0);
+    }
+  };
+
+  const handleDownloadSelectedZip = async () => {
+    if (selectedKeys.size === 0 || isBulkDownloading) return;
+    setIsBulkDownloading(true);
+    setBulkMode("zip");
+    try {
+      const targetEntries = entries.filter((e) => selectedKeys.has(e.key));
+      const items = targetEntries.map((e) => {
+        const parts = e.key.split("#");
+        const resolvedSceneId = e.targetSceneId ?? e.sceneId ?? parts[0];
+        const slice = parts[1] ? parseInt(parts[1], 10) : undefined;
+        return { sceneId: resolvedSceneId, slice };
+      });
+
+      const res = await apiFetch("/api/export-selected-zip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          device: tileSpec.key,
+          size: tileSpec.key === "iphone-6.9" ? iphoneSize : undefined,
+          locale,
+          items,
+          background,
+          frame: frameUrl ? frameUrl.replace(/^\/?frames\//, "").replace(/\.png$/, "") : undefined,
+          font: design && fontFamily ? fontKey(design, fontFamily) : undefined,
+          template: template === CUSTOM_TEMPLATE ? undefined : template || "none",
+          layout,
+          screenOnly,
+          fontSizeScale,
+        }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `ZIP export failed (HTTP ${res.status})`);
+      }
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const fileName = `selected-screenshots-${tileSpec.key}.zip`;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
+
+      trackExport("completed", { export_type: "selected_zip", count: selectedKeys.size });
+      trackAssetDownloaded({ asset_type: "zip", file_name: fileName });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to download selected screenshots ZIP");
+    } finally {
+      setIsBulkDownloading(false);
+      setBulkMode(null);
+    }
+  };
 
   const readFileData = (
     file: File,
@@ -745,6 +912,69 @@ export function Strip({
     });
   };
 
+  const [isImporting, setIsImporting] = useState(false);
+  const [importDragOver, setImportDragOver] = useState(false);
+  const importInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImportFiles = async (files: FileList | File[]) => {
+    const fileList = Array.from(files).filter((f) => /\.(png|jpe?g|webp)$/i.test(f.name));
+    if (fileList.length === 0 || isImporting) return;
+    setIsImporting(true);
+    try {
+      const filePayloads = await Promise.all(
+        fileList.map(async (file) => {
+          const { dataUrl, width, height } = await readFileData(file);
+          return { name: file.name, dataUrl, width, height };
+        }),
+      );
+
+      const response = await apiFetch("/api/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          files: filePayloads,
+          preferredDevice: tileSpec.key,
+          targetMode: "all",
+          autoRoute: false,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || `Upload failed with status ${response.status}`);
+      }
+
+      const resData = (await response.json().catch(() => ({}))) as { imported?: number };
+      trackAppImported({
+        source: "file_upload",
+        import_type: "canvas_card",
+        device: tileSpec.key,
+      });
+      const count = resData.imported || filePayloads.length;
+      if (onToast) {
+        onToast(`✨ Successfully imported ${count} screenshot(s)!`);
+      }
+      if (onRefresh) {
+        await onRefresh();
+      } else {
+        sessionStorage.setItem(
+          "appassets_toast",
+          `✨ Successfully imported ${count} screenshot(s)!`,
+        );
+        window.location.reload();
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to import images");
+    } finally {
+      setIsImporting(false);
+      if (importInputRef.current) {
+        importInputRef.current.value = "";
+      }
+    }
+  };
+
+  const [isSyncing, setIsSyncing] = useState(false);
+
   const handleReplaceCapture = async (sceneId: string, file: File) => {
     setReplacingSceneId(sceneId);
     try {
@@ -755,7 +985,8 @@ export function Strip({
         body: JSON.stringify({
           sceneId,
           device: tileSpec.key,
-          autoRoute: true,
+          targetMode: "all",
+          autoRoute: false,
           file: {
             name: file.name,
             dataUrl,
@@ -774,14 +1005,63 @@ export function Strip({
         device: tileSpec.key,
         scene_id: sceneId,
       });
-      sessionStorage.setItem(
-        "appassets_toast",
-        `✨ Updated capture for scene "${sceneId}" on ${tileSpec.key}`,
-      );
-      window.location.reload();
+      setAssetVersion(Date.now());
+      if (onToast) {
+        onToast(`✨ Updated screenshot for "${sceneId}" across iPhone, iPad, and Android!`);
+      }
+      if (onRefresh) {
+        await onRefresh();
+      } else {
+        sessionStorage.setItem(
+          "appassets_toast",
+          `✨ Updated screenshot for "${sceneId}" across iPhone, iPad, and Android!`,
+        );
+        window.location.reload();
+      }
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to replace capture");
+    } finally {
       setReplacingSceneId(null);
+    }
+  };
+
+  const handleSyncCaptures = async () => {
+    setIsSyncing(true);
+    try {
+      const sourceDevice = "iphone-6.9";
+      const targetDevices =
+        tileSpec.platform === "android"
+          ? ["pixel-10-pro"]
+          : tileSpec.platform === "ipad"
+            ? ["ipad-13"]
+            : ["pixel-10-pro", "ipad-13"];
+
+      const res = await apiFetch("/api/sync-captures", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sourceDevice, targetDevices }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Failed to sync captures (${res.status})`);
+      }
+      setAssetVersion(Date.now());
+      const label =
+        tileSpec.platform === "android"
+          ? "Android"
+          : tileSpec.platform === "ipad"
+            ? "iPad"
+            : "Android & iPad";
+      if (onToast) {
+        onToast(`✨ Synced screenshots from iPhone to ${label}!`);
+      }
+      if (onRefresh) {
+        await onRefresh();
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to sync captures");
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -799,6 +1079,7 @@ export function Strip({
         sceneId: resolvedSceneId,
         slice,
         device: tileSpec.key,
+        size: tileSpec.key === "iphone-6.9" ? iphoneSize : undefined,
         locale,
         background: (targetSceneId && sceneBackgrounds[targetSceneId]) || background,
         frameUrl,
@@ -819,6 +1100,7 @@ export function Strip({
   const tileAt = (i: number) => {
     const entry = entries[i];
     const isDownloading = downloadingKey === entry.key;
+    const isSelected = selectedKeys.has(entry.key);
     const targetId = entry.targetSceneId ?? entry.sceneId;
     const customBg = targetId ? sceneBackgrounds[targetId] : undefined;
 
@@ -834,12 +1116,30 @@ export function Strip({
 
     return (
       <div key={entry.key} className="flex flex-col gap-1.5 w-full">
-        {/* Card Header Toolbar: Slide # + BG + Badge */}
+        {/* Card Header Toolbar: Slide # + Checkbox + BG + Badge */}
         {entry.key !== "preview" && targetId ? (
           <div className="flex items-center justify-between px-0.5 text-xs select-none">
-            <span className="text-[10px] font-bold font-mono tracking-wider text-muted-foreground/70 px-1.5 py-0.5 rounded-md bg-muted/60 border border-border/50">
-              #{i + 1}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleSelect(entry.key);
+                }}
+                className={`size-4 rounded flex items-center justify-center border transition-all cursor-pointer ${
+                  isSelected
+                    ? "bg-[#FF6B00] border-[#FF6B00] text-white shadow-xs"
+                    : "border-border/80 bg-background/80 hover:border-[#FF6B00] text-transparent"
+                }`}
+                aria-label={`Select slide ${i + 1}`}
+                title={isSelected ? "Deselect slide" : "Select slide for export"}
+              >
+                <Check className="size-2.5 stroke-[3]" />
+              </button>
+              <span className="text-[10px] font-bold font-mono tracking-wider text-muted-foreground/70 px-1.5 py-0.5 rounded-md bg-muted/60 border border-border/50">
+                #{i + 1}
+              </span>
+            </div>
             <div className="flex items-center gap-1">
               <SceneBackgroundPopover
                 value={customBg}
@@ -909,6 +1209,8 @@ export function Strip({
           isDownloading={isDownloading}
           onAiCopy={targetId ? () => setActiveAiSceneId(targetId) : undefined}
           sceneId={entry.sceneId}
+          isSelected={isSelected}
+          onToggleSelect={entry.key !== "preview" ? () => toggleSelect(entry.key) : undefined}
           // Named only while the lightbox is closed: once open, the scene inside
           // it carries the name, and a duplicate would abort the transition.
           transitionName={named === i && open === null ? "lightbox-scene" : undefined}
@@ -939,6 +1241,10 @@ export function Strip({
     if (used + cell.tiles.length > PAGE_SIZE && current.length > 0) pageCells.push([cell]);
     else current.push(cell);
   }
+  const lastPageUsed = pageCells[pageCells.length - 1].reduce((n, c) => n + c.tiles.length, 0);
+  if (lastPageUsed === PAGE_SIZE && entries.length < MAX_SCREENSHOTS) {
+    pageCells.push([]);
+  }
   const pages = pageCells.length;
   const [page, setPage] = useState(0);
   // Which way the last page turn went, so the incoming page slides in from
@@ -961,10 +1267,15 @@ export function Strip({
 
   if (entries.length === 0) return null;
 
-  const visible = pageCells[Math.min(page, pages - 1)];
+  const visible = pageCells[Math.min(page, pages - 1)] || [];
   const visibleIds = visible.flatMap((c) => (c.sceneId ? [c.sceneId] : []));
   // Always use PAGE_SIZE (5) columns so tiles keep the exact same size even when screenshots are removed.
   const columns = PAGE_SIZE;
+  const tilesUsedOnPage = visible.reduce((n, c) => n + c.tiles.length, 0);
+  const isLastPage = page === pages - 1;
+  const showImportCard =
+    isLastPage && tilesUsedOnPage < columns && entries.length < MAX_SCREENSHOTS;
+
   // The page's scenes in their new order, spliced back into the full order.
   const reorderPage = (ids: string[]) => {
     const queue = [...ids];
@@ -973,6 +1284,162 @@ export function Strip({
 
   return (
     <div className="flex w-full flex-col gap-3">
+      {/* Quick Select & Multi-Download Header Bar */}
+      {selectableEntries.length > 0 && (
+        <div className="flex items-center justify-between px-1 text-xs select-none">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={toggleSelectAll}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all cursor-pointer ${
+                selectedKeys.size > 0
+                  ? "border-[#FF6B00]/40 bg-[#FF6B00]/10 text-[#FF6B00]"
+                  : "border-border/80 bg-background/80 hover:bg-muted text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <div
+                className={`size-3.5 rounded flex items-center justify-center border transition-all ${
+                  isAllSelected
+                    ? "bg-[#FF6B00] border-[#FF6B00] text-white"
+                    : selectedKeys.size > 0
+                      ? "bg-[#FF6B00]/20 border-[#FF6B00] text-[#FF6B00]"
+                      : "border-muted-foreground/50 bg-transparent text-transparent"
+                }`}
+              >
+                <Check className="size-2.5 stroke-[3]" />
+              </div>
+              <span>
+                {isAllSelected
+                  ? "All Selected"
+                  : selectedKeys.size > 0
+                    ? `${selectedKeys.size} Selected`
+                    : "Select All"}
+              </span>
+            </button>
+
+            {selectedKeys.size > 0 && (
+              <button
+                type="button"
+                onClick={() => setSelectedKeys(new Set())}
+                className="text-xs text-muted-foreground hover:text-foreground cursor-pointer underline px-1"
+              >
+                Clear
+              </button>
+            )}
+
+            {/* Quick Import Button */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => importInputRef.current?.click()}
+              disabled={isImporting}
+              className="h-7 text-xs px-2.5 gap-1.5 border-dashed border-[#FF6B00]/40 hover:border-[#FF6B00] bg-[#FF6B00]/5 hover:bg-[#FF6B00]/10 text-[#FF6B00] dark:text-[#FF8A00] font-medium cursor-pointer shadow-2xs transition-all"
+              title="Import additional screenshots"
+            >
+              {isImporting ? (
+                <>
+                  <Loader2 className="size-3 animate-spin" />
+                  <span>Importing...</span>
+                </>
+              ) : (
+                <>
+                  <Plus className="size-3 stroke-[2.5]" />
+                  <span>Import</span>
+                </>
+              )}
+            </Button>
+
+            {/* Quick Sync Across Platforms Button */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleSyncCaptures}
+              disabled={isSyncing}
+              className="h-7 text-xs px-2.5 gap-1.5 border-border/80 hover:border-[#FF6B00]/60 bg-background/80 hover:bg-muted text-muted-foreground hover:text-foreground font-medium cursor-pointer shadow-2xs transition-all"
+              title={
+                tileSpec.platform === "android"
+                  ? "Sync latest screenshots from iPhone to Android"
+                  : tileSpec.platform === "ipad"
+                    ? "Sync latest screenshots from iPhone to iPad"
+                    : "Sync iPhone screenshots to Android and iPad"
+              }
+            >
+              {isSyncing ? (
+                <>
+                  <Loader2 className="size-3 animate-spin text-[#FF6B00]" />
+                  <span>Syncing...</span>
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="size-3" />
+                  <span>
+                    {tileSpec.platform === "android"
+                      ? "Sync from iPhone"
+                      : tileSpec.platform === "ipad"
+                        ? "Sync from iPhone"
+                        : "Sync to Android/iPad"}
+                  </span>
+                </>
+              )}
+            </Button>
+
+            {tileSpec.key === "iphone-6.9" && (
+              <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                <span className="size-1.5 rounded-full bg-emerald-500" />
+                <span>6.3" · 1206 × 2622 px (App Store Required)</span>
+              </span>
+            )}
+          </div>
+
+          {selectedKeys.size > 0 && (
+            <div className="flex items-center gap-2 animate-in fade-in duration-150">
+              <Button
+                size="sm"
+                onClick={handleDownloadSelectedPngs}
+                disabled={isBulkDownloading}
+                className="h-7 text-xs px-2.5 gap-1.5 bg-[#FF6B00] hover:bg-[#FF8A00] text-white font-medium cursor-pointer shadow-2xs"
+              >
+                {isBulkDownloading && bulkMode === "png" ? (
+                  <>
+                    <Loader2 className="size-3 animate-spin" />
+                    <span>
+                      ({bulkDownloadProgress}/{selectedKeys.size})
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="size-3" />
+                    <span>Download PNGs ({selectedKeys.size})</span>
+                  </>
+                )}
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadSelectedZip}
+                disabled={isBulkDownloading}
+                className="h-7 text-xs px-2.5 gap-1.5 border-border hover:bg-muted cursor-pointer"
+              >
+                {isBulkDownloading && bulkMode === "zip" ? (
+                  <>
+                    <Loader2 className="size-3 animate-spin" />
+                    <span>Zipping...</span>
+                  </>
+                ) : (
+                  <>
+                    <FolderArchive className="size-3 text-[#FF6B00]" />
+                    <span>Download ZIP</span>
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="relative">
         {/* Clips only horizontally, so a sliding page vanishes at the strip's
             edge while tile shadows and the hover lift stay visible; the small
@@ -1022,6 +1489,100 @@ export function Strip({
                 ) : (
                   <li key={entries[cell.tiles[0]].key}>{tileAt(cell.tiles[0])}</li>
                 ),
+              )}
+
+              {/* Import / Add Screenshot Card on right side of screenshots */}
+              {showImportCard && (
+                <li key="import-card" className="flex flex-col gap-1.5 w-full list-none">
+                  {/* Card Header Spacer to align with screenshot card toolbars */}
+                  <div className="flex items-center justify-between px-0.5 text-xs select-none h-7">
+                    <span className="text-[10px] font-bold font-mono tracking-wider text-muted-foreground/60 px-1.5 py-0.5 rounded-md bg-muted/40 border border-border/40">
+                      #{entries.length + 1}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground/60 font-medium">
+                      Add Screen
+                    </span>
+                  </div>
+
+                  {/* Dropzone / Clickable Import Card */}
+                  <button
+                    type="button"
+                    aria-label="Import or add screenshots"
+                    onClick={() => importInputRef.current?.click()}
+                    onDragEnter={(e) => {
+                      e.preventDefault();
+                      setImportDragOver(true);
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setImportDragOver(true);
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setImportDragOver(false);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setImportDragOver(false);
+                      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                        void handleImportFiles(e.dataTransfer.files);
+                      }
+                    }}
+                    style={{
+                      aspectRatio: `${tileSpec.screenshot.width} / ${tileSpec.screenshot.height}`,
+                    }}
+                    className={`relative flex flex-col items-center justify-center gap-3.5 p-4 sm:p-6 rounded-2xl border-2 border-dashed transition-all duration-200 cursor-pointer text-center select-none group shadow-2xs w-full ${
+                      importDragOver
+                        ? "border-[#FF6B00] bg-[#FF6B00]/15 ring-4 ring-[#FF6B00]/25 scale-[1.02]"
+                        : "border-border/80 hover:border-[#FF6B00] bg-card/40 hover:bg-[#FF6B00]/5 hover:shadow-md hover:shadow-[#FF6B00]/10 hover:-translate-y-0.5"
+                    }`}
+                  >
+                    <input
+                      ref={importInputRef}
+                      type="file"
+                      multiple
+                      accept="image/png,image/jpeg,image/webp"
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files.length > 0) {
+                          void handleImportFiles(e.target.files);
+                        }
+                      }}
+                    />
+
+                    {isImporting ? (
+                      <div className="flex flex-col items-center gap-2.5">
+                        <Loader2 className="size-10 sm:size-12 animate-spin text-[#FF6B00]" />
+                        <span className="text-xs font-semibold text-foreground">
+                          Importing images...
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">
+                          Please wait a moment
+                        </span>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="size-16 sm:size-20 rounded-full border-2 border-dashed border-border group-hover:border-[#FF6B00] bg-background/80 group-hover:bg-[#FF6B00]/15 flex items-center justify-center transition-all duration-200 group-hover:scale-110 shadow-xs">
+                          <Plus className="size-8 sm:size-10 text-muted-foreground group-hover:text-[#FF6B00] transition-colors stroke-[2.2]" />
+                        </div>
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="font-bold text-sm sm:text-base text-foreground group-hover:text-[#FF6B00] transition-colors tracking-tight">
+                            Import
+                          </span>
+                          <span className="text-[11px] text-muted-foreground font-medium max-w-[150px] leading-snug">
+                            Drag & drop or click to add screenshot
+                          </span>
+                        </div>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-semibold bg-muted/80 text-muted-foreground/80 border border-border/50 group-hover:border-[#FF6B00]/40 group-hover:text-[#FF6B00] transition-colors">
+                          PNG &bull; JPG &bull; WebP
+                        </span>
+                      </>
+                    )}
+                  </button>
+                </li>
               )}
             </Reorder.Group>
           </AnimatePresence>
@@ -1165,6 +1726,80 @@ export function Strip({
           }}
         />
       ) : null}
+
+      {/* Floating Selection Bar */}
+      {selectedKeys.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 sm:gap-3 px-3.5 py-2.5 rounded-2xl bg-card/95 border border-border shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-bottom-4 duration-200 text-foreground">
+          <div className="flex items-center gap-2 pr-2 border-r border-border">
+            <span className="size-2 rounded-full bg-[#FF6B00] animate-pulse" />
+            <span className="text-xs font-semibold whitespace-nowrap">
+              {selectedKeys.size} {selectedKeys.size === 1 ? "Slide" : "Slides"} Selected
+            </span>
+          </div>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={toggleSelectAll}
+            className="h-8 text-xs px-2.5 text-muted-foreground hover:text-foreground cursor-pointer"
+          >
+            {isAllSelected ? "Deselect All" : "Select All"}
+          </Button>
+
+          <Button
+            size="sm"
+            onClick={handleDownloadSelectedPngs}
+            disabled={isBulkDownloading}
+            className="h-8 text-xs px-3 gap-1.5 bg-[#FF6B00] hover:bg-[#FF8A00] text-white font-medium cursor-pointer shadow-xs"
+            title="Download selected screenshots as PNG files"
+          >
+            {isBulkDownloading && bulkMode === "png" ? (
+              <>
+                <Loader2 className="size-3.5 animate-spin" />
+                <span>
+                  Downloading ({bulkDownloadProgress}/{selectedKeys.size})...
+                </span>
+              </>
+            ) : (
+              <>
+                <Download className="size-3.5" />
+                <span>Download PNGs ({selectedKeys.size})</span>
+              </>
+            )}
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDownloadSelectedZip}
+            disabled={isBulkDownloading}
+            className="h-8 text-xs px-3 gap-1.5 border-border hover:bg-muted text-foreground cursor-pointer"
+            title="Download selected screenshots in a ZIP archive"
+          >
+            {isBulkDownloading && bulkMode === "zip" ? (
+              <>
+                <Loader2 className="size-3.5 animate-spin" />
+                <span>Creating ZIP...</span>
+              </>
+            ) : (
+              <>
+                <FolderArchive className="size-3.5 text-[#FF6B00]" />
+                <span>Download ZIP</span>
+              </>
+            )}
+          </Button>
+
+          <button
+            type="button"
+            onClick={() => setSelectedKeys(new Set())}
+            className="size-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer transition-colors ml-1"
+            title="Clear selection"
+            aria-label="Clear selection"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -1459,6 +2094,7 @@ export function ScreenshotScene({
   decorations,
   locale,
   onEdit,
+  assetVersion,
 }: {
   spec: (typeof LAYOUTS)[keyof typeof LAYOUTS];
   slice: number;
@@ -1483,6 +2119,7 @@ export function ScreenshotScene({
   decorations: Decoration[];
   locale: string;
   onEdit?: (field: "headline" | "subhead", text: string) => void;
+  assetVersion?: number;
 }) {
   const c = compose(spec, tile, theme, { screenOnly, geom });
   const { w, h } = cq(tile);
@@ -1542,18 +2179,24 @@ export function ScreenshotScene({
                   : theme.backgroundPattern === "isometric-dot"
                     ? `radial-gradient(circle, ${theme.patternColor || "rgba(255,255,255,0.8)"} 1.5px, transparent 1.5px), radial-gradient(circle, ${theme.patternColor || "rgba(255,255,255,0.8)"} 1.5px, transparent 1.5px)`
                     : `radial-gradient(circle, ${theme.patternColor || "rgba(255,255,255,0.8)"} 1.5px, transparent 1.5px)`,
-              backgroundSize:
-                theme.backgroundPattern === "blueprint"
-                  ? "32px 32px"
-                  : theme.backgroundPattern === "isometric-dot"
-                    ? "28px 28px"
-                    : "24px 24px",
+              backgroundSize: "3.5cqw 3.5cqw",
               backgroundPosition:
-                theme.backgroundPattern === "isometric-dot" ? "0 0, 14px 14px" : "0 0",
+                theme.backgroundPattern === "isometric-dot" ? "0 0, 1.75cqw 1.75cqw" : "0 0",
             }}
           />
         ) : null}
+      </div>
 
+      {/* The scene composition: copy, devices, and decor shifted per slice within layout span */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: `${-slice * 100}%`,
+          width: `${spec.span * 100}%`,
+          height: "100%",
+        }}
+      >
         {copy ? (
           <div
             dir={isRtl ? "rtl" : "ltr"}
@@ -1627,6 +2270,7 @@ export function ScreenshotScene({
               captureUrl={url}
               missing={url ? undefined : (secondSceneId ?? "secondScene")}
               backlight={theme.deviceBacklight}
+              assetVersion={assetVersion}
             />
           );
         })}
@@ -1656,6 +2300,7 @@ function DeviceView({
   captureUrl,
   missing,
   backlight,
+  assetVersion,
 }: {
   device: Composition["devices"][number];
   tile: { width: number; height: number };
@@ -1664,18 +2309,16 @@ function DeviceView({
   /** Scene id to name in the placeholder when the capture is missing. */
   missing: string | undefined;
   backlight?: boolean | BacklightConfig;
+  assetVersion?: number;
 }) {
   const { w, h } = cq(tile);
   const { frame, screen } = device;
   // The screen as fractions of the device box, so it rotates with it.
   const pct = (v: number, of: number) => `${(v / of) * 100}%`;
 
-  const haloColor =
-    (typeof backlight === "object" && backlight.color) || "rgba(56, 189, 248, 0.4)";
+  const haloColor = (typeof backlight === "object" && backlight.color) || "rgba(56, 189, 248, 0.4)";
   const haloIntensity =
-    typeof backlight === "object" && backlight.intensity !== undefined
-      ? backlight.intensity
-      : 0.45;
+    typeof backlight === "object" && backlight.intensity !== undefined ? backlight.intensity : 0.45;
   const blurRatio =
     typeof backlight === "object" && backlight.blurRatio !== undefined
       ? backlight.blurRatio
@@ -1728,7 +2371,7 @@ function DeviceView({
       >
         {captureUrl ? (
           <img
-            src={`/${captureUrl}`}
+            src={`/${captureUrl}${assetVersion ? `?v=${assetVersion}` : ""}`}
             alt=""
             draggable={false}
             style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
@@ -1897,6 +2540,8 @@ function Tile({
   sceneId,
   transitionName,
   draggable,
+  isSelected,
+  onToggleSelect,
   children,
 }: {
   width: number;
@@ -1913,6 +2558,8 @@ function Tile({
   sceneId?: string;
   transitionName?: string;
   draggable: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
   children: ReactNode;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -2000,13 +2647,35 @@ function Tile({
         }
         title={draggable ? "Drag to reorder" : undefined}
         onClick={onOpen}
-        className={`tile-shadow relative block w-full overflow-hidden rounded-2xl bg-neutral-200 ring-1 ring-black/10 transition-[transform,box-shadow,--tw-ring-color] duration-150 select-none hover:-translate-y-0.5 hover:ring-black/25 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none dark:bg-neutral-800 dark:ring-white/10 dark:hover:ring-white/30 ${
-          draggable ? "cursor-grab active:cursor-grabbing" : "cursor-zoom-in"
-        }`}
+        className={`tile-shadow relative block w-full overflow-hidden rounded-2xl bg-neutral-200 ring-1 transition-[transform,box-shadow,--tw-ring-color] duration-150 select-none hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none dark:bg-neutral-800 ${
+          isSelected
+            ? "ring-2 ring-[#FF6B00] ring-offset-2 ring-offset-background shadow-md shadow-[#FF6B00]/15"
+            : "ring-black/10 hover:ring-black/25 dark:ring-white/10 dark:hover:ring-white/30"
+        } ${draggable ? "cursor-grab active:cursor-grabbing" : "cursor-zoom-in"}`}
         style={{ aspectRatio: `${width} / ${height}`, viewTransitionName: transitionName }}
       >
         {children}
       </button>
+
+      {/* Checkbox toggle on top-left inside tile */}
+      {onToggleSelect && !isReplacing ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleSelect();
+          }}
+          className={`absolute top-2 left-2 z-30 flex size-6 cursor-pointer items-center justify-center rounded-lg border shadow-md backdrop-blur-md transition-all ${
+            isSelected
+              ? "bg-[#FF6B00] border-[#FF6B00] text-white opacity-100 scale-100 ring-2 ring-black/20"
+              : "bg-background/85 border-border/90 text-transparent opacity-0 group-hover:opacity-100 hover:border-[#FF6B00] hover:text-muted-foreground"
+          }`}
+          aria-label={isSelected ? "Deselect screenshot" : "Select screenshot"}
+          title={isSelected ? "Deselect screenshot" : "Select screenshot"}
+        >
+          <Check className="size-3.5 stroke-[3]" />
+        </button>
+      ) : null}
 
       {/* Hover menu: Replace image on top-left, Delete on top-right */}
       {onReplace && !isReplacing ? (

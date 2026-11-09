@@ -50,8 +50,9 @@ describe("zip", () => {
   test("createStoreGuideContent provides App Store and Google Play specifications", async () => {
     const { createStoreGuideContent } = await import("./zip.ts");
     const guide = createStoreGuideContent();
-    expect(guide).toContain("AppStore/iPhone-6.9/");
-    expect(guide).toContain("1320 x 2868");
+    expect(guide).toContain("AppStore/iPhone-6.3/");
+    expect(guide).toContain("1206 x 2622");
+    expect(guide).not.toContain("AppStore/iPhone-6.9/");
     expect(guide).toContain("AppStore/iPad-13/");
     expect(guide).toContain("2064 x 2752");
     expect(guide).toContain("GooglePlay/Phone/");
@@ -81,6 +82,31 @@ describe("zip", () => {
     if (listing.code === 0) {
       expect(listing.stdout).toContain("STORE_GUIDE.txt");
       expect(listing.stdout).toContain("screenshots/test.png");
+    }
+  });
+
+  test("zipDirs filters entries with custom filter function", async () => {
+    const root = await mkdtemp(join(tmpdir(), "goldie-zip-filter-"));
+    await mkdir(join(root, "screenshots", "iphone-6.9"), { recursive: true });
+    await mkdir(join(root, "screenshots", "pixel-10-pro"), { recursive: true });
+    await writeFile(join(root, "screenshots", "iphone-6.9", "1.png"), "iphone");
+    await writeFile(join(root, "screenshots", "pixel-10-pro", "1.png"), "android");
+    const out = join(root, "export.zip");
+
+    const count = await zipDirs(
+      root,
+      ["screenshots"],
+      out,
+      (p) => p.replace(/^screenshots\/iphone-6\.9\//, "AppStore/"),
+      undefined,
+      (relName) => !relName.includes("pixel-10-pro"),
+    );
+    expect(count).toBe(1);
+
+    const listing = await exec("unzip", ["-l", out], { quiet: true });
+    if (listing.code === 0) {
+      expect(listing.stdout).toContain("AppStore/1.png");
+      expect(listing.stdout).not.toContain("pixel-10-pro");
     }
   });
 });

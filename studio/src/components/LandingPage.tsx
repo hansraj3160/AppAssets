@@ -23,8 +23,8 @@ import panoramicImg from "@/assets/panoromic_multi_span.png";
 import showcaseImg from "@/assets/show_case_img.png";
 import singleFocusHeroImg from "@/assets/single_focus_hero.png";
 import trioStoryImg from "@/assets/trio_story.png";
-import { Button } from "./ui/button";
 import { isModifiedEvent } from "@/lib/utils";
+import { Button } from "./ui/button";
 
 interface LandingPageProps {
   onStartDesigning: () => void;
@@ -32,6 +32,9 @@ interface LandingPageProps {
   onToggleDark: () => void;
   onOpenPrivacy?: () => void;
   onOpenTerms?: () => void;
+  onOpenAbout?: () => void;
+  onOpenContact?: () => void;
+  onOpenGuidelines?: () => void;
 }
 
 export function LandingPage({
@@ -40,6 +43,9 @@ export function LandingPage({
   onToggleDark,
   onOpenPrivacy,
   onOpenTerms,
+  onOpenAbout,
+  onOpenContact,
+  onOpenGuidelines,
 }: LandingPageProps) {
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
   const [selectedTemplateTab, setSelectedTemplateTab] = useState<string>("single");
@@ -184,7 +190,7 @@ export function LandingPage({
           </button>
 
           {/* Navigation Links (Desktop) */}
-          <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-zinc-600 dark:text-zinc-400">
+          <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-zinc-600 dark:text-zinc-400">
             <a
               href="#showcase"
               className="hover:text-zinc-900 dark:hover:text-white transition-colors"
@@ -203,12 +209,48 @@ export function LandingPage({
             >
               Templates
             </a>
-            <a
-              href="#audit"
-              className="hover:text-zinc-900 dark:hover:text-white transition-colors"
-            >
-              Store Audit
-            </a>
+            {onOpenGuidelines && (
+              <a
+                href="/guidelines"
+                onClick={(e) => {
+                  if (!isModifiedEvent(e)) {
+                    e.preventDefault();
+                    onOpenGuidelines();
+                  }
+                }}
+                className="hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer"
+              >
+                Guidelines
+              </a>
+            )}
+            {onOpenAbout && (
+              <a
+                href="/about"
+                onClick={(e) => {
+                  if (!isModifiedEvent(e)) {
+                    e.preventDefault();
+                    onOpenAbout();
+                  }
+                }}
+                className="hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer"
+              >
+                About
+              </a>
+            )}
+            {onOpenContact && (
+              <a
+                href="/contact"
+                onClick={(e) => {
+                  if (!isModifiedEvent(e)) {
+                    e.preventDefault();
+                    onOpenContact();
+                  }
+                }}
+                className="hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer"
+              >
+                Contact
+              </a>
+            )}
             <a href="#faq" className="hover:text-zinc-900 dark:hover:text-white transition-colors">
               FAQ
             </a>
@@ -727,16 +769,22 @@ export function LandingPage({
                   <span className="text-zinc-700 dark:text-zinc-300 text-[11px] sm:text-xs">
                     Google Play 512×512 Opaque Icon
                   </span>
-                  <span className="text-emerald-600 dark:text-emerald-400 font-bold text-[11px] sm:text-xs shrink-0">Verified</span>
+                  <span className="text-emerald-600 dark:text-emerald-400 font-bold text-[11px] sm:text-xs shrink-0">
+                    Verified
+                  </span>
                 </div>
                 <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/60">
                   <span className="text-zinc-700 dark:text-zinc-300 text-[11px] sm:text-xs">
                     Apple 1024×1024 Master Icon
                   </span>
-                  <span className="text-emerald-600 dark:text-emerald-400 font-bold text-[11px] sm:text-xs shrink-0">Verified</span>
+                  <span className="text-emerald-600 dark:text-emerald-400 font-bold text-[11px] sm:text-xs shrink-0">
+                    Verified
+                  </span>
                 </div>
                 <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/60">
-                  <span className="text-zinc-700 dark:text-zinc-300 text-[11px] sm:text-xs">WCAG Text Contrast Ratio</span>
+                  <span className="text-zinc-700 dark:text-zinc-300 text-[11px] sm:text-xs">
+                    WCAG Text Contrast Ratio
+                  </span>
                   <span className="text-emerald-600 dark:text-emerald-400 font-bold text-[11px] sm:text-xs shrink-0">
                     Passed (4.5:1)
                   </span>
@@ -835,21 +883,48 @@ export function LandingPage({
 
           {/* Links Row / Grid */}
           <div className="flex flex-wrap items-center justify-center md:justify-end gap-x-5 gap-y-2.5 text-[11px] sm:text-xs">
-            <a
-              href="mailto:support@appassetstudio.com"
-              className="hover:text-zinc-900 dark:hover:text-white transition-colors flex items-center gap-1.5"
-            >
-              <Mail className="size-3.5 text-[#FF6B00]" />
-              <span>support@appassetstudio.com</span>
-            </a>
-            <a
-              href="https://appassetstudio.com"
-              target="_blank"
-              rel="noreferrer"
-              className="hover:text-zinc-900 dark:hover:text-white transition-colors"
-            >
-              appassetstudio.com
-            </a>
+            {onOpenAbout && (
+              <a
+                href="/about"
+                onClick={(e) => {
+                  if (!isModifiedEvent(e)) {
+                    e.preventDefault();
+                    onOpenAbout();
+                  }
+                }}
+                className="hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer"
+              >
+                About Us
+              </a>
+            )}
+            {onOpenContact && (
+              <a
+                href="/contact"
+                onClick={(e) => {
+                  if (!isModifiedEvent(e)) {
+                    e.preventDefault();
+                    onOpenContact();
+                  }
+                }}
+                className="hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer"
+              >
+                Contact Us
+              </a>
+            )}
+            {onOpenGuidelines && (
+              <a
+                href="/guidelines"
+                onClick={(e) => {
+                  if (!isModifiedEvent(e)) {
+                    e.preventDefault();
+                    onOpenGuidelines();
+                  }
+                }}
+                className="hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer"
+              >
+                Store Guidelines
+              </a>
+            )}
             {onOpenPrivacy ? (
               <a
                 href="/privacy"
@@ -878,7 +953,13 @@ export function LandingPage({
                 Terms & Conditions
               </a>
             ) : null}
-            <span>MIT License</span>
+            <a
+              href="mailto:hans.raj.skipq@gmail.com"
+              className="hover:text-zinc-900 dark:hover:text-white transition-colors flex items-center gap-1.5"
+            >
+              <Mail className="size-3.5 text-[#FF6B00]" />
+              <span>hans.raj.skipq@gmail.com</span>
+            </a>
             <a
               href="/studio"
               onClick={(e) => {

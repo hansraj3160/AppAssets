@@ -3,8 +3,11 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough, Writable } from "node:stream";
+import { createCanvas } from "@napi-rs/canvas";
 import {
   aiCopyHandler,
+  appendScenesToConfig,
+  assignUniqueSceneIds,
   bannerExportHandler,
   createStudioRequestHandler,
   exportHandler,
@@ -17,13 +20,15 @@ import {
   importHandler,
   localesHandler,
   MemoryRateLimiter,
-  PRESET_LOCALES,
   MIME,
+  PRESET_LOCALES,
   renderAppIconCanvas,
   replaceCaptureHandler,
   resolveDeviceFromDimensions,
+  selectedExportZipHandler,
   singleExportHandler,
   studioPaths,
+  syncCapturesHandler,
   updateLocalesInConfig,
 } from "./studio-server.ts";
 
@@ -160,6 +165,115 @@ describe("replaceCaptureHandler", () => {
   });
 });
 
+describe("syncCapturesHandler", () => {
+  test("rejects non-POST requests with 405", () => {
+    const handler = syncCapturesHandler({
+      paths: {
+        configPath: "goldie.config.ts",
+        configDir: ".",
+        outDir: "out",
+        webDir: "out/web",
+        designFile: "goldie.design.json",
+        exportZip: "out/export.zip",
+      },
+      cli: ["echo"],
+    });
+
+    let statusCode = 0;
+    let endedWith = "";
+    const req = { method: "GET" } as any;
+    const res = {
+      set statusCode(code: number) {
+        statusCode = code;
+      },
+      end(body: string) {
+        endedWith = body;
+      },
+    } as any;
+
+    handler(req, res);
+    expect(statusCode).toBe(405);
+    expect(endedWith).toBe("POST only");
+  });
+
+  test("synchronizes raw captures from source to target devices", async () => {
+    const tmp = await mkdtemp(join(tmpdir(), "sync-captures-test-"));
+    const outDir = join(tmp, "out");
+    const iphoneDir = join(outDir, "raw", "iphone-6.9");
+    const pixelDir = join(outDir, "raw", "pixel-10-pro");
+    await mkdir(iphoneDir, { recursive: true });
+    await mkdir(pixelDir, { recursive: true });
+
+    // Create a mock screenshot in iphone-6.9
+    const testPngPath = join(iphoneDir, "scene-1.png");
+    await writeFile(testPngPath, "mock-png-data");
+    await writeFile(
+      join(iphoneDir, "manifest.json"),
+      JSON.stringify({
+        device: "iphone-6.9",
+        screenshots: [{ sceneId: "scene-1", file: testPngPath }],
+      }),
+    );
+
+    const handler = syncCapturesHandler({
+      paths: {
+        configPath: join(tmp, "goldie.config.ts"),
+        configDir: tmp,
+        outDir,
+        webDir: join(outDir, "web"),
+        designFile: join(tmp, "goldie.design.json"),
+        exportZip: join(outDir, "export.zip"),
+      },
+      cli: ["echo"],
+    });
+
+    let statusCode = 200;
+    let responseBody = "";
+    const req = new PassThrough() as any;
+    req.method = "POST";
+    req.headers = {};
+    req.url = "/api/sync-captures";
+
+    const res = {
+      set statusCode(code: number) {
+        statusCode = code;
+      },
+      setHeader() {},
+      end(body: string) {
+        responseBody = body;
+      },
+    } as any;
+
+    const promise = new Promise<void>((resolve) => {
+      res.end = (body: string) => {
+        responseBody = body;
+        resolve();
+      };
+    });
+
+    handler(req, res);
+    req.end(
+      JSON.stringify({
+        sourceDevice: "iphone-6.9",
+        targetDevices: ["pixel-10-pro"],
+      }),
+    );
+
+    await promise;
+    expect(statusCode).toBe(200);
+    const parsed = JSON.parse(responseBody);
+    expect(parsed.ok).toBe(true);
+    expect(parsed.syncedCount).toBeGreaterThan(0);
+
+    // Verify file was copied to pixel-10-pro
+    const targetFile = join(pixelDir, "scene-1.png");
+    const content = await readFile(targetFile, "utf8");
+    expect(content).toBe("mock-png-data");
+
+    await rm(tmp, { recursive: true, force: true });
+  });
+});
+
 describe("importHandler", () => {
   test("rejects non-POST requests with 405", () => {
     const handler = importHandler({
@@ -278,6 +392,185 @@ describe("importHandler", () => {
     expect(statusCode).toBe(500);
     expect(JSON.parse(endedWith).error).toContain("Manifest generation failed");
   });
+
+  test("assignUniqueSceneIds allocates unique IDs and prevents overwriting existing scenes", () => {
+    // 1. First batch with duplicate generic names
+    const batch1 = [{ name: "screenshot.png" }, { name: "screenshot.png" }];
+    const existing = new Set<string>();
+    const res1 = assignUniqueSceneIds(batch1, existing);
+    expect(res1[0]?.id).toBe("screenshot");
+    expect(res1[1]?.id).toBe("screenshot_2");
+
+    // Populate existing with batch 1 IDs
+    for (const r of res1) existing.add(r.id);
+
+    // 2. Second batch with same generic names
+    const batch2 = [{ name: "screenshot.png" }, { name: "screenshot.png" }];
+    const res2 = assignUniqueSceneIds(batch2, existing);
+    expect(res2[0]?.id).toBe("screenshot_3");
+    expect(res2[1]?.id).toBe("screenshot_4");
+
+    // 3. Numbered suffixes (e.g. Screenshot 1.png, Screenshot 2.png)
+    const numberedBatch = [{ name: "Screenshot 1.png" }, { name: "Screenshot 2.png" }];
+    const numberedExisting = new Set(["screenshot_1", "screenshot_2"]);
+    const resNumbered = assignUniqueSceneIds(numberedBatch, numberedExisting);
+    expect(resNumbered[0]?.id).toBe("screenshot_3");
+    expect(resNumbered[1]?.id).toBe("screenshot_4");
+
+    // 4. Empty/underscore fallback
+    const emptyBatch = [{ name: ".png" }, { name: "____.png" }];
+    const resEmpty = assignUniqueSceneIds(emptyBatch, new Set());
+    expect(resEmpty[0]?.id).toBe("screenshot");
+    expect(resEmpty[1]?.id).toBe("screenshot_2");
+  });
+
+  test("appendScenesToConfig appends scenes at the end of the array", () => {
+    // Empty scenes array
+    const emptyConfig = `export default {\n  scenes: [\n  ],\n};\n`;
+    const res1 = appendScenesToConfig(emptyConfig, [
+      { id: "shot_1", label: "Shot 1" },
+      { id: "shot_2", label: "Shot 2" },
+    ]);
+    expect(res1).toContain(`id: "shot_1"`);
+    expect(res1).toContain(`id: "shot_2"`);
+    expect(res1.indexOf(`id: "shot_1"`)).toBeLessThan(res1.indexOf(`id: "shot_2"`));
+
+    // Appending to already populated scenes array
+    const res2 = appendScenesToConfig(res1, [
+      { id: "shot_3", label: "Shot 3" },
+      { id: "shot_4", label: "Shot 4" },
+    ]);
+    expect(res2).toContain(`id: "shot_3"`);
+    expect(res2).toContain(`id: "shot_4"`);
+    // shot_1 < shot_2 < shot_3 < shot_4
+    expect(res2.indexOf(`id: "shot_1"`)).toBeLessThan(res2.indexOf(`id: "shot_2"`));
+    expect(res2.indexOf(`id: "shot_2"`)).toBeLessThan(res2.indexOf(`id: "shot_3"`));
+    expect(res2.indexOf(`id: "shot_3"`)).toBeLessThan(res2.indexOf(`id: "shot_4"`));
+    // Verify trailing scenes array closes cleanly
+    expect(res2.indexOf(`id: "shot_4"`)).toBeLessThan(res2.indexOf(`],\n};`));
+
+    // Duplicate scenes are skipped
+    const res3 = appendScenesToConfig(res2, [{ id: "shot_3", label: "Shot 3 duplicate" }]);
+    expect(res3).toBe(res2);
+  });
+
+  test("importHandler preserves earlier screenshots across multiple sequential imports", async () => {
+    const tmp = await mkdtemp(join(tmpdir(), "goldie-import-test-"));
+    const configPath = join(tmp, "appassets.config.ts");
+    const outDir = join(tmp, "out");
+    const webDir = join(outDir, "web");
+    const designFile = join(tmp, "appassets.design.json");
+
+    await mkdir(tmp, { recursive: true });
+    await mkdir(outDir, { recursive: true });
+    await mkdir(webDir, { recursive: true });
+
+    // Initial empty config
+    await writeFile(configPath, `export default {\n  scenes: [\n  ],\n};\n`);
+    // Initial design with order
+    await writeFile(designFile, JSON.stringify({ order: [] }, null, 2));
+
+    const paths = {
+      configPath,
+      configDir: tmp,
+      outDir,
+      webDir,
+      designFile,
+      exportZip: join(outDir, "export.zip"),
+    };
+
+    // Use "true" command as mock CLI so manifest step succeeds
+    const handler = importHandler({ paths, cli: ["true"] });
+
+    // Helper to send import request
+    const sendImport = async (files: Array<{ name: string; dataUrl: string }>) => {
+      let statusCode = 0;
+      let endedWith = "";
+      const listeners: Record<string, (...args: any[]) => void> = {};
+      const req = {
+        method: "POST",
+        headers: {},
+        on: (event: string, cb: (...args: any[]) => void) => {
+          listeners[event] = cb;
+        },
+      } as any;
+      const res = {
+        set statusCode(code: number) {
+          statusCode = code;
+        },
+        setHeader: () => {},
+        end(body: string) {
+          endedWith = body;
+        },
+      } as any;
+
+      handler(req, res);
+      listeners.data?.(JSON.stringify({ files, targetMode: "all", autoRoute: false }));
+      listeners.end?.();
+
+      await new Promise((r) => setTimeout(r, 120));
+      return { statusCode, response: JSON.parse(endedWith || "{}") };
+    };
+
+    // Batch 1: Import 2 screenshots with identical generic names
+    const dummyPng =
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+    const res1 = await sendImport([
+      { name: "screenshot.png", dataUrl: dummyPng },
+      { name: "screenshot.png", dataUrl: dummyPng },
+    ]);
+    expect(res1.statusCode).toBe(200);
+    expect(res1.response.ok).toBe(true);
+    expect(res1.response.imported).toBe(2);
+
+    // Verify Batch 1 manifest and config
+    const manifestFile = join(outDir, "raw", "iphone-6.9", "manifest.json");
+    const manifest1 = JSON.parse(await readFile(manifestFile, "utf8"));
+    expect(manifest1.screenshots.length).toBe(2);
+    expect(manifest1.screenshots[0].sceneId).toBe("screenshot");
+    expect(manifest1.screenshots[1].sceneId).toBe("screenshot_2");
+
+    let configContent = await readFile(configPath, "utf8");
+    expect(configContent).toContain(`id: "screenshot"`);
+    expect(configContent).toContain(`id: "screenshot_2"`);
+
+    // Batch 2: Import 2 MORE screenshots with the same generic names
+    const res2 = await sendImport([
+      { name: "screenshot.png", dataUrl: dummyPng },
+      { name: "screenshot.png", dataUrl: dummyPng },
+    ]);
+    expect(res2.statusCode).toBe(200);
+    expect(res2.response.ok).toBe(true);
+    expect(res2.response.imported).toBe(2);
+
+    // VERIFY ALL 4 SCREENSHOTS PERSIST WITHOUT REMOVING THE EARLIER ONES!
+    const manifest2 = JSON.parse(await readFile(manifestFile, "utf8"));
+    expect(manifest2.screenshots.length).toBe(4);
+    expect(manifest2.screenshots.map((s: { sceneId: string }) => s.sceneId)).toEqual([
+      "screenshot",
+      "screenshot_2",
+      "screenshot_3",
+      "screenshot_4",
+    ]);
+
+    configContent = await readFile(configPath, "utf8");
+    expect(configContent).toContain(`id: "screenshot"`);
+    expect(configContent).toContain(`id: "screenshot_2"`);
+    expect(configContent).toContain(`id: "screenshot_3"`);
+    expect(configContent).toContain(`id: "screenshot_4"`);
+
+    // Verify design order updated with all 4 scene IDs
+    const designJson = JSON.parse(await readFile(designFile, "utf8"));
+    expect(designJson.order).toEqual([
+      "screenshot",
+      "screenshot_2",
+      "screenshot_3",
+      "screenshot_4",
+    ]);
+
+    // Clean up temp dir
+    await rm(tmp, { recursive: true, force: true });
+  });
 });
 
 describe("locales helpers and handler", () => {
@@ -386,7 +679,7 @@ describe("singleExportHandler", () => {
   test("serves existing screenshot with proper headers when up-to-date", async () => {
     const tmp = await mkdtemp(join(tmpdir(), "goldie-test-"));
     const outDir = join(tmp, "out");
-    const screenshotsDir = join(outDir, "screenshots", "iphone-6.9", "en-US");
+    const screenshotsDir = join(outDir, "screenshots", "pixel-10-pro", "en-US");
     await mkdir(screenshotsDir, { recursive: true });
     const imgPath = join(screenshotsDir, "01-home.png");
     await writeFile(imgPath, "fake-png-content");
@@ -408,7 +701,7 @@ describe("singleExportHandler", () => {
 
     const req = {
       method: "GET",
-      url: "/api/export-single?sceneId=home&device=iphone-6.9&locale=en-US",
+      url: "/api/export-single?sceneId=home&device=pixel-10-pro&locale=en-US",
     } as any;
     const res = new PassThrough() as any;
     res.writeHead = (code: number, h: Record<string, string | number>) => {
@@ -421,8 +714,65 @@ describe("singleExportHandler", () => {
 
     expect(statusCode).toBe(200);
     expect(headers["Content-Type"]).toBe("image/png");
-    expect(headers["Content-Disposition"]).toContain('filename="home-iphone-6.9.png"');
+    expect(headers["Content-Disposition"]).toContain('filename="home-pixel-10-pro.png"');
     expect(headers["Cache-Control"]).toBe("no-store");
+
+    await rm(tmp, { recursive: true, force: true });
+  });
+
+  test("serves 1206x2622 screenshot when size=1206x2622 is requested", async () => {
+    const tmp = await mkdtemp(join(tmpdir(), "goldie-test-"));
+    const outDir = join(tmp, "out");
+    const screenshotsDir = join(outDir, "screenshots", "iphone-6.9", "en-US");
+    await mkdir(screenshotsDir, { recursive: true });
+    const imgPath = join(screenshotsDir, "01-home.png");
+
+    const canvas = createCanvas(100, 200);
+    const testPngBuf = await canvas.encode("png");
+    await writeFile(imgPath, testPngBuf);
+
+    const handler = singleExportHandler({
+      paths: {
+        configPath: join(tmp, "goldie.config.ts"),
+        configDir: tmp,
+        outDir,
+        webDir: join(outDir, "web"),
+        designFile: join(tmp, "goldie.design.json"),
+        exportZip: join(outDir, "export.zip"),
+      },
+      cli: ["echo"],
+    });
+
+    let statusCode = 0;
+    const headers: Record<string, string | number> = {};
+    let responseData: Buffer | null = null;
+
+    const req = {
+      method: "GET",
+      url: "/api/export-single?sceneId=home&device=iphone-6.9&size=1206x2622&locale=en-US",
+    } as any;
+    const res = new PassThrough() as any;
+    res.writeHead = (code: number, h: Record<string, string | number>) => {
+      statusCode = code;
+      Object.assign(headers, h);
+    };
+    const done = new Promise<void>((resolve) => {
+      res.end = (buf: Buffer) => {
+        responseData = buf;
+        resolve();
+      };
+    });
+
+    handler(req, res);
+    await done;
+
+    expect(statusCode).toBe(200);
+    expect(headers["Content-Type"]).toBe("image/png");
+    expect(headers["Content-Disposition"]).toContain("1206x2622.png");
+    expect(responseData).toBeDefined();
+    const dims = getDimensionsFromBuffer(responseData!);
+    expect(dims?.width).toBe(1206);
+    expect(dims?.height).toBe(2622);
 
     await rm(tmp, { recursive: true, force: true });
   });
@@ -464,6 +814,168 @@ describe("singleExportHandler", () => {
 
     expect(statusCode).toBe(404);
     expect(endedWith).toContain('Screenshot for scene "missing" not found');
+
+    await rm(tmp, { recursive: true, force: true });
+  });
+});
+
+describe("selectedExportZipHandler", () => {
+  test("rejects non-POST requests with 405", () => {
+    const handler = selectedExportZipHandler({
+      paths: studioPaths("goldie.config.ts"),
+      cli: ["echo"],
+    });
+
+    let statusCode = 0;
+    let endedWith = "";
+    const req = { method: "GET" } as any;
+    const res = {
+      set statusCode(code: number) {
+        statusCode = code;
+      },
+      end(body: string) {
+        endedWith = body;
+      },
+    } as any;
+
+    handler(req, res);
+    expect(statusCode).toBe(405);
+    expect(endedWith).toBe("POST only");
+  });
+
+  test("returns 400 when items array is empty", async () => {
+    const handler = selectedExportZipHandler({
+      paths: studioPaths("goldie.config.ts"),
+      cli: ["echo"],
+    });
+
+    let statusCode = 0;
+    let endedWith = "";
+    const req = new PassThrough() as any;
+    req.method = "POST";
+    const res = {
+      set statusCode(code: number) {
+        statusCode = code;
+      },
+      setHeader() {},
+      end(body: string) {
+        endedWith = body;
+      },
+    } as any;
+
+    handler(req, res);
+    req.end(JSON.stringify({ items: [] }));
+    await new Promise((r) => setTimeout(r, 40));
+
+    expect(statusCode).toBe(400);
+    expect(JSON.parse(endedWith).error).toBe("items array cannot be empty");
+  });
+
+  test("packages selected screenshots into ZIP buffer", async () => {
+    const tmp = await mkdtemp(join(tmpdir(), "goldie-sel-test-"));
+    const outDir = join(tmp, "out");
+    const screenshotsDir = join(outDir, "screenshots", "pixel-10-pro", "en-US");
+    await mkdir(screenshotsDir, { recursive: true });
+    await writeFile(join(screenshotsDir, "01-home.png"), "home-image-bytes");
+    await writeFile(join(screenshotsDir, "02-features.png"), "features-image-bytes");
+
+    const handler = selectedExportZipHandler({
+      paths: {
+        configPath: join(tmp, "goldie.config.ts"),
+        configDir: tmp,
+        outDir,
+        webDir: join(outDir, "web"),
+        designFile: join(tmp, "goldie.design.json"),
+        exportZip: join(outDir, "export.zip"),
+      },
+      cli: ["echo"],
+    });
+
+    let statusCode = 0;
+    let responseHeaders: Record<string, any> = {};
+    let endBuffer: Buffer | null = null;
+    const req = new PassThrough() as any;
+    req.method = "POST";
+    const res = {
+      writeHead(code: number, headers: any) {
+        statusCode = code;
+        responseHeaders = headers;
+      },
+      end(data: any) {
+        endBuffer = data;
+      },
+    } as any;
+
+    handler(req, res);
+    req.end(
+      JSON.stringify({
+        device: "pixel-10-pro",
+        locale: "en-US",
+        items: [{ sceneId: "home" }],
+      }),
+    );
+    await new Promise((r) => setTimeout(r, 60));
+
+    expect(statusCode).toBe(200);
+    expect(responseHeaders["Content-Type"]).toBe("application/zip");
+    expect(responseHeaders["Content-Disposition"]).toContain("selected-screenshots-pixel-10-pro.zip");
+    expect(Buffer.isBuffer(endBuffer)).toBe(true);
+
+    await rm(tmp, { recursive: true, force: true });
+  });
+
+  test("packages selected screenshots into 1206x2622 ZIP when size=1206x2622", async () => {
+    const tmp = await mkdtemp(join(tmpdir(), "goldie-sel-63-test-"));
+    const outDir = join(tmp, "out");
+    const screenshotsDir = join(outDir, "screenshots", "iphone-6.9", "en-US");
+    await mkdir(screenshotsDir, { recursive: true });
+
+    const canvas = createCanvas(100, 200);
+    const testPngBuf = await canvas.encode("png");
+    await writeFile(join(screenshotsDir, "01-home.png"), testPngBuf);
+
+    const handler = selectedExportZipHandler({
+      paths: {
+        configPath: join(tmp, "goldie.config.ts"),
+        configDir: tmp,
+        outDir,
+        webDir: join(outDir, "web"),
+        designFile: join(tmp, "goldie.design.json"),
+        exportZip: join(outDir, "export.zip"),
+      },
+      cli: ["echo"],
+    });
+
+    let statusCode = 0;
+    let responseHeaders: Record<string, any> = {};
+    let endBuffer: Buffer | null = null;
+    const req = new PassThrough() as any;
+    req.method = "POST";
+    const res = {
+      writeHead(code: number, headers: any) {
+        statusCode = code;
+        responseHeaders = headers;
+      },
+      end(data: any) {
+        endBuffer = data;
+      },
+    } as any;
+
+    handler(req, res);
+    req.end(
+      JSON.stringify({
+        device: "iphone-6.9",
+        size: "1206x2622",
+        locale: "en-US",
+        items: [{ sceneId: "home" }],
+      }),
+    );
+    await new Promise((r) => setTimeout(r, 150));
+
+    expect(statusCode).toBe(200);
+    expect(responseHeaders["Content-Type"]).toBe("application/zip");
+    expect(responseHeaders["Content-Disposition"]).toContain("iphone-6.3-1206x2622.zip");
+    expect(Buffer.isBuffer(endBuffer)).toBe(true);
 
     await rm(tmp, { recursive: true, force: true });
   });
@@ -872,13 +1384,13 @@ describe("exportHandler", () => {
     const tmp = await mkdtemp(join(tmpdir(), "goldie-exp-stream-"));
     const paths = studioPaths(join(tmp, "goldie.config.ts"));
     await mkdir(join(paths.outDir, "screenshots", "iphone-6.9", "en-US"), { recursive: true });
-    await writeFile(
-      join(paths.outDir, "screenshots", "iphone-6.9", "en-US", "01-home.png"),
-      Buffer.from("mock-png"),
-    );
     const testIconPng = Buffer.from(
       "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
       "base64",
+    );
+    await writeFile(
+      join(paths.outDir, "screenshots", "iphone-6.9", "en-US", "01-home.png"),
+      testIconPng,
     );
     await writeFile(join(paths.outDir, "icon.png"), testIconPng);
 
@@ -941,10 +1453,100 @@ describe("exportHandler", () => {
     const { exec } = await import("./exec.ts");
     const listing = await exec("unzip", ["-l", paths.exportZip], { quiet: true });
     if (listing.code === 0) {
-      expect(listing.stdout).toContain("AppStore/iPhone-6.9/en-US/01-home.png");
+      expect(listing.stdout).toContain("AppStore/iPhone-6.3/en-US/01-home.png");
+      expect(listing.stdout).not.toContain("AppStore/iPhone-6.9/");
       expect(listing.stdout).toContain("STORE_GUIDE.txt");
       expect(listing.stdout).toContain("GooglePlay/app-icon-512x512.png");
       expect(listing.stdout).toContain("AppStore/app-icon-1024x1024.png");
+    }
+
+    await rm(tmp, { recursive: true, force: true });
+  });
+
+  test("exportHandler respects targets filtering to exclude unselected platforms and files", async () => {
+    const tmp = await mkdtemp(join(tmpdir(), "goldie-exp-filtered-"));
+    const paths = studioPaths(join(tmp, "goldie.config.ts"));
+    await mkdir(join(paths.outDir, "screenshots", "iphone-6.9", "en-US"), { recursive: true });
+    await mkdir(join(paths.outDir, "screenshots", "pixel-10-pro", "en-US"), { recursive: true });
+    const testIconPng = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+      "base64",
+    );
+    await writeFile(
+      join(paths.outDir, "screenshots", "iphone-6.9", "en-US", "01-home.png"),
+      testIconPng,
+    );
+    await writeFile(
+      join(paths.outDir, "screenshots", "pixel-10-pro", "en-US", "01-home.png"),
+      Buffer.from("mock-png"),
+    );
+    await writeFile(join(paths.outDir, "icon.png"), testIconPng);
+
+    const cliScript = join(tmp, "mock-cli.js");
+    await writeFile(
+      cliScript,
+      `
+      console.log("ok");
+      process.exit(0);
+      `,
+    );
+
+    const handler = exportHandler({
+      paths,
+      cli: ["node", cliScript],
+    });
+
+    let output = "";
+    const listeners: Record<string, (...args: any[]) => void> = {};
+    const req = {
+      method: "POST",
+      on: (event: string, cb: (...args: any[]) => void) => {
+        listeners[event] = cb;
+      },
+    } as any;
+    const res = {
+      writeHead: () => {},
+      write: (chunk: string) => {
+        output += chunk;
+      },
+      end: () => {},
+    } as any;
+
+    handler("")(req, res);
+    // Request ONLY iPhone, excluding Google Play, guidelines, and marketing
+    listeners.data?.(
+      JSON.stringify({
+        targets: {
+          iphone: true,
+          ipad: false,
+          googlePlay: false,
+          marketing: false,
+          guidelines: false,
+        },
+      }),
+    );
+    listeners.end?.();
+
+    await new Promise((resolve) => {
+      const check = setInterval(() => {
+        if (output.includes("[done]") || output.includes("[failed]")) {
+          clearInterval(check);
+          resolve(null);
+        }
+      }, 50);
+    });
+
+    expect(output).toContain("[done]");
+
+    const { exec } = await import("./exec.ts");
+    const listing = await exec("unzip", ["-l", paths.exportZip], { quiet: true });
+    if (listing.code === 0) {
+      expect(listing.stdout).toContain("AppStore/iPhone-6.3/en-US/01-home.png");
+      expect(listing.stdout).not.toContain("AppStore/iPhone-6.9/");
+      expect(listing.stdout).toContain("AppStore/app-icon-1024x1024.png");
+      expect(listing.stdout).not.toContain("GooglePlay/Phone/en-US/01-home.png");
+      expect(listing.stdout).not.toContain("GooglePlay/app-icon-512x512.png");
+      expect(listing.stdout).not.toContain("STORE_GUIDE.txt");
     }
 
     await rm(tmp, { recursive: true, force: true });
@@ -1318,6 +1920,49 @@ describe("bannerExportHandler", () => {
       expect(buffer!.length).toBeGreaterThan(1000);
     }
 
+    // 4. GET banner uses appInfo from design file
+    {
+      await writeFile(
+        paths.designFile,
+        JSON.stringify({
+          appInfo: {
+            name: "SavvyDivvy",
+            subtitle: "Track Your Finances",
+            category: "Finance & Banking",
+          },
+        }),
+      );
+
+      let statusCode = 0;
+      let headers: Record<string, string> = {};
+      let buffer: Buffer | null = null;
+
+      const req = {
+        method: "GET",
+        url: "/api/export-banner?type=google-play",
+      } as any;
+
+      const res = {
+        writeHead: (code: number, h: Record<string, string>) => {
+          statusCode = code;
+          headers = h;
+        },
+        end: (data: Buffer) => {
+          buffer = data;
+        },
+      } as any;
+
+      handler(req, res);
+      for (let i = 0; i < 50 && statusCode === 0; i++) {
+        await new Promise((r) => setTimeout(r, 40));
+      }
+
+      expect(statusCode).toBe(200);
+      expect(headers["Content-Type"]).toBe("image/png");
+      expect(Buffer.isBuffer(buffer)).toBe(true);
+      expect(buffer!.length).toBeGreaterThan(1000);
+    }
+
     await rm(tmp, { recursive: true, force: true });
   });
 
@@ -1538,7 +2183,9 @@ describe("bannerExportHandler", () => {
       let _putCodeA = 0;
       const putResA: any = {
         statusCode: 0,
-        end() { _putCodeA = this.statusCode || 200; },
+        end() {
+          _putCodeA = this.statusCode || 200;
+        },
       };
       handler(putReqA, putResA);
       putReqA.emit("data", JSON.stringify({ background: "#FF0000", appInfo: { name: "App A" } }));
@@ -1554,7 +2201,9 @@ describe("bannerExportHandler", () => {
       let bodyB = "";
       const getResB: any = {
         writeHead() {},
-        end(data: string) { bodyB = data; },
+        end(data: string) {
+          bodyB = data;
+        },
       };
       handler(getReqB, getResB);
       await new Promise((r) => setTimeout(r, 50));
@@ -1570,7 +2219,9 @@ describe("bannerExportHandler", () => {
       let bodyA = "";
       const getResA: any = {
         writeHead() {},
-        end(data: string) { bodyA = data; },
+        end(data: string) {
+          bodyA = data;
+        },
       };
       handler(getReqA, getResA);
       await new Promise((r) => setTimeout(r, 50));
@@ -1589,14 +2240,20 @@ describe("bannerExportHandler", () => {
     });
 
     test("ads.txt source file contains verified publisher ID and seller cert", async () => {
-      const adsTxtContent = await readFile(join(import.meta.dirname, "..", "studio", "public", "ads.txt"), "utf8");
+      const adsTxtContent = await readFile(
+        join(import.meta.dirname, "..", "studio", "public", "ads.txt"),
+        "utf8",
+      );
       expect(adsTxtContent).toContain("pub-9354906754361033");
       expect(adsTxtContent).toContain("f08c47fec0942fa0");
       expect(adsTxtContent).not.toContain("pub-XXXXXXXXXXXXXXXX");
     });
 
     test("Privacy Policy component contains mandatory AdSense disclosures and opt-out links", async () => {
-      const privacyContent = await readFile(join(import.meta.dirname, "..", "studio", "src", "components", "PrivacyPolicy.tsx"), "utf8");
+      const privacyContent = await readFile(
+        join(import.meta.dirname, "..", "studio", "src", "components", "PrivacyPolicy.tsx"),
+        "utf8",
+      );
       expect(privacyContent).toContain("ca-pub-9354906754361033");
       expect(privacyContent).toContain("Google AdSense");
       expect(privacyContent).toContain("Google Analytics");
@@ -1607,7 +2264,10 @@ describe("bannerExportHandler", () => {
     });
 
     test("AdBanner component enforces non-empty slot ID and prevents duplicate pushes", async () => {
-      const adBannerContent = await readFile(join(import.meta.dirname, "..", "studio", "src", "components", "AdBanner.tsx"), "utf8");
+      const adBannerContent = await readFile(
+        join(import.meta.dirname, "..", "studio", "src", "components", "AdBanner.tsx"),
+        "utf8",
+      );
       expect(adBannerContent).toContain("hasValidSlot");
       expect(adBannerContent).toContain("isFullyConfiguredAdSlot");
       expect(adBannerContent).toContain("isPushedRef");
@@ -1644,7 +2304,10 @@ describe("bannerExportHandler", () => {
       }
     }
 
-    function testRequest(handler: (req: any, res: any) => void, url: string): Promise<MockServerResponse> {
+    function testRequest(
+      handler: (req: any, res: any) => void,
+      url: string,
+    ): Promise<MockServerResponse> {
       return new Promise((resolve) => {
         const req: any = {
           method: "GET",
@@ -1673,7 +2336,15 @@ describe("bannerExportHandler", () => {
         paths: studioPaths(join(import.meta.dirname, "..", "appassets.config.ts")),
         cli: ["echo"],
       });
-      for (const route of ["/", "/privacy", "/terms", "/studio"]) {
+      for (const route of [
+        "/",
+        "/privacy",
+        "/terms",
+        "/about",
+        "/contact",
+        "/guidelines",
+        "/studio",
+      ]) {
         const res = await testRequest(handler, route);
         expect(res.statusCode).toBe(200);
         expect(res.headers["content-type"]).toContain("text/html");

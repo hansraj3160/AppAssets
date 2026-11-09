@@ -41,9 +41,9 @@ export function AdBanner({
 
   const hasValidSlot = Boolean(
     effectiveSlot &&
-    effectiveSlot.trim().length > 0 &&
-    !effectiveSlot.includes("xxxx") &&
-    !effectiveSlot.includes("XXXX"),
+      effectiveSlot.trim().length > 0 &&
+      !effectiveSlot.includes("xxxx") &&
+      !effectiveSlot.includes("XXXX"),
   );
 
   const isFullyConfiguredAdSlot = isConfiguredAdSense && hasValidSlot;

@@ -119,6 +119,9 @@ export function storeZipPath(relPath: string): string {
   if (norm.startsWith("screenshots/iphone-6.9/")) {
     return norm.replace(/^screenshots\/iphone-6\.9\//, "AppStore/iPhone-6.9/");
   }
+  if (norm.startsWith("screenshots/iphone-6.3/")) {
+    return norm.replace(/^screenshots\/iphone-6\.3\//, "AppStore/iPhone-6.3/");
+  }
   if (norm.startsWith("screenshots/pixel-10-pro/")) {
     return norm.replace(/^screenshots\/pixel-10-pro\//, "GooglePlay/Phone/");
   }
@@ -151,10 +154,10 @@ AppAssets - App Store & Google Play Screenshot Package
 📁 FOLDER STRUCTURE & SPECIFICATIONS:
 
 1. Apple App Store Connect:
-   - AppStore/iPhone-6.9/
-     * Target: iPhone 16 Pro Max, 15 Pro Max (6.9" & 6.7" Super Retina XDR)
-     * Resolution: 1320 x 2868 px (Portrait)
-     * Upload: App Store Connect > iOS App > Screenshots > 6.9" Display
+   - AppStore/iPhone-6.3/
+     * Target: iPhone 16 Pro, 15 Pro, 14 Pro (6.3" Display - App Store Required)
+     * Resolution: 1206 x 2622 px (Portrait)
+     * Upload: App Store Connect > iOS App > Screenshots > 6.3" Display
 
    - AppStore/iPad-13/
      * Target: iPad Pro 13-inch (M4), iPad Pro 12.9-inch
@@ -206,6 +209,7 @@ export async function zipDirs(
   out: string,
   transformName?: (name: string) => string,
   extraEntries?: ZipEntry[],
+  filter?: (name: string, absPath: string) => boolean,
 ): Promise<number> {
   const entries: ZipEntry[] = [];
   if (extraEntries) {
@@ -216,6 +220,9 @@ export async function zipDirs(
       let relName = relative(root, file).split("\\").join("/");
       if (transformName) {
         relName = transformName(relName);
+      }
+      if (filter && !filter(relName, file)) {
+        continue;
       }
       entries.push({
         name: relName,

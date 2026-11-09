@@ -224,7 +224,9 @@ export function parseBackground(input: string | StructuredBackground): Structure
     let baseColor = "#090A0F";
 
     for (const layer of layers) {
-      const m = layer.match(/^radial-gradient\(\s*circle\s+at\s+(\d+(?:\.\d+)?)%\s+(\d+(?:\.\d+)?)%\s*,\s*(.*?)\s+0%,\s*transparent\s+(\d+(?:\.\d+)?)%\s*\)$/i);
+      const m = layer.match(
+        /^radial-gradient\(\s*circle\s+at\s+(\d+(?:\.\d+)?)%\s+(\d+(?:\.\d+)?)%\s*,\s*(.*?)\s+0%,\s*transparent\s+(\d+(?:\.\d+)?)%\s*\)$/i,
+      );
       if (m) {
         const x = Number(m[1]) / 100;
         const y = Number(m[2]) / 100;

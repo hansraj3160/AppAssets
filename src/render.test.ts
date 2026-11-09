@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { createCanvas } from "@napi-rs/canvas";
+import { createCanvas, loadImage } from "@napi-rs/canvas";
 import {
   drawAuroraGlow,
+  drawCoverImage,
   drawDeviceBacklight,
   drawDeviceShadow,
   drawPatternOverlay,
@@ -266,6 +267,40 @@ describe("modern background rendering system", () => {
     const leftEdgeSlice2 = ctx2.getImageData(5, 200, 1, 1).data[0];
     expect(Math.abs(rightEdgeSlice1 - leftEdgeSlice2)).toBeLessThan(20);
   });
+
+  test("drawCoverImage scales image to cover canvas", async () => {
+    const imgCanvas = createCanvas(100, 200);
+    const imgCtx = imgCanvas.getContext("2d");
+    imgCtx.fillStyle = "#00FF00";
+    imgCtx.fillRect(0, 0, 100, 200);
+    const img = await loadImage(imgCanvas.toDataURL());
+
+    const canvas = createCanvas(300, 300);
+    const ctx = canvas.getContext("2d");
+    drawCoverImage(ctx, img, 300, 300, "cover");
+
+    const p = ctx.getImageData(150, 150, 1, 1).data;
+    expect(p[1]).toBe(255);
+  });
+
+  test("renderBackground renders custom image with drawCoverImage", async () => {
+    const imgCanvas = createCanvas(200, 100);
+    const imgCtx = imgCanvas.getContext("2d");
+    imgCtx.fillStyle = "#FF5500";
+    imgCtx.fillRect(0, 0, 200, 100);
+    const dataUrl = imgCanvas.toDataURL();
+    const loadedImg = await loadImage(dataUrl);
+
+    const canvas = createCanvas(300, 600);
+    const ctx = canvas.getContext("2d");
+    renderBackground(ctx, { type: "custom-image", src: dataUrl, fit: "cover" }, 300, 600, {
+      customImage: loadedImg,
+    });
+
+    const pixel = ctx.getImageData(150, 300, 1, 1).data;
+    expect(pixel[0]).toBe(255);
+    expect(pixel[1]).toBe(85);
+    expect(pixel[2]).toBe(0);
+    expect(pixel[3]).toBe(255);
+  });
 });
-
-

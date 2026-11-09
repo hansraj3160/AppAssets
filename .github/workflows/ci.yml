@@ -25,8 +25,18 @@ jobs:
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
+        continue-on-error: true
+        id: setup-bun
         with:
           bun-version: latest
+
+      - name: Fallback Setup Bun (npm)
+        if: steps.setup-bun.outcome != 'success'
+        run: |
+          npm install -g bun
+          echo "$(npm prefix -g)/bin" >> $GITHUB_PATH
+          echo "$HOME/.bun/bin" >> $GITHUB_PATH
+          bun --version
 
       - name: Install Root Dependencies
         run: bun install
@@ -60,8 +70,18 @@ jobs:
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
+        continue-on-error: true
+        id: setup-bun
         with:
           bun-version: latest
+
+      - name: Fallback Setup Bun (npm)
+        if: steps.setup-bun.outcome != 'success'
+        run: |
+          npm install -g bun
+          echo "$(npm prefix -g)/bin" >> $GITHUB_PATH
+          echo "$HOME/.bun/bin" >> $GITHUB_PATH
+          bun --version
 
       - name: Install Root Dependencies
         run: bun install
@@ -92,8 +112,18 @@ jobs:
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
+        continue-on-error: true
+        id: setup-bun
         with:
           bun-version: latest
+
+      - name: Fallback Setup Bun (npm)
+        if: steps.setup-bun.outcome != 'success'
+        run: |
+          npm install -g bun
+          echo "$(npm prefix -g)/bin" >> $GITHUB_PATH
+          echo "$HOME/.bun/bin" >> $GITHUB_PATH
+          bun --version
 
       - name: Install Root Dependencies
         run: bun install
@@ -186,6 +216,8 @@ jobs:
 
           echo "🚀 Syncing codebase to EC2 ($EC2_HOST)..."
           rsync -avz \
+            --exclude 'workspaces' \
+            --exclude 'out' \
             --exclude 'node_modules' \
             --exclude 'studio/node_modules' \
             --exclude '.git' \

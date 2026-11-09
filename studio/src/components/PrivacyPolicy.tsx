@@ -11,8 +11,8 @@ import {
   SunIcon,
 } from "lucide-react";
 import appLogo from "@/assets/logo.png";
-import { Button } from "./ui/button";
 import { isModifiedEvent } from "@/lib/utils";
+import { Button } from "./ui/button";
 
 interface PrivacyPolicyProps {
   onNavigateHome: () => void;
@@ -170,7 +170,8 @@ export function PrivacyPolicy({
                   <span>Ad-Supported Service</span>
                 </div>
                 <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                  We do not sell personal data or uploaded screenshots. Third-party advertising partners, including Google AdSense, use cookies to serve ads on this website.
+                  We do not sell personal data or uploaded screenshots. Third-party advertising
+                  partners, including Google AdSense, use cookies to serve ads on this website.
                 </p>
               </div>
             </div>
@@ -268,23 +269,38 @@ export function PrivacyPolicy({
             {/* 4. Cookies, Analytics & Advertising Disclosures */}
             <section className="space-y-3">
               <h2 className="text-xl font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-                <span className="text-[#FF6B00]">4.</span> Cookies, Analytics & Advertising Disclosures
+                <span className="text-[#FF6B00]">4.</span> Cookies, Analytics & Advertising
+                Disclosures
               </h2>
               <p>
-                We use local browser storage and specific third-party services to operate the application, analyze usage patterns, and serve advertisements:
+                We use local browser storage and specific third-party services to operate the
+                application, analyze usage patterns, and serve advertisements:
               </p>
               <ul className="list-disc pl-5 space-y-2 text-zinc-600 dark:text-zinc-400">
                 <li>
-                  <strong>First-Party Storage & Session Cookies:</strong> We store user interface preferences (such as Light or Dark theme via <code>appassets_theme</code>) and a temporary workspace identifier (<code>appassets_session_id</code>) in <code>localStorage</code> and a session cookie to keep user design sessions isolated. You can clear local storage and cookies at any time through your browser settings.
+                  <strong>First-Party Storage & Session Cookies:</strong> We store user interface
+                  preferences (such as Light or Dark theme via <code>appassets_theme</code>) and a
+                  temporary workspace identifier (<code>appassets_session_id</code>) in{" "}
+                  <code>localStorage</code> and a session cookie to keep user design sessions
+                  isolated. You can clear local storage and cookies at any time through your browser
+                  settings.
                 </li>
                 <li>
-                  <strong>Analytics (Google Analytics 4):</strong> We use Google Analytics (measurement ID <code>G-DEML3C77ZR</code>) to measure aggregated website traffic and feature engagement. Google Analytics uses cookies (such as <code>_ga</code>) to distinguish unique visits and monitor service performance.
+                  <strong>Analytics (Google Analytics 4):</strong> We use Google Analytics
+                  (measurement ID <code>G-DEML3C77ZR</code>) to measure aggregated website traffic
+                  and feature engagement. Google Analytics uses cookies (such as <code>_ga</code>)
+                  to distinguish unique visits and monitor service performance.
                 </li>
                 <li>
-                  <strong>Third-Party Advertising (Google AdSense):</strong> We display advertisements served by Google AdSense (publisher ID <code>ca-pub-9354906754361033</code>). Google and its advertising partners use cookies to serve ads based on a user's prior visits to this website or other websites on the Internet.
+                  <strong>Third-Party Advertising (Google AdSense):</strong> We display
+                  advertisements served by Google AdSense (publisher ID{" "}
+                  <code>ca-pub-9354906754361033</code>). Google and its advertising partners use
+                  cookies to serve ads based on a user's prior visits to this website or other
+                  websites on the Internet.
                 </li>
                 <li>
-                  <strong>Advertising Choices & Settings:</strong> Users may manage personalized advertising preferences or opt out of personalized ads by visiting{" "}
+                  <strong>Advertising Choices & Settings:</strong> Users may manage personalized
+                  advertising preferences or opt out of personalized ads by visiting{" "}
                   <a
                     href="https://www.google.com/settings/ads"
                     target="_blank"
@@ -293,7 +309,8 @@ export function PrivacyPolicy({
                   >
                     Google Ads Settings
                   </a>
-                  . Users can also opt out of participating third-party ad vendor cookies by visiting{" "}
+                  . Users can also opt out of participating third-party ad vendor cookies by
+                  visiting{" "}
                   <a
                     href="https://www.aboutads.info/choices/"
                     target="_blank"
@@ -302,7 +319,9 @@ export function PrivacyPolicy({
                   >
                     aboutads.info
                   </a>
-                  . Please note that opting out of personalized advertising controls does not disable advertisements entirely; non-personalized or contextual ads will continue to be shown.
+                  . Please note that opting out of personalized advertising controls does not
+                  disable advertisements entirely; non-personalized or contextual ads will continue
+                  to be shown.
                 </li>
               </ul>
             </section>

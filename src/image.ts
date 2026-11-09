@@ -1,4 +1,5 @@
 import { open } from "node:fs/promises";
+import { createCanvas, loadImage } from "@napi-rs/canvas";
 
 export type PngInfo = { width: number; height: number; hasAlpha: boolean };
 
@@ -45,4 +46,22 @@ export async function pngInfo(file: string): Promise<PngInfo> {
 export async function imageSize(file: string): Promise<{ width: number; height: number }> {
   const { width, height } = await pngInfo(file);
   return { width, height };
+}
+
+/**
+ * Resizes a PNG buffer to the exact specified pixel dimensions using Skia anti-aliasing.
+ */
+export async function resizePngBuffer(
+  buffer: Buffer,
+  targetWidth: number,
+  targetHeight: number,
+): Promise<Buffer> {
+  const canvas = createCanvas(targetWidth, targetHeight);
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  const img = await loadImage(buffer);
+  ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+  const encoded = await canvas.encode("png");
+  return Buffer.from(encoded);
 }

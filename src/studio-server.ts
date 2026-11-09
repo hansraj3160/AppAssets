@@ -12,12 +12,13 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { dirname, extname, join, normalize, resolve } from "node:path";
+import { basename, dirname, extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createCanvas, loadImage } from "@napi-rs/canvas";
 import { BANNER_SPECS, type BannerType, renderBannerCanvas } from "./banner.ts";
 import { applyDesign, loadConfig } from "./config.ts";
 import { exec } from "./exec.ts";
+import { resizePngBuffer } from "./image.ts";
 import { DEVICES, type DeviceKey } from "./specs.ts";
 import {
   createStoreGuideContent,
@@ -87,6 +88,14 @@ export function getConfigPaths(paths: StudioPaths): string[] {
   return Array.from(files);
 }
 
+export type ExportTargets = {
+  iphone?: boolean;
+  ipad?: boolean;
+  googlePlay?: boolean;
+  marketing?: boolean;
+  guidelines?: boolean;
+};
+
 export type ExportOptions = {
   background?: string;
   frame?: string;
@@ -95,6 +104,8 @@ export type ExportOptions = {
   layout?: string;
   screenOnly?: boolean;
   fontSizeScale?: number;
+  targets?: ExportTargets;
+  selectedScenes?: string[];
 };
 
 export type StudioApi = {
@@ -126,7 +137,9 @@ export function getSessionIdFromRequest(req?: IncomingMessage | null): string {
   if (cookieHeader) {
     const match = cookieHeader.match(/(?:^|; )appassets_session_id=([^;]*)/);
     if (match?.[1]) {
-      const clean = decodeURIComponent(match[1]).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64);
+      const clean = decodeURIComponent(match[1])
+        .replace(/[^a-zA-Z0-9_-]/g, "")
+        .slice(0, 64);
       if (clean) return clean;
     }
   }
@@ -167,7 +180,10 @@ export function resolveWorkspacePaths(api: StudioApi, sessionId: string): Studio
 /**
  * Ensures that a session's workspace has a valid config file and required assets.
  */
-export async function ensureWorkspaceConfig(basePaths: StudioPaths, wsPaths: StudioPaths): Promise<void> {
+export async function ensureWorkspaceConfig(
+  basePaths: StudioPaths,
+  wsPaths: StudioPaths,
+): Promise<void> {
   await mkdir(wsPaths.configDir, { recursive: true });
   await mkdir(wsPaths.outDir, { recursive: true });
   await mkdir(wsPaths.webDir, { recursive: true });
@@ -200,9 +216,7 @@ export async function ensureWorkspaceConfig(basePaths: StudioPaths, wsPaths: Stu
           }
           if (closeBracket !== -1) {
             baseContent =
-              baseContent.slice(0, openBracket + 1) +
-              "\n  " +
-              baseContent.slice(closeBracket);
+              baseContent.slice(0, openBracket + 1) + "\n  " + baseContent.slice(closeBracket);
           }
         }
       }
@@ -225,7 +239,10 @@ export async function ensureWorkspaceConfig(basePaths: StudioPaths, wsPaths: Stu
 /**
  * Prunes inactive guest workspaces older than maxGuestAgeMs (default 48h).
  */
-export async function pruneOldWorkspaces(workspacesDir: string, maxGuestAgeMs = 48 * 3600 * 1000): Promise<void> {
+export async function pruneOldWorkspaces(
+  workspacesDir: string,
+  maxGuestAgeMs = 48 * 3600 * 1000,
+): Promise<void> {
   if (!existsSync(workspacesDir)) return;
   try {
     const entries = await readdir(workspacesDir, { withFileTypes: true });
@@ -291,11 +308,17 @@ export function designHandler(api: StudioApi): Handler {
           if (sessionId === "default" && existsSync(api.paths.designFile)) {
             readFile(api.paths.designFile, "utf8").then(
               (json) => {
-                res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+                res.writeHead(200, {
+                  "Content-Type": "application/json",
+                  "Cache-Control": "no-store",
+                });
                 res.end(json);
               },
               () => {
-                res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+                res.writeHead(200, {
+                  "Content-Type": "application/json",
+                  "Cache-Control": "no-store",
+                });
                 res.end("{}");
               },
             );
@@ -487,31 +510,70 @@ export function exportHandler(api: StudioApi): (sub: string) => Handler {
         });
 
         // 4. Build store ZIP package with guide, Google Play Feature Graphic, and Marketing Banners
+        const targets = opts.targets || {};
+        const includeIPhone = targets.iphone !== false;
+        const includeIPad = targets.ipad !== false;
+        const includeGooglePlay = targets.googlePlay !== false;
+        const includeMarketing = targets.marketing !== false;
+        const includeGuidelines = targets.guidelines !== false;
+
         res.write(
-          "$ zip store package (including Google Play Feature Graphic & Marketing Banners)\n",
+          `$ zip store package (selected: ${
+            [
+              includeIPhone ? "iPhone" : "",
+              includeIPad ? "iPad" : "",
+              includeGooglePlay ? "Google Play" : "",
+              includeMarketing ? "Marketing" : "",
+              includeGuidelines ? "Guidelines" : "",
+            ]
+              .filter(Boolean)
+              .join(", ") || "none"
+          })\n`,
         );
         await rm(paths.exportZip, { force: true });
-        const extraEntries: ZipEntry[] = [
-          {
+        const extraEntries: ZipEntry[] = [];
+        if (includeGuidelines) {
+          extraEntries.push({
             name: "STORE_GUIDE.txt",
             data: Buffer.from(createStoreGuideContent(), "utf8"),
             mtime: new Date(),
-          },
-        ];
+          });
+        }
 
         try {
           const cfg = await loadConfig(paths.configPath);
+          let designJson: any = null;
           if (existsSync(paths.designFile)) {
             try {
-              const designJson = JSON.parse(await readFile(paths.designFile, "utf8"));
+              designJson = JSON.parse(await readFile(paths.designFile, "utf8"));
               applyDesign(cfg, designJson);
             } catch {}
           }
+          const resolvedAppName = designJson?.appInfo?.name || cfg.store?.name;
+          const resolvedTagline =
+            designJson?.appInfo?.subtitle ||
+            (cfg.store?.subtitle &&
+              (cfg.store.subtitle[cfg.locales[0] || "en-US"] ||
+                Object.values(cfg.store.subtitle)[0]));
+          const resolvedKicker = designJson?.appInfo?.category
+            ? `${designJson.appInfo.category} App`.toUpperCase()
+            : undefined;
+          const resolvedIcon = designJson?.appInfo?.icon || cfg.store?.icon;
+
           for (const [bType, bSpec] of Object.entries(BANNER_SPECS)) {
+            const isGooglePlayBanner = bSpec.storePath.startsWith("GooglePlay/");
+            if (isGooglePlayBanner && !includeGooglePlay) continue;
+            if (!isGooglePlayBanner && !includeMarketing) continue;
+
             try {
               const buf = await renderBannerCanvas({
                 cfg,
                 type: bType as BannerType,
+                customTitle: resolvedAppName,
+                appName: resolvedAppName,
+                customTagline: resolvedTagline,
+                kickerHeadline: resolvedKicker,
+                customIcon: resolvedIcon,
               });
               extraEntries.push({
                 name: bSpec.storePath,
@@ -535,23 +597,124 @@ export function exportHandler(api: StudioApi): (sub: string) => Handler {
 
         if (iconPath) {
           try {
-            const icon512 = await renderAppIconCanvas(iconPath, 512);
-            extraEntries.push({
-              name: "GooglePlay/app-icon-512x512.png",
-              data: icon512,
-              mtime: new Date(),
-            });
-            const icon1024 = await renderAppIconCanvas(iconPath, 1024);
-            extraEntries.push({
-              name: "AppStore/app-icon-1024x1024.png",
-              data: icon1024,
-              mtime: new Date(),
-            });
-            res.write(
-              "  app icons packaged (GooglePlay/app-icon-512x512.png & AppStore/app-icon-1024x1024.png)\n",
-            );
+            const iconDesc: string[] = [];
+            if (includeGooglePlay) {
+              const icon512 = await renderAppIconCanvas(iconPath, 512);
+              extraEntries.push({
+                name: "GooglePlay/app-icon-512x512.png",
+                data: icon512,
+                mtime: new Date(),
+              });
+              iconDesc.push("GooglePlay 512x512");
+            }
+            if (includeIPhone || includeIPad) {
+              const icon1024 = await renderAppIconCanvas(iconPath, 1024);
+              extraEntries.push({
+                name: "AppStore/app-icon-1024x1024.png",
+                data: icon1024,
+                mtime: new Date(),
+              });
+              iconDesc.push("AppStore 1024x1024");
+            }
+            if (iconDesc.length > 0) {
+              res.write(`  app icons packaged (${iconDesc.join(" & ")})\n`);
+            }
           } catch (err) {
             res.write(`  warning: could not package app icons: ${err}\n`);
+          }
+        }
+
+        const filter = (relName: string) => {
+          // Exclude iPhone-6.9 (1320x2868) from AppStore package since App Store Connect requires 6.3" (1206x2622)
+          if (
+            relName.startsWith("AppStore/iPhone-6.9/") ||
+            relName.startsWith("AppStore/Previews/iPhone-6.9/")
+          ) {
+            return false;
+          }
+          if (!includeIPhone) {
+            if (
+              relName.startsWith("AppStore/iPhone") ||
+              relName.startsWith("AppStore/Previews/iPhone")
+            ) {
+              return false;
+            }
+          }
+          if (!includeIPad) {
+            if (
+              relName.startsWith("AppStore/iPad") ||
+              relName.startsWith("AppStore/Previews/iPad")
+            ) {
+              return false;
+            }
+          }
+          if (!includeGooglePlay) {
+            if (
+              relName.startsWith("GooglePlay/Phone") ||
+              relName.startsWith("GooglePlay/PromoVideo")
+            ) {
+              return false;
+            }
+          }
+          if (opts.selectedScenes && opts.selectedScenes.length > 0) {
+            const fileName = relName.split("/").pop() || "";
+            const isScreenshotOrPreview =
+              relName.startsWith("AppStore/") || relName.startsWith("GooglePlay/Phone");
+            if (isScreenshotOrPreview) {
+              const matches = opts.selectedScenes.some((sId) => {
+                return (
+                  fileName === `${sId}.png` ||
+                  fileName.startsWith(`${sId}.`) ||
+                  fileName.includes(`-${sId}.`) ||
+                  fileName.includes(`-${sId}-`)
+                );
+              });
+              if (!matches) return false;
+            }
+          }
+          return true;
+        };
+
+        // 4c. Generate AppStore/iPhone-6.3 (1206x2622) package entries alongside iPhone-6.9 (1320x2868)
+        if (includeIPhone) {
+          const iphone69Dir = join(paths.outDir, "screenshots", "iphone-6.9");
+          if (existsSync(iphone69Dir)) {
+            try {
+              const locales = await readdir(iphone69Dir);
+              for (const loc of locales) {
+                const locDir = join(iphone69Dir, loc);
+                if (!existsSync(locDir)) continue;
+                const locStat = await stat(locDir);
+                if (!locStat.isDirectory()) continue;
+
+                const shotFiles = (await readdir(locDir)).filter((f) => f.endsWith(".png"));
+                for (const sf of shotFiles) {
+                  if (opts.selectedScenes && opts.selectedScenes.length > 0) {
+                    const matches = opts.selectedScenes.some((sId) => {
+                      return (
+                        sf === `${sId}.png` ||
+                        sf.startsWith(`${sId}.`) ||
+                        sf.includes(`-${sId}.`) ||
+                        sf.includes(`-${sId}-`)
+                      );
+                    });
+                    if (!matches) continue;
+                  }
+
+                  try {
+                    const origBuf = await readFile(join(locDir, sf));
+                    const scaled63 = await resizePngBuffer(origBuf, 1206, 2622);
+                    extraEntries.push({
+                      name: `AppStore/iPhone-6.3/${loc}/${sf}`,
+                      data: scaled63,
+                      mtime: new Date(),
+                    });
+                  } catch (err) {
+                    res.write(`  warning: failed to generate 6.3" screenshot ${sf}: ${err}\n`);
+                  }
+                }
+              }
+            } catch {}
           }
         }
 
@@ -561,6 +724,7 @@ export function exportHandler(api: StudioApi): (sub: string) => Handler {
           paths.exportZip,
           storeZipPath,
           extraEntries,
+          filter,
         );
         res.write(`  ${count} files packaged into store layout\n`);
         res.write("[done]\n");
@@ -683,11 +847,13 @@ export function replaceCaptureHandler(api: StudioApi): Handler {
           sceneId,
           device: preferredDevice,
           autoRoute,
+          targetMode,
           file,
         } = JSON.parse(body) as {
           sceneId: string;
           device?: string;
           autoRoute?: boolean;
+          targetMode?: "current" | "single" | "all";
           file: { name: string; dataUrl: string; width?: number; height?: number };
         };
 
@@ -707,65 +873,86 @@ export function replaceCaptureHandler(api: StudioApi): Handler {
         const width = file.width ?? bufDim?.width ?? 0;
         const height = file.height ?? bufDim?.height ?? 0;
 
-        let targetDevice: DeviceKey;
-        if (autoRoute || !preferredDevice) {
-          targetDevice = resolveDeviceFromDimensions(width, height, preferredDevice);
+        let targetDevices: DeviceKey[];
+        if (targetMode === "single" || targetMode === "current") {
+          let singleDev: DeviceKey;
+          if (autoRoute || !preferredDevice) {
+            singleDev = resolveDeviceFromDimensions(width, height, preferredDevice);
+          } else {
+            singleDev = (preferredDevice as DeviceKey) || "iphone-6.9";
+          }
+          targetDevices = [singleDev];
         } else {
-          targetDevice = (preferredDevice as DeviceKey) || "iphone-6.9";
+          // Default: apply to all configured devices (iphone-6.9, ipad-13, pixel-10-pro)
+          targetDevices = ["iphone-6.9", "ipad-13", "pixel-10-pro"];
         }
 
-        const rawDir = join(paths.outDir, "raw", targetDevice);
-        await mkdir(rawDir, { recursive: true });
-
-        const targetFile = join(rawDir, `${sceneId}.png`);
-        await writeFile(targetFile, buffer);
-
-        // Update raw/<targetDevice>/manifest.json
-        const manifestPath = join(rawDir, "manifest.json");
-        let existingManifest: { screenshots: Array<{ sceneId: string; file: string }> } = {
-          screenshots: [],
-        };
-        if (existsSync(manifestPath)) {
-          try {
-            existingManifest = JSON.parse(await readFile(manifestPath, "utf8"));
-          } catch {}
-        }
-
-        const screenshotMap = new Map(existingManifest.screenshots.map((s) => [s.sceneId, s.file]));
-        screenshotMap.set(sceneId, targetFile);
-
-        const updatedManifest = {
-          device: targetDevice,
-          udid: "manual",
-          capturedAt: new Date().toISOString(),
-          screenshots: Array.from(screenshotMap.entries()).map(([sId, fPath]) => ({
-            sceneId: sId,
-            file: fPath,
-          })),
-          preview: null,
-        };
-        await writeFile(manifestPath, JSON.stringify(updatedManifest, null, 2));
-
-        // Re-frame the screenshot for this device and rebuild store manifest
         const [bin, ...prefix] = cli;
-        try {
-          await exec(
-            bin!,
-            [...prefix, "frame", "--config", paths.configPath, "--device", targetDevice],
-            { quiet: true },
+
+        for (const targetDev of targetDevices) {
+          const rawDir = join(paths.outDir, "raw", targetDev);
+          await mkdir(rawDir, { recursive: true });
+
+          const targetFile = join(rawDir, `${sceneId}.png`);
+          await writeFile(targetFile, buffer);
+
+          // Update raw/<targetDev>/manifest.json
+          const manifestPath = join(rawDir, "manifest.json");
+          let existingManifest: { screenshots: Array<{ sceneId: string; file: string }> } = {
+            screenshots: [],
+          };
+          if (existsSync(manifestPath)) {
+            try {
+              existingManifest = JSON.parse(await readFile(manifestPath, "utf8"));
+            } catch {}
+          }
+
+          const screenshotMap = new Map(
+            existingManifest.screenshots.map((s) => [s.sceneId, s.file]),
           );
-        } catch (frameErr) {
-          console.error("Frame failed after capture replace:", frameErr);
+          screenshotMap.set(sceneId, targetFile);
+
+          const updatedManifest = {
+            device: targetDev,
+            udid: "manual",
+            capturedAt: new Date().toISOString(),
+            screenshots: Array.from(screenshotMap.entries()).map(([sId, fPath]) => ({
+              sceneId: sId,
+              file: fPath,
+            })),
+            preview: null,
+          };
+          await writeFile(manifestPath, JSON.stringify(updatedManifest, null, 2));
+
+          // Re-frame the screenshot for this device
+          try {
+            await exec(
+              bin!,
+              [...prefix, "frame", "--config", paths.configPath, "--device", targetDev],
+              { quiet: true },
+            );
+          } catch (frameErr) {
+            console.error(`Frame failed after capture replace for ${targetDev}:`, frameErr);
+          }
         }
 
-        const manifestRes = await exec(bin!, [...prefix, "manifest", "--config", paths.configPath], { quiet: true });
+        const manifestRes = await exec(
+          bin!,
+          [...prefix, "manifest", "--config", paths.configPath],
+          { quiet: true },
+        );
         if (manifestRes.code !== 0) {
-          console.error("Manifest command failed after replace-capture:", manifestRes.stderr || manifestRes.stdout);
+          console.error(
+            "Manifest command failed after replace-capture:",
+            manifestRes.stderr || manifestRes.stdout,
+          );
         }
 
         res.statusCode = 200;
         res.setHeader("Content-Type", "application/json");
-        res.end(JSON.stringify({ ok: true, device: targetDevice, sceneId }));
+        res.end(
+          JSON.stringify({ ok: true, device: targetDevices[0], devices: targetDevices, sceneId }),
+        );
       } catch (err) {
         res.statusCode = 500;
         res.setHeader("Content-Type", "application/json");
@@ -773,6 +960,277 @@ export function replaceCaptureHandler(api: StudioApi): Handler {
       }
     });
   };
+}
+
+/** Handles POST /api/sync-captures to synchronize captures from a source device (e.g. iphone-6.9) across other devices (pixel-10-pro, ipad-13). */
+export function syncCapturesHandler(api: StudioApi): Handler {
+  return (req, res) => {
+    if (req.method !== "POST") {
+      res.statusCode = 405;
+      res.end("POST only");
+      return;
+    }
+
+    const sessionId = getSessionIdFromRequest(req);
+    const paths = resolveWorkspacePaths(api, sessionId);
+    const cli = api.cli;
+
+    readBody(req).then(async (body) => {
+      try {
+        if (sessionId !== "default") {
+          await ensureWorkspaceConfig(api.paths, paths);
+        }
+
+        let parsed: { sourceDevice?: string; targetDevices?: string[] } = {};
+        if (body) {
+          try {
+            parsed = JSON.parse(body);
+          } catch {}
+        }
+        const sourceDevice = (parsed.sourceDevice as DeviceKey) || "iphone-6.9";
+        const allSupported: DeviceKey[] = ["iphone-6.9", "ipad-13", "pixel-10-pro"];
+        const resolvedTargets = (
+          parsed.targetDevices &&
+          Array.isArray(parsed.targetDevices) &&
+          parsed.targetDevices.length > 0
+            ? parsed.targetDevices
+            : allSupported.filter((d) => d !== sourceDevice)
+        ) as DeviceKey[];
+
+        const sourceRawDir = join(paths.outDir, "raw", sourceDevice);
+        if (!existsSync(sourceRawDir)) {
+          res.statusCode = 404;
+          res.setHeader("Content-Type", "application/json");
+          res.end(
+            JSON.stringify({
+              error: `Source device ${sourceDevice} has no raw captures directory`,
+            }),
+          );
+          return;
+        }
+
+        const sourceManifestPath = join(sourceRawDir, "manifest.json");
+        let sourceManifest: { screenshots: Array<{ sceneId: string; file: string }> } = {
+          screenshots: [],
+        };
+        if (existsSync(sourceManifestPath)) {
+          try {
+            sourceManifest = JSON.parse(await readFile(sourceManifestPath, "utf8"));
+          } catch {}
+        }
+
+        if (sourceManifest.screenshots.length === 0) {
+          try {
+            const rawFiles = await readdir(sourceRawDir);
+            for (const rf of rawFiles) {
+              if (rf.endsWith(".png")) {
+                const sId = rf.slice(0, -4);
+                sourceManifest.screenshots.push({
+                  sceneId: sId,
+                  file: join(sourceRawDir, rf),
+                });
+              }
+            }
+          } catch {}
+        }
+
+        if (sourceManifest.screenshots.length === 0) {
+          res.statusCode = 400;
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify({ error: `No captures found on ${sourceDevice} to sync` }));
+          return;
+        }
+
+        const [bin, ...prefix] = cli;
+        let syncedCount = 0;
+
+        for (const targetDev of resolvedTargets) {
+          const targetRawDir = join(paths.outDir, "raw", targetDev);
+          await mkdir(targetRawDir, { recursive: true });
+
+          const targetManifestPath = join(targetRawDir, "manifest.json");
+          let targetManifest: { screenshots: Array<{ sceneId: string; file: string }> } = {
+            screenshots: [],
+          };
+          if (existsSync(targetManifestPath)) {
+            try {
+              targetManifest = JSON.parse(await readFile(targetManifestPath, "utf8"));
+            } catch {}
+          }
+
+          const targetMap = new Map(targetManifest.screenshots.map((s) => [s.sceneId, s.file]));
+
+          for (const s of sourceManifest.screenshots) {
+            const sourceFilePath = existsSync(s.file)
+              ? s.file
+              : join(sourceRawDir, basename(s.file));
+
+            if (existsSync(sourceFilePath)) {
+              const targetFilePath = join(targetRawDir, `${s.sceneId}.png`);
+              await cp(sourceFilePath, targetFilePath, { force: true });
+              targetMap.set(s.sceneId, targetFilePath);
+              syncedCount++;
+            }
+          }
+
+          const updatedTargetManifest = {
+            device: targetDev,
+            udid: "manual",
+            capturedAt: new Date().toISOString(),
+            screenshots: Array.from(targetMap.entries()).map(([sId, fPath]) => ({
+              sceneId: sId,
+              file: fPath,
+            })),
+            preview: null,
+          };
+          await writeFile(targetManifestPath, JSON.stringify(updatedTargetManifest, null, 2));
+
+          try {
+            await exec(
+              bin!,
+              [...prefix, "frame", "--config", paths.configPath, "--device", targetDev],
+              { quiet: true },
+            );
+          } catch (frameErr) {
+            console.error(`Frame failed for ${targetDev} during sync:`, frameErr);
+          }
+        }
+
+        const manifestRes = await exec(
+          bin!,
+          [...prefix, "manifest", "--config", paths.configPath],
+          { quiet: true },
+        );
+        if (manifestRes.code !== 0) {
+          console.error(
+            "Manifest command failed after sync-captures:",
+            manifestRes.stderr || manifestRes.stdout,
+          );
+        }
+
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "application/json");
+        res.end(
+          JSON.stringify({
+            ok: true,
+            syncedCount,
+            sourceDevice,
+            targetDevices: resolvedTargets,
+          }),
+        );
+      } catch (err) {
+        res.statusCode = 500;
+        res.setHeader("Content-Type", "application/json");
+        res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+      }
+    });
+  };
+}
+
+/**
+ * Assigns clean, collision-free scene IDs to incoming files, ensuring they never
+ * collide with or overwrite existing scenes from prior imports or other scenes in the batch.
+ */
+export function assignUniqueSceneIds<T extends { name: string }>(
+  files: T[],
+  existingSceneIds: Set<string>,
+): Array<{ f: T; id: string; label: string }> {
+  const assignments: Array<{ f: T; id: string; label: string }> = [];
+  const allocatedIds = new Set(existingSceneIds);
+
+  for (const f of files) {
+    const rawName = f.name.replace(/\.[^.]+$/, "");
+    let baseId = rawName.replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
+    baseId = baseId.replace(/^_+|_+$/g, "");
+    if (!baseId) {
+      baseId = "screenshot";
+    }
+
+    const label =
+      rawName
+        .replace(/[_-]/g, " ")
+        .trim()
+        .replace(/\b\w/g, (c) => c.toUpperCase()) || `Screenshot ${allocatedIds.size + 1}`;
+
+    let candidateId = baseId;
+    let counter = 2;
+    const numMatch = baseId.match(/^(.*?)_(\d+)$/);
+    let prefix = baseId;
+    if (numMatch) {
+      prefix = numMatch[1]!;
+      counter = Number.parseInt(numMatch[2]!, 10) + 1;
+    }
+
+    while (allocatedIds.has(candidateId)) {
+      candidateId = `${prefix}_${counter}`;
+      counter++;
+    }
+
+    allocatedIds.add(candidateId);
+    assignments.push({ f, id: candidateId, label });
+  }
+
+  return assignments;
+}
+
+/**
+ * Appends new scene definitions to the end of the scenes array in the config file,
+ * preserving existing scene order and indentation.
+ */
+export function appendScenesToConfig(
+  configContent: string,
+  scenesToAdd: Array<{ id: string; label: string }>,
+): string {
+  if (!scenesToAdd || scenesToAdd.length === 0) return configContent;
+
+  const scenesIdx = configContent.indexOf("scenes:");
+  if (scenesIdx === -1) return configContent;
+
+  const openBracket = configContent.indexOf("[", scenesIdx);
+  if (openBracket === -1) return configContent;
+
+  // Find matching closing bracket for scenes array
+  let depth = 0;
+  let closeBracket = -1;
+  for (let i = openBracket; i < configContent.length; i++) {
+    if (configContent[i] === "[") depth++;
+    else if (configContent[i] === "]") {
+      depth--;
+      if (depth === 0) {
+        closeBracket = i;
+        break;
+      }
+    }
+  }
+
+  if (closeBracket === -1) return configContent;
+
+  // Filter scenes that are not already present in the config
+  const scenesToInsert = scenesToAdd.filter(
+    (s) => !configContent.includes(`id: "${s.id}"`) && !configContent.includes(`id: '${s.id}'`),
+  );
+
+  if (scenesToInsert.length === 0) return configContent;
+
+  const blocks = scenesToInsert
+    .map(
+      (s) =>
+        `    {\n      kind: "screenshot",\n      id: ${JSON.stringify(s.id)},\n      flow: "store-${s.id}",\n      headline: { "en-US": ${JSON.stringify(s.label)} },\n      subhead: { "en-US": "Describe your key benefit here." },\n    },`,
+    )
+    .join("\n");
+
+  const scenesInside = configContent.slice(openBracket + 1, closeBracket);
+  const isEmpty = scenesInside.trim().length === 0;
+
+  if (isEmpty) {
+    return `${configContent.slice(0, openBracket + 1)}\n${blocks}\n  ${configContent.slice(closeBracket)}`;
+  }
+
+  const beforeClose = configContent.slice(0, closeBracket);
+  const trimmedBefore = beforeClose.trimEnd();
+  const needsComma = !trimmedBefore.endsWith(",") && !trimmedBefore.endsWith("[");
+
+  return `${trimmedBefore}${needsComma ? "," : ""}\n${blocks}\n  ${configContent.slice(closeBracket).trimStart()}`;
 }
 
 /** Handles POST /api/import for uploading screenshots directly from Studio UI. */
@@ -797,7 +1255,7 @@ export function importHandler(api: StudioApi): Handler {
           files: Array<{ name: string; dataUrl: string; width?: number; height?: number }>;
           autoRoute?: boolean;
           preferredDevice?: string;
-          targetMode?: "current" | "auto" | "all";
+          targetMode?: "current" | "single" | "auto" | "all";
         };
         if (!Array.isArray(files) || files.length === 0) {
           res.statusCode = 400;
@@ -807,11 +1265,11 @@ export function importHandler(api: StudioApi): Handler {
         }
 
         const allDevices: DeviceKey[] = ["iphone-6.9", "ipad-13", "pixel-10-pro"];
-        const filesByDevice = new Map<DeviceKey, typeof files>();
 
-        if (targetMode === "current" && preferredDevice) {
-          filesByDevice.set(preferredDevice as DeviceKey, files);
-        } else if (targetMode === "auto" || (autoRoute && targetMode !== "all")) {
+        const filesByDevice = new Map<string, typeof files>();
+        if ((targetMode === "single" || targetMode === "current") && preferredDevice) {
+          filesByDevice.set(preferredDevice, files);
+        } else if (autoRoute) {
           for (const f of files) {
             const base64Data = f.dataUrl.includes(";base64,")
               ? f.dataUrl.split(";base64,")[1]!
@@ -832,24 +1290,71 @@ export function importHandler(api: StudioApi): Handler {
           }
         }
 
-        // Pre-determine clean, unique scene IDs and labels across files upfront
-        const fileSceneMeta = files.map((f, idx) => {
-          const rawName = f.name.replace(/\.[^.]+$/, "");
-          let baseId = rawName.replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
-          if (!baseId || /^_+$/.test(baseId)) baseId = `screenshot_${idx + 1}`;
-          const label =
-            rawName.replace(/[_-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) ||
-            `Screenshot ${idx + 1}`;
-          return { f, baseId, label };
-        });
+        // 1. Collect all existing scene IDs across manifests, configs, and design overrides
+        const existingSceneIds = new Set<string>();
 
-        const seenBatchIds = new Map<string, number>();
-        const fileSceneAssignments = fileSceneMeta.map(({ f, baseId, label }) => {
-          const count = seenBatchIds.get(baseId) ?? 0;
-          seenBatchIds.set(baseId, count + 1);
-          const id = count === 0 ? baseId : `${baseId}_${count + 1}`;
-          return { f, id, label };
-        });
+        // From raw directories across devices
+        const rawBaseDir = join(paths.outDir, "raw");
+        if (existsSync(rawBaseDir)) {
+          try {
+            const devEntries = await readdir(rawBaseDir);
+            for (const devEntry of devEntries) {
+              const devRawDir = join(rawBaseDir, devEntry);
+              const mPath = join(devRawDir, "manifest.json");
+              if (existsSync(mPath)) {
+                try {
+                  const m = JSON.parse(await readFile(mPath, "utf8"));
+                  if (Array.isArray(m.screenshots)) {
+                    for (const s of m.screenshots) {
+                      if (s.sceneId) existingSceneIds.add(String(s.sceneId));
+                    }
+                  }
+                } catch {}
+              }
+              try {
+                const rawFiles = await readdir(devRawDir);
+                for (const rf of rawFiles) {
+                  if (rf.endsWith(".png")) {
+                    const rawId = rf.slice(0, -4);
+                    if (rawId) existingSceneIds.add(rawId);
+                  }
+                }
+              } catch {}
+            }
+          } catch {}
+        }
+
+        // From all config files
+        const configFiles = getConfigPaths(paths);
+        for (const cfgPath of configFiles) {
+          if (existsSync(cfgPath)) {
+            try {
+              const content = await readFile(cfgPath, "utf8");
+              const idMatches = content.matchAll(/id:\s*["']([^"']+)["']/g);
+              for (const m of idMatches) {
+                if (m[1]) existingSceneIds.add(m[1]);
+              }
+            } catch {}
+          }
+        }
+
+        // From design file
+        if (existsSync(paths.designFile)) {
+          try {
+            const designJson = JSON.parse(await readFile(paths.designFile, "utf8"));
+            if (Array.isArray(designJson.order)) {
+              for (const id of designJson.order) {
+                if (typeof id === "string" && id) existingSceneIds.add(id);
+              }
+            }
+          } catch {}
+        }
+
+        const fileSceneAssignments = assignUniqueSceneIds(files, existingSceneIds);
+        const assignmentMap = new Map<(typeof files)[0], { id: string; label: string }>();
+        for (const a of fileSceneAssignments) {
+          assignmentMap.set(a.f, { id: a.id, label: a.label });
+        }
 
         const newScenes: Array<{ id: string; label: string }> = [];
 
@@ -858,7 +1363,10 @@ export function importHandler(api: StudioApi): Handler {
           await mkdir(rawDir, { recursive: true });
 
           const manifestPath = join(rawDir, "manifest.json");
-          let existingManifest: { screenshots: Array<{ sceneId: string; file: string }> } = {
+          let existingManifest: {
+            screenshots: Array<{ sceneId: string; file: string }>;
+            preview?: any;
+          } = {
             screenshots: [],
           };
           if (existsSync(manifestPath)) {
@@ -872,11 +1380,10 @@ export function importHandler(api: StudioApi): Handler {
           );
 
           for (const f of devFiles) {
-            const assignment =
-              fileSceneAssignments.find((a) => a.f === f) ?? {
-                id: "screenshot",
-                label: "Screenshot",
-              };
+            const assignment = assignmentMap.get(f) ?? {
+              id: `screenshot_${Date.now()}`,
+              label: "Screenshot",
+            };
             const { id, label } = assignment;
 
             const base64Data = f.dataUrl.includes(";base64,")
@@ -900,53 +1407,39 @@ export function importHandler(api: StudioApi): Handler {
               sceneId,
               file,
             })),
-            preview: null,
+            preview: existingManifest.preview ?? null,
           };
           await writeFile(manifestPath, JSON.stringify(updatedManifest, null, 2));
         }
 
         // Auto-register missing scenes in all config files (appassets.config.ts and/or goldie.config.ts)
-        const configFiles = getConfigPaths(paths);
         for (const cfgPath of configFiles) {
-          let configContent = await readFile(cfgPath, "utf8");
-          let modified = false;
-
-          for (const s of newScenes) {
-            if (
-              !configContent.includes(`id: "${s.id}"`) &&
-              !configContent.includes(`id: '${s.id}'`)
-            ) {
-              const sceneBlock = `    {\n      kind: "screenshot",\n      id: ${JSON.stringify(s.id)},\n      flow: "store-${s.id}",\n      headline: { "en-US": ${JSON.stringify(s.label)} },\n      subhead: { "en-US": "Describe your key benefit here." },\n    },\n`;
-              const scenesIndex = configContent.indexOf("scenes:");
-              if (scenesIndex !== -1) {
-                const openBracket = configContent.indexOf("[", scenesIndex);
-                if (openBracket !== -1) {
-                  const afterBracket = configContent.slice(openBracket + 1);
-                  if (afterBracket.trimStart().startsWith("]")) {
-                    const closeBracket = openBracket + 1 + afterBracket.indexOf("]");
-                    configContent =
-                      configContent.slice(0, openBracket + 1) +
-                      "\n" +
-                      sceneBlock +
-                      "  " +
-                      configContent.slice(closeBracket);
-                  } else {
-                    const insertPos = openBracket + 1 + (afterBracket.startsWith("\n") ? 1 : 0);
-                    configContent =
-                      configContent.slice(0, insertPos) +
-                      (afterBracket.startsWith("\n") ? "" : "\n") +
-                      sceneBlock +
-                      configContent.slice(insertPos);
-                  }
-                  modified = true;
-                }
-              }
+          if (existsSync(cfgPath)) {
+            const configContent = await readFile(cfgPath, "utf8");
+            const updatedConfig = appendScenesToConfig(configContent, newScenes);
+            if (updatedConfig !== configContent) {
+              await writeFile(cfgPath, updatedConfig);
             }
           }
+        }
 
-          if (modified) {
-            await writeFile(cfgPath, configContent);
-          }
+        // If design file has an order array, append newly added scene IDs so design order is preserved
+        if (existsSync(paths.designFile)) {
+          try {
+            const designJson = JSON.parse(await readFile(paths.designFile, "utf8"));
+            if (Array.isArray(designJson.order)) {
+              let orderChanged = false;
+              for (const s of newScenes) {
+                if (!designJson.order.includes(s.id)) {
+                  designJson.order.push(s.id);
+                  orderChanged = true;
+                }
+              }
+              if (orderChanged) {
+                await writeFile(paths.designFile, JSON.stringify(designJson, null, 2));
+              }
+            }
+          } catch {}
         }
 
         // Rebuild store.json via manifest command
@@ -1232,9 +1725,16 @@ export function deleteHandler(api: StudioApi): Handler {
 
         // Rebuild store.json via manifest command
         const [bin, ...prefix] = cli;
-        const manifestRes = await exec(bin!, [...prefix, "manifest", "--config", paths.configPath], { quiet: true });
+        const manifestRes = await exec(
+          bin!,
+          [...prefix, "manifest", "--config", paths.configPath],
+          { quiet: true },
+        );
         if (manifestRes.code !== 0) {
-          console.error("Manifest failed in deleteHandler:", manifestRes.stderr || manifestRes.stdout);
+          console.error(
+            "Manifest failed in deleteHandler:",
+            manifestRes.stderr || manifestRes.stdout,
+          );
         }
 
         res.statusCode = 200;
@@ -1355,9 +1855,16 @@ export function deleteAllHandler(api: StudioApi): Handler {
 
         // Rebuild store.json via manifest command
         const [bin, ...prefix] = cli;
-        const manifestRes = await exec(bin!, [...prefix, "manifest", "--config", paths.configPath], { quiet: true });
+        const manifestRes = await exec(
+          bin!,
+          [...prefix, "manifest", "--config", paths.configPath],
+          { quiet: true },
+        );
         if (manifestRes.code !== 0) {
-          console.error("Manifest failed in deleteAllHandler:", manifestRes.stderr || manifestRes.stdout);
+          console.error(
+            "Manifest failed in deleteAllHandler:",
+            manifestRes.stderr || manifestRes.stdout,
+          );
         }
 
         res.statusCode = 200;
@@ -1408,10 +1915,12 @@ export const MIME: Record<string, string> = {
 };
 
 /** Serve `file` with Range support, so the preview video seeks in the browser. */
-function sendFile(req: IncomingMessage, res: ServerResponse, file: string) {
+function sendFile(req: IncomingMessage, res: ServerResponse, file: string, cacheControl?: string) {
   const size = statSync(file).size;
   const type = MIME[extname(file).toLowerCase()] ?? "application/octet-stream";
   const range = req.headers.range?.match(/^bytes=(\d*)-(\d*)$/);
+  const isHashedAsset = req.url?.includes("/assets/");
+  const cc = cacheControl ?? (isHashedAsset ? "public, max-age=31536000, immutable" : "no-store");
   if (range) {
     const start = range[1] ? Number(range[1]) : 0;
     const end = range[2] ? Math.min(Number(range[2]), size - 1) : size - 1;
@@ -1420,7 +1929,7 @@ function sendFile(req: IncomingMessage, res: ServerResponse, file: string) {
       "Content-Range": `bytes ${start}-${end}/${size}`,
       "Content-Length": end - start + 1,
       "Accept-Ranges": "bytes",
-      "Cache-Control": "no-store",
+      "Cache-Control": cc,
     });
     createReadStream(file, { start, end }).pipe(res);
     return;
@@ -1429,7 +1938,7 @@ function sendFile(req: IncomingMessage, res: ServerResponse, file: string) {
     "Content-Type": type,
     "Content-Length": size,
     "Accept-Ranges": "bytes",
-    "Cache-Control": "no-store",
+    "Cache-Control": cc,
   });
   createReadStream(file).pipe(res);
 }
@@ -1480,7 +1989,7 @@ export function findScreenshotFile(
   );
 }
 
-/** Handles GET /api/export-single?sceneId=...&device=...&locale=...&slice=... for downloading a single screenshot. */
+/** Handles GET /api/export-single?sceneId=...&device=...&size=...&locale=...&slice=... for downloading a single screenshot. */
 export function singleExportHandler(api: StudioApi): Handler {
   return (req, res) => {
     const sessionId = getSessionIdFromRequest(req);
@@ -1489,7 +1998,15 @@ export function singleExportHandler(api: StudioApi): Handler {
 
     const url = new URL(req.url ?? "/", "http://localhost");
     const sceneId = url.searchParams.get("sceneId");
-    const device = url.searchParams.get("device") || "iphone-6.9";
+    const rawDevice = url.searchParams.get("device") || "iphone-6.9";
+    const sizeParam = url.searchParams.get("size");
+    const isIphone =
+      rawDevice === "iphone-6.9" ||
+      rawDevice === "iphone-6.3" ||
+      rawDevice === "iphone" ||
+      sizeParam === "1206x2622";
+    const isIphone63 = isIphone && sizeParam !== "1320x2868";
+    const device = isIphone ? "iphone-6.9" : rawDevice;
     const locale = url.searchParams.get("locale") || "en-US";
     const sliceParam = url.searchParams.get("slice");
     const sliceNum = sliceParam !== null ? parseInt(sliceParam, 10) : undefined;
@@ -1577,7 +2094,6 @@ export function singleExportHandler(api: StudioApi): Handler {
           return;
         }
 
-        const stat = statSync(targetFile);
         const targetSlice =
           sliceNum !== undefined && !Number.isNaN(sliceNum)
             ? sliceNum === 0
@@ -1585,6 +2101,22 @@ export function singleExportHandler(api: StudioApi): Handler {
               : sliceNum
             : undefined;
         const sliceSuffix = targetSlice && targetSlice > 1 ? `-${targetSlice}` : "";
+
+        if (isIphone63) {
+          const rawBuf = await readFile(targetFile);
+          const scaledBuf = await resizePngBuffer(rawBuf, 1206, 2622);
+          const dlName = `${sceneId}${sliceSuffix}-iphone-6.3-1206x2622.png`;
+          res.writeHead(200, {
+            "Content-Type": "image/png",
+            "Content-Length": scaledBuf.length,
+            "Content-Disposition": `attachment; filename="${dlName}"`,
+            "Cache-Control": "no-store",
+          });
+          res.end(scaledBuf);
+          return;
+        }
+
+        const stat = statSync(targetFile);
         res.writeHead(200, {
           "Content-Type": "image/png",
           "Content-Length": stat.size,
@@ -1597,6 +2129,139 @@ export function singleExportHandler(api: StudioApi): Handler {
         res.end(err instanceof Error ? err.message : String(err));
       }
     })();
+  };
+}
+
+/** Handles POST /api/export-selected-zip for packaging selected screenshots into a single ZIP archive */
+export function selectedExportZipHandler(api: StudioApi): Handler {
+  return (req, res) => {
+    if (req.method !== "POST") {
+      res.statusCode = 405;
+      res.end("POST only");
+      return;
+    }
+
+    const sessionId = getSessionIdFromRequest(req);
+    const paths = resolveWorkspacePaths(api, sessionId);
+    const cli = api.cli;
+
+    readBody(req).then(async (rawBody) => {
+      try {
+        const body = JSON.parse(rawBody || "{}");
+        const rawDevice = body.device || "iphone-6.9";
+        const isIphone =
+          rawDevice === "iphone-6.9" ||
+          rawDevice === "iphone-6.3" ||
+          rawDevice === "iphone" ||
+          body.size === "1206x2622";
+        const isIphone63 = isIphone && body.size !== "1320x2868";
+        const device = isIphone ? "iphone-6.9" : rawDevice;
+        const locale = body.locale || "en-US";
+        const items: Array<{ sceneId: string; slice?: number }> = Array.isArray(body.items)
+          ? body.items
+          : [];
+
+        if (items.length === 0) {
+          res.statusCode = 400;
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify({ error: "items array cannot be empty" }));
+          return;
+        }
+
+        const flags: string[] = [];
+        if (body.background) flags.push("--background", body.background);
+        if (body.frame) {
+          const cleanFrame = body.frame.replace(/^\/?frames\//, "").replace(/\.png$/, "");
+          flags.push("--frame", cleanFrame);
+        }
+        if (body.font) flags.push("--font", body.font);
+        if (body.template && body.template !== "none") flags.push("--template", body.template);
+        if (body.layout) flags.push("--layout", body.layout);
+        if (body.screenOnly) flags.push("--screen-only");
+        if (body.fontSizeScale) flags.push("--font-size-scale", String(body.fontSizeScale));
+
+        const [bin, ...prefix] = cli;
+        const execRes = await exec(
+          bin!,
+          [
+            ...prefix,
+            "frame",
+            "--config",
+            paths.configPath,
+            "--device",
+            device,
+            "--locale",
+            locale,
+            ...flags,
+          ],
+          { quiet: true },
+        );
+        if (execRes.code !== 0) {
+          res.statusCode = 500;
+          res.setHeader("Content-Type", "application/json");
+          res.end(
+            JSON.stringify({
+              error: `Frame rendering failed: ${execRes.stderr || execRes.stdout || `exit code ${execRes.code}`}`,
+            }),
+          );
+          return;
+        }
+
+        const screenshotsDir = join(paths.outDir, "screenshots", device, locale);
+        if (!existsSync(screenshotsDir)) {
+          res.statusCode = 404;
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify({ error: "No screenshots found for this device" }));
+          return;
+        }
+
+        const files = await readdir(screenshotsDir);
+        const zipList: ZipEntry[] = [];
+
+        for (const item of items) {
+          const matched = findScreenshotFile(files, item.sceneId, item.slice);
+          if (matched) {
+            const filePath = join(screenshotsDir, matched);
+            if (existsSync(filePath)) {
+              let data: Buffer = await readFile(filePath);
+              let entryName = matched;
+              if (isIphone63) {
+                data = Buffer.from(await resizePngBuffer(data, 1206, 2622));
+                entryName = matched.replace(/\.png$/, "-1206x2622.png");
+              }
+              zipList.push({
+                name: entryName,
+                data,
+                mtime: new Date(),
+              });
+            }
+          }
+        }
+
+        if (zipList.length === 0) {
+          res.statusCode = 404;
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify({ error: "None of the selected screenshots were found" }));
+          return;
+        }
+
+        const zipFileName = isIphone63
+          ? "selected-screenshots-iphone-6.3-1206x2622.zip"
+          : `selected-screenshots-${device}.zip`;
+        const zipBuffer = zipEntries(zipList);
+        res.writeHead(200, {
+          "Content-Type": "application/zip",
+          "Content-Length": zipBuffer.length,
+          "Content-Disposition": `attachment; filename="${zipFileName}"`,
+          "Cache-Control": "no-store",
+        });
+        res.end(zipBuffer);
+      } catch (err) {
+        res.statusCode = 500;
+        res.setHeader("Content-Type", "application/json");
+        res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+      }
+    });
   };
 }
 
@@ -1632,6 +2297,14 @@ export function bannerExportHandler(api: StudioApi): Handler {
         const kickerHeadline = body.kicker || url.searchParams.get("kicker") || undefined;
         const customHeadline = body.headline || url.searchParams.get("headline") || undefined;
         const customTagline = body.tagline || url.searchParams.get("tagline") || undefined;
+        const customTitle =
+          body.title ||
+          body.appName ||
+          body.customTitle ||
+          url.searchParams.get("title") ||
+          url.searchParams.get("appName") ||
+          url.searchParams.get("customTitle") ||
+          undefined;
 
         let benefits: string[] | undefined = Array.isArray(body.benefits)
           ? body.benefits
@@ -1672,12 +2345,26 @@ export function bannerExportHandler(api: StudioApi): Handler {
         }
 
         const cfg = await loadConfig(paths.configPath);
+        let designJson: any = null;
         if (existsSync(paths.designFile)) {
           try {
-            const designJson = JSON.parse(await readFile(paths.designFile, "utf8"));
+            designJson = JSON.parse(await readFile(paths.designFile, "utf8"));
             applyDesign(cfg, designJson);
           } catch {}
         }
+
+        const resolvedTitle =
+          customTitle || designJson?.appInfo?.name || cfg.store?.name || undefined;
+
+        const resolvedTagline = customTagline || designJson?.appInfo?.subtitle || undefined;
+
+        const resolvedKicker =
+          kickerHeadline ||
+          (designJson?.appInfo?.category
+            ? `${designJson.appInfo.category} App`.toUpperCase()
+            : undefined);
+
+        const resolvedIcon = customIcon || designJson?.appInfo?.icon || undefined;
 
         const buffer = await renderBannerCanvas({
           cfg,
@@ -1688,10 +2375,12 @@ export function bannerExportHandler(api: StudioApi): Handler {
           deviceKey,
           deviceCount,
           locale,
-          kickerHeadline,
+          customTitle: resolvedTitle,
+          appName: resolvedTitle,
+          kickerHeadline: resolvedKicker,
           customHeadline,
-          customTagline,
-          customIcon,
+          customTagline: resolvedTagline,
+          customIcon: resolvedIcon,
           benefits,
           customBackground,
           layout,
@@ -2050,7 +2739,7 @@ export function getClientIp(req: IncomingMessage): string {
 }
 
 /** Handles POST /api/ai/generate-copy for visual screenshot analysis and ASO copy generation with Gemini Vision. */
-export function aiCopyHandler({ paths }: StudioApi, rateLimiter = aiRateLimiter): Handler {
+export function aiCopyHandler(api: StudioApi, rateLimiter = aiRateLimiter): Handler {
   return (req, res) => {
     if (req.method !== "POST") {
       res.statusCode = 405;
@@ -2084,6 +2773,9 @@ export function aiCopyHandler({ paths }: StudioApi, rateLimiter = aiRateLimiter)
 
     readBody(req).then(async (body) => {
       try {
+        const sessionId = getSessionIdFromRequest(req);
+        const sessionPaths = resolveWorkspacePaths(api, sessionId);
+
         const {
           sceneId,
           device = "iphone-6.9",
@@ -2124,7 +2816,7 @@ export function aiCopyHandler({ paths }: StudioApi, rateLimiter = aiRateLimiter)
           return;
         }
 
-        const apiKey = getGeminiApiKey(paths);
+        const apiKey = getGeminiApiKey(sessionPaths) || getGeminiApiKey(api.paths);
         if (!apiKey) {
           res.statusCode = 400;
           res.setHeader("Content-Type", "application/json");
@@ -2158,27 +2850,36 @@ export function aiCopyHandler({ paths }: StudioApi, rateLimiter = aiRateLimiter)
             new Set([device, "iphone-6.9", "pixel-10-pro", "ipad-13"].filter(Boolean)),
           );
 
+          const outDirsToTry = Array.from(
+            new Set(
+              [sessionPaths.outDir, sessionPaths.webDir, api.paths.outDir, api.paths.webDir].filter(
+                Boolean,
+              ),
+            ),
+          );
+
           let screenshotPath: string | null = null;
 
-          // 1. Direct match in raw folder
-          for (const dev of devicesToTry) {
-            for (const name of candidateNames) {
-              for (const ext of [".png", ".jpg", ".jpeg", ".webp"]) {
-                const p = join(paths.outDir, "raw", dev, `${name}${ext}`);
-                if (existsSync(p)) {
-                  screenshotPath = p;
-                  break;
+          for (const outDir of outDirsToTry) {
+            // 1. Direct match in raw folder
+            for (const dev of devicesToTry) {
+              for (const name of candidateNames) {
+                for (const ext of [".png", ".jpg", ".jpeg", ".webp"]) {
+                  const p = join(outDir, "raw", dev, `${name}${ext}`);
+                  if (existsSync(p)) {
+                    screenshotPath = p;
+                    break;
+                  }
                 }
+                if (screenshotPath) break;
               }
               if (screenshotPath) break;
             }
             if (screenshotPath) break;
-          }
 
-          // 2. Try screenshots folder for each device
-          if (!screenshotPath) {
+            // 2. Try screenshots folder for each device
             for (const dev of devicesToTry) {
-              const screenshotsDir = join(paths.outDir, "screenshots", dev, locale);
+              const screenshotsDir = join(outDir, "screenshots", dev, locale);
               if (existsSync(screenshotsDir)) {
                 const files = await readdir(screenshotsDir);
                 for (const name of candidateNames) {
@@ -2191,12 +2892,11 @@ export function aiCopyHandler({ paths }: StudioApi, rateLimiter = aiRateLimiter)
               }
               if (screenshotPath) break;
             }
-          }
+            if (screenshotPath) break;
 
-          // 3. Loose fallback in raw folder
-          if (!screenshotPath) {
+            // 3. Loose fallback in raw folder
             for (const dev of devicesToTry) {
-              const rawDir = join(paths.outDir, "raw", dev);
+              const rawDir = join(outDir, "raw", dev);
               if (existsSync(rawDir)) {
                 const files = await readdir(rawDir);
                 for (const name of candidateNames) {
@@ -2216,6 +2916,29 @@ export function aiCopyHandler({ paths }: StudioApi, rateLimiter = aiRateLimiter)
               }
               if (screenshotPath) break;
             }
+            if (screenshotPath) break;
+
+            // 4. Loose fallback directly in outDir/webDir
+            if (existsSync(outDir)) {
+              try {
+                const files = await readdir(outDir);
+                for (const name of candidateNames) {
+                  const matched = files.find(
+                    (f) =>
+                      f.toLowerCase().includes(name.toLowerCase()) &&
+                      (f.endsWith(".png") ||
+                        f.endsWith(".jpg") ||
+                        f.endsWith(".jpeg") ||
+                        f.endsWith(".webp")),
+                  );
+                  if (matched) {
+                    screenshotPath = join(outDir, matched);
+                    break;
+                  }
+                }
+              } catch {}
+            }
+            if (screenshotPath) break;
           }
 
           if (!screenshotPath || !existsSync(screenshotPath)) {
@@ -2539,9 +3262,16 @@ export function localesHandler(api: StudioApi): Handler {
 
           // Run manifest to refresh out/web/store.json
           const [bin, ...prefix] = cli;
-          const manifestRes = await exec(bin!, [...prefix, "manifest", "--config", paths.configPath], { quiet: true });
+          const manifestRes = await exec(
+            bin!,
+            [...prefix, "manifest", "--config", paths.configPath],
+            { quiet: true },
+          );
           if (manifestRes.code !== 0) {
-            console.error("Manifest failed in localesHandler:", manifestRes.stderr || manifestRes.stdout);
+            console.error(
+              "Manifest failed in localesHandler:",
+              manifestRes.stderr || manifestRes.stdout,
+            );
           }
 
           res.writeHead(200, { "Content-Type": "application/json" });
@@ -2563,7 +3293,12 @@ export function localesHandler(api: StudioApi): Handler {
 /** The studio bundle Vite emits; shipped in the npm package. */
 export const STUDIO_DIST = resolve(dirname(fileURLToPath(import.meta.url)), "..", "studio", "dist");
 
-export const STUDIO_PUBLIC = resolve(dirname(fileURLToPath(import.meta.url)), "..", "studio", "public");
+export const STUDIO_PUBLIC = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "studio",
+  "public",
+);
 
 /**
  * Creates the HTTP request handler for AppAssets Studio, handling APIs, static assets,
@@ -2574,10 +3309,12 @@ export function createStudioRequestHandler(api: StudioApi): Handler {
   const design = designHandler(api);
   const exp = exportHandler(api);
   const expSingle = singleExportHandler(api);
+  const expSelectedZip = selectedExportZipHandler(api);
   const expBanner = bannerExportHandler(api);
   const expFavicon = faviconExportHandler(api);
   const imp = importHandler(api);
   const repCapture = replaceCaptureHandler(api);
+  const syncCaptures = syncCapturesHandler(api);
   const del = deleteHandler(api);
   const delAll = deleteAllHandler(api);
   const locales = localesHandler(api);
@@ -2594,11 +3331,13 @@ export function createStudioRequestHandler(api: StudioApi): Handler {
     if (path === "/api/locales") return locales(req, res);
     if (path === "/api/ai/generate-copy") return aiCopy(req, res);
     if (path.startsWith("/api/export-single")) return expSingle(req, res);
+    if (path.startsWith("/api/export-selected-zip")) return expSelectedZip(req, res);
     if (path.startsWith("/api/export-banner")) return expBanner(req, res);
     if (path.startsWith("/api/export-favicon")) return expFavicon(req, res);
     if (path.startsWith("/api/export")) return exp(path.slice("/api/export".length))(req, res);
     if (path === "/api/import") return imp(req, res);
     if (path === "/api/replace-capture") return repCapture(req, res);
+    if (path === "/api/sync-captures") return syncCaptures(req, res);
     if (path === "/api/delete") return del(req, res);
     if (path === "/api/delete-all") return delAll(req, res);
 
@@ -2636,6 +3375,9 @@ export function createStudioRequestHandler(api: StudioApi): Handler {
       normalizedPath === "/" ||
       normalizedPath === "/privacy" ||
       normalizedPath === "/terms" ||
+      normalizedPath === "/about" ||
+      normalizedPath === "/contact" ||
+      normalizedPath === "/guidelines" ||
       normalizedPath === "/studio";
 
     const indexPath =
@@ -2650,7 +3392,7 @@ export function createStudioRequestHandler(api: StudioApi): Handler {
         return;
       }
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-      res.end("<!doctype html><html><body><div id=\"root\"></div></body></html>");
+      res.end('<!doctype html><html><body><div id="root"></div></body></html>');
       return;
     }
 
@@ -2665,7 +3407,7 @@ export function createStudioRequestHandler(api: StudioApi): Handler {
     }
 
     res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" });
-    res.end("<!doctype html><html><body><div id=\"root\">Not Found</div></body></html>");
+    res.end('<!doctype html><html><body><div id="root">Not Found</div></body></html>');
   };
 }
 
@@ -2689,9 +3431,12 @@ export function serveStudio(
   // Prune stale guest workspaces on startup and periodically every 2 hours
   const workspacesDir = join(api.paths.configDir, "workspaces");
   pruneOldWorkspaces(workspacesDir).catch(() => {});
-  const pruneInterval = setInterval(() => {
-    pruneOldWorkspaces(workspacesDir).catch(() => {});
-  }, 2 * 3600 * 1000);
+  const pruneInterval = setInterval(
+    () => {
+      pruneOldWorkspaces(workspacesDir).catch(() => {});
+    },
+    2 * 3600 * 1000,
+  );
   if (typeof pruneInterval.unref === "function") pruneInterval.unref();
 
   return new Promise((done, fail) => {

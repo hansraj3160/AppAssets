@@ -10,10 +10,14 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { BacklightConfig, PatternType } from "../../src/background";
+import { AboutUs } from "./components/AboutUs";
 import { AdBanner } from "./components/AdBanner";
 import { AppDetailsModal } from "./components/AppDetailsModal";
 import { AuthModal } from "./components/AuthModal";
+import { ContactUs } from "./components/ContactUs";
 import { EmptyState } from "./components/EmptyState";
+import { Guidelines } from "./components/Guidelines";
 import { Header } from "./components/Header";
 import { LandingPage } from "./components/LandingPage";
 import { LocaleManagerModal } from "./components/LocaleManagerModal";
@@ -43,7 +47,6 @@ import {
   type StoreManifest,
   saveDesign,
 } from "./manifest";
-import type { BacklightConfig, PatternType } from "../../src/background";
 
 /** Sentinel for the config's own layout sequence, which the studio can show but not edit. */
 export const CUSTOM_TEMPLATE = "__custom__";
@@ -82,13 +85,24 @@ const ENABLE_PLATFORM: Record<
 /** How long the design must sit still before it is written to disk. */
 const SAVE_DEBOUNCE_MS = 500;
 
-export type Screen = "landing" | "studio" | "privacy" | "terms" | "not-found";
+export type Screen =
+  | "landing"
+  | "studio"
+  | "privacy"
+  | "terms"
+  | "about"
+  | "contact"
+  | "guidelines"
+  | "not-found";
 
 export function resolveScreenFromLocation(): Screen {
   if (typeof window === "undefined") return "landing";
   const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
   if (pathname === "/privacy") return "privacy";
   if (pathname === "/terms") return "terms";
+  if (pathname === "/about") return "about";
+  if (pathname === "/contact") return "contact";
+  if (pathname === "/guidelines") return "guidelines";
   if (pathname === "/studio") return "studio";
   if (pathname === "/" || pathname === "") {
     const params = new URLSearchParams(window.location.search);
@@ -96,6 +110,9 @@ export function resolveScreenFromLocation(): Screen {
     const hash = window.location.hash;
     if (view === "privacy" || hash === "#privacy") return "privacy";
     if (view === "terms" || hash === "#terms") return "terms";
+    if (view === "about" || hash === "#about") return "about";
+    if (view === "contact" || hash === "#contact") return "contact";
+    if (view === "guidelines" || hash === "#guidelines") return "guidelines";
     if (view === "studio" || hash === "#studio") return "studio";
     return "landing";
   }
@@ -103,24 +120,35 @@ export function resolveScreenFromLocation(): Screen {
 }
 
 export function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
+}
+
+function AppContent() {
   const [loaded, setLoaded] = useState<{ manifest: StoreManifest; design: SavedDesign } | null>(
     null,
   );
   const [error, setError] = useState<Error | null>(null);
   const [screen, setScreen] = useState<Screen>(resolveScreenFromLocation);
 
-  const navigateTo = useCallback((view: "landing" | "studio" | "privacy" | "terms") => {
-    setScreen(view);
-    const url = new URL(window.location.href);
-    url.searchParams.delete("view");
-    url.hash = "";
-    if (view === "landing") {
-      url.pathname = "/";
-    } else {
-      url.pathname = `/${view}`;
-    }
-    window.history.pushState({}, "", url.pathname + (url.search ? url.search : ""));
-  }, []);
+  const navigateTo = useCallback(
+    (view: "landing" | "studio" | "privacy" | "terms" | "about" | "contact" | "guidelines") => {
+      setScreen(view);
+      const url = new URL(window.location.href);
+      url.searchParams.delete("view");
+      url.hash = "";
+      if (view === "landing") {
+        url.pathname = "/";
+      } else {
+        url.pathname = `/${view}`;
+      }
+      window.history.pushState({}, "", url.pathname + (url.search ? url.search : ""));
+    },
+    [],
+  );
 
   useEffect(() => {
     const handlePopState = () => {
@@ -138,6 +166,9 @@ export function App() {
       studio: { path: "/studio", title: "AppAssets Studio - Screenshot Editor" },
       privacy: { path: "/privacy", title: "Privacy Policy - AppAssets" },
       terms: { path: "/terms", title: "Terms and Conditions - AppAssets" },
+      about: { path: "/about", title: "About Us - AppAssets Studio" },
+      contact: { path: "/contact", title: "Contact Us - AppAssets Studio" },
+      guidelines: { path: "/guidelines", title: "Store Guidelines & Specifications - AppAssets" },
       "not-found": { path: "/404", title: "404 Not Found - AppAssets" },
     };
     const current = screenToPage[screen];
@@ -162,10 +193,13 @@ export function App() {
     localStorage.setItem("appassets_theme", dark ? "dark" : "light");
   }, [dark]);
 
-  const refresh = useCallback(() => {
-    Promise.all([loadManifest(), loadDesign()])
-      .then(([manifest, design]) => setLoaded({ manifest, design }))
-      .catch((e: Error) => setError(e));
+  const refresh = useCallback(async () => {
+    try {
+      const [manifest, design] = await Promise.all([loadManifest(), loadDesign()]);
+      setLoaded({ manifest, design });
+    } catch (e) {
+      setError(e instanceof Error ? e : new Error(String(e)));
+    }
   }, []);
 
   useEffect(() => {
@@ -174,54 +208,122 @@ export function App() {
 
   if (screen === "landing") {
     return (
-      <AuthProvider>
+      <>
         <LandingPage
           onStartDesigning={() => navigateTo("studio")}
           onOpenPrivacy={() => navigateTo("privacy")}
           onOpenTerms={() => navigateTo("terms")}
+          onOpenAbout={() => navigateTo("about")}
+          onOpenContact={() => navigateTo("contact")}
+          onOpenGuidelines={() => navigateTo("guidelines")}
           dark={dark}
           onToggleDark={() => setDark((prev) => !prev)}
         />
         <AuthModal />
         <UpgradeModal />
-      </AuthProvider>
+      </>
     );
   }
 
   if (screen === "privacy") {
     return (
-      <AuthProvider>
-        <PrivacyPolicy
-          onNavigateHome={() => navigateTo("landing")}
-          onNavigateTerms={() => navigateTo("terms")}
-          onStartDesigning={() => navigateTo("studio")}
-          dark={dark}
-          onToggleDark={() => setDark((prev) => !prev)}
-        />
-      </AuthProvider>
+      <PrivacyPolicy
+        onNavigateHome={() => navigateTo("landing")}
+        onNavigateTerms={() => navigateTo("terms")}
+        onStartDesigning={() => navigateTo("studio")}
+        dark={dark}
+        onToggleDark={() => setDark((prev) => !prev)}
+      />
     );
   }
 
   if (screen === "terms") {
     return (
-      <AuthProvider>
-        <TermsAndConditions
-          onNavigateHome={() => navigateTo("landing")}
-          onNavigatePrivacy={() => navigateTo("privacy")}
-          onStartDesigning={() => navigateTo("studio")}
-          dark={dark}
-          onToggleDark={() => setDark((prev) => !prev)}
-        />
-      </AuthProvider>
+      <TermsAndConditions
+        onNavigateHome={() => navigateTo("landing")}
+        onNavigatePrivacy={() => navigateTo("privacy")}
+        onStartDesigning={() => navigateTo("studio")}
+        dark={dark}
+        onToggleDark={() => setDark((prev) => !prev)}
+      />
+    );
+  }
+
+  if (screen === "about") {
+    return (
+      <AboutUs
+        onNavigateHome={() => navigateTo("landing")}
+        onNavigateContact={() => navigateTo("contact")}
+        onNavigateGuidelines={() => navigateTo("guidelines")}
+        onStartDesigning={() => navigateTo("studio")}
+        dark={dark}
+        onToggleDark={() => setDark((prev) => !prev)}
+      />
+    );
+  }
+
+  if (screen === "contact") {
+    return (
+      <ContactUs
+        onNavigateHome={() => navigateTo("landing")}
+        onNavigateAbout={() => navigateTo("about")}
+        onStartDesigning={() => navigateTo("studio")}
+        dark={dark}
+        onToggleDark={() => setDark((prev) => !prev)}
+      />
+    );
+  }
+
+  if (screen === "guidelines") {
+    return (
+      <Guidelines
+        onNavigateHome={() => navigateTo("landing")}
+        onNavigateContact={() => navigateTo("contact")}
+        onStartDesigning={() => navigateTo("studio")}
+        dark={dark}
+        onToggleDark={() => setDark((prev) => !prev)}
+      />
     );
   }
 
   if (screen === "not-found") {
     return (
-      <AuthProvider>
-        <div className="min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-zinc-100 flex flex-col font-sans selection:bg-[#FF6B00]/20 selection:text-[#FF6B00]">
-          <header className="sticky top-0 z-50 w-full border-b border-zinc-200/80 dark:border-zinc-800/80 bg-white/85 dark:bg-black/85 backdrop-blur-md px-6 py-3">
-            <div className="max-w-7xl mx-auto flex items-center justify-between">
+      <div className="min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-zinc-100 flex flex-col font-sans selection:bg-[#FF6B00]/20 selection:text-[#FF6B00]">
+        <header className="sticky top-0 z-50 w-full border-b border-zinc-200/80 dark:border-zinc-800/80 bg-white/85 dark:bg-black/85 backdrop-blur-md px-6 py-3">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <a
+              href="/"
+              onClick={(e) => {
+                if (!isModifiedEvent(e)) {
+                  e.preventDefault();
+                  navigateTo("landing");
+                }
+              }}
+              className="flex items-center gap-2.5 group cursor-pointer"
+            >
+              <img
+                src="/logo.png"
+                alt="AppAssets Logo"
+                className="size-8 rounded-lg object-cover"
+              />
+              <span className="text-base font-bold tracking-tight text-zinc-900 dark:text-white">
+                App<span className="text-[#FF6B00]">Assets</span> Studio
+              </span>
+            </a>
+          </div>
+        </header>
+        <main className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+          <div className="max-w-md mx-auto space-y-4">
+            <div className="inline-flex items-center justify-center size-16 rounded-2xl bg-[#FF6B00]/10 text-[#FF6B00] text-2xl font-bold">
+              404
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-zinc-900 dark:text-white">
+              Page Not Found
+            </h1>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
+              The page you are looking for does not exist or has been moved.
+            </p>
+            <div className="pt-2">
               <a
                 href="/"
                 onClick={(e) => {
@@ -230,44 +332,14 @@ export function App() {
                     navigateTo("landing");
                   }
                 }}
-                className="flex items-center gap-2.5 group cursor-pointer"
+                className="inline-flex items-center justify-center h-10 px-6 rounded-full font-semibold text-xs bg-[#FF6B00] hover:bg-[#FF8A00] text-white transition-all shadow-xs cursor-pointer"
               >
-                <img src="/logo.png" alt="AppAssets Logo" className="size-8 rounded-lg object-cover" />
-                <span className="text-base font-bold tracking-tight text-zinc-900 dark:text-white">
-                  App<span className="text-[#FF6B00]">Assets</span> Studio
-                </span>
+                Return to Home
               </a>
             </div>
-          </header>
-          <main className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-            <div className="max-w-md mx-auto space-y-4">
-              <div className="inline-flex items-center justify-center size-16 rounded-2xl bg-[#FF6B00]/10 text-[#FF6B00] text-2xl font-bold">
-                404
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-zinc-900 dark:text-white">
-                Page Not Found
-              </h1>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                The page you are looking for does not exist or has been moved.
-              </p>
-              <div className="pt-2">
-                <a
-                  href="/"
-                  onClick={(e) => {
-                    if (!isModifiedEvent(e)) {
-                      e.preventDefault();
-                      navigateTo("landing");
-                    }
-                  }}
-                  className="inline-flex items-center justify-center h-10 px-6 rounded-full font-semibold text-xs bg-[#FF6B00] hover:bg-[#FF8A00] text-white transition-all shadow-xs cursor-pointer"
-                >
-                  Return to Home
-                </a>
-              </div>
-            </div>
-          </main>
-        </div>
-      </AuthProvider>
+          </div>
+        </main>
+      </div>
     );
   }
 
@@ -290,7 +362,7 @@ export function App() {
       </div>
     );
   return (
-    <AuthProvider>
+    <>
       <Loaded
         manifest={loaded.manifest}
         saved={loaded.design}
@@ -301,7 +373,7 @@ export function App() {
       />
       <AuthModal />
       <UpgradeModal />
-    </AuthProvider>
+    </>
   );
 }
 
@@ -329,7 +401,7 @@ function Loaded({
 }: {
   manifest: StoreManifest;
   saved: SavedDesign;
-  onRefresh: () => void;
+  onRefresh: () => Promise<void> | void;
   dark: boolean;
   setDark: (v: boolean | ((prev: boolean) => boolean)) => void;
   onNavigateToLanding?: () => void;
@@ -362,6 +434,7 @@ function Loaded({
       ? view.locale
       : (manifest.locales[0] ?? ""),
   );
+  const iphoneSize = "1206x2622" as const;
   const [canvasView, setCanvasView] = useState<"editor" | "store" | "promo">("editor");
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [showMobileTip, setShowMobileTip] = useState(() => {
@@ -836,14 +909,20 @@ function Loaded({
           locale,
           dark,
         });
+        if (data.targetPlatform !== platform) {
+          setPlatform(data.targetPlatform);
+        }
+        if (data.targetDevice !== device) {
+          setDevice(data.targetDevice);
+        }
       }
-      sessionStorage.setItem(
-        "appassets_toast",
+      setToastMessage(
         `✨ Successfully imported ${data.imported || files.length} screenshot(s) into ${data.targetDevice || device}!`,
       );
-      window.location.reload();
+      await onRefresh();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to import images");
+    } finally {
       setIsImporting(false);
     }
   };
@@ -869,6 +948,9 @@ function Loaded({
         onOpenAppDetails={() => setIsAppDetailsModalOpen(true)}
         onNavigateToLanding={onNavigateToLanding}
         onToggleMobileSidebar={() => setIsMobileSidebarOpen((prev) => !prev)}
+        preferredDevice={device}
+        onRefresh={onRefresh}
+        onToast={(msg) => setToastMessage(msg)}
       />
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -915,6 +997,8 @@ function Loaded({
             sceneBackgrounds={sceneBackgrounds}
             onSceneBackground={setSceneBackground}
             onOpenLocaleManager={() => setIsLocaleModalOpen(true)}
+            onRefresh={onRefresh}
+            onToast={(msg) => setToastMessage(msg)}
           />
         </div>
 
@@ -971,6 +1055,8 @@ function Loaded({
                 onSceneBackground={setSceneBackground}
                 onOpenLocaleManager={() => setIsLocaleModalOpen(true)}
                 onCloseMobile={() => setIsMobileSidebarOpen(false)}
+                onRefresh={onRefresh}
+                onToast={(msg) => setToastMessage(msg)}
               />
             </div>
           </div>
@@ -1145,7 +1231,10 @@ function Loaded({
                     onSceneBackground={setSceneBackground}
                     sceneBadges={sceneBadges}
                     onSceneBadge={setSceneBadge}
+                    iphoneSize={iphoneSize}
                     appInfo={appInfo}
+                    onRefresh={onRefresh}
+                    onToast={(msg) => setToastMessage(msg)}
                   />
                 </div>
               )
@@ -1157,12 +1246,52 @@ function Loaded({
                 deviceKey={spec.key}
                 platform={platform}
                 appName={manifest.app.name}
+                onImportSuccess={async (result) => {
+                  if (result.targetPlatform && result.targetDevice) {
+                    storeView(manifest.app.name, {
+                      platform: result.targetPlatform,
+                      device: result.targetDevice,
+                      locale,
+                      dark,
+                    });
+                    if (result.targetPlatform !== platform) {
+                      setPlatform(result.targetPlatform);
+                    }
+                    if (result.targetDevice !== device) {
+                      setDevice(result.targetDevice);
+                    }
+                  }
+                  setToastMessage(
+                    `✨ Successfully imported ${result.imported || 1} screenshot(s)!`,
+                  );
+                  await onRefresh();
+                }}
               />
             ) : (
               <EmptyState
                 {...ENABLE_PLATFORM[platform]}
                 platform={platform}
                 appName={manifest.app.name}
+                onImportSuccess={async (result) => {
+                  if (result.targetPlatform && result.targetDevice) {
+                    storeView(manifest.app.name, {
+                      platform: result.targetPlatform,
+                      device: result.targetDevice,
+                      locale,
+                      dark,
+                    });
+                    if (result.targetPlatform !== platform) {
+                      setPlatform(result.targetPlatform);
+                    }
+                    if (result.targetDevice !== device) {
+                      setDevice(result.targetDevice);
+                    }
+                  }
+                  setToastMessage(
+                    `✨ Successfully imported ${result.imported || 1} screenshot(s)!`,
+                  );
+                  await onRefresh();
+                }}
               />
             )}
           </main>

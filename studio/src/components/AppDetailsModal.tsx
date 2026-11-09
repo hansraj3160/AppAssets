@@ -13,11 +13,11 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { apiFetch } from "@/lib/api";
 import type { AppInfo } from "../manifest";
 import { AppIconModal } from "./AppIconModal";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { apiFetch } from "@/lib/api";
 
 export const CATEGORY_OPTIONS = [
   "VPN & Security",

@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import type { BacklightConfig, PatternType } from "./background.ts";
 import { ANDROID_FRAME, FRAME, IPAD_FRAME } from "./frame.ts";
 import {
   type FrameGeometry,
@@ -14,7 +15,6 @@ import {
   type TemplateChoice,
 } from "./layouts.ts";
 import { DEVICES, type DeviceKey } from "./specs.ts";
-import type { BacklightConfig, PatternType } from "./background.ts";
 
 /** Bezel art bundled in goldie's own assets/, one PNG per variant. */
 export const FRAME_VARIANTS = ["17-pro-silver", "17-pro-blue", "17-pro-orange"] as const;
@@ -366,6 +366,15 @@ export type DesignOverrides = {
   locales?: string[];
   /** App icon image (relative path, /icon.png, or data URL). */
   appIcon?: string;
+  /** App store info overrides (name, subtitle, category, developer, description, icon). */
+  appInfo?: {
+    name?: string;
+    subtitle?: string;
+    category?: string;
+    developer?: string;
+    description?: string;
+    icon?: string;
+  };
 };
 
 export type SceneCopy = {
@@ -479,12 +488,44 @@ export function applyDesign(cfg: LoadedConfig, design: DesignOverrides): void {
   if (design.locales && Array.isArray(design.locales) && design.locales.length > 0) {
     cfg.locales = Array.from(new Set([...cfg.locales, ...design.locales]));
   }
-  if (design.backgroundPattern !== undefined) cfg.theme.backgroundPattern = design.backgroundPattern;
+  if (design.backgroundPattern !== undefined)
+    cfg.theme.backgroundPattern = design.backgroundPattern;
   if (design.patternOpacity !== undefined) cfg.theme.patternOpacity = design.patternOpacity;
   if (design.patternColor !== undefined) cfg.theme.patternColor = design.patternColor;
   if (design.deviceBacklight !== undefined) cfg.theme.deviceBacklight = design.deviceBacklight;
   if (design.panoramaMode !== undefined) cfg.theme.panoramaMode = design.panoramaMode;
-  if (design.appIcon) {
+  if (design.appInfo) {
+    cfg.store = cfg.store || ({} as any);
+    if (design.appInfo.name?.trim()) {
+      cfg.store.name = design.appInfo.name.trim();
+    }
+    if (design.appInfo.category?.trim()) {
+      cfg.store.category = design.appInfo.category.trim();
+    }
+    if (design.appInfo.developer?.trim()) {
+      cfg.store.developer = design.appInfo.developer.trim();
+    }
+    if (design.appInfo.subtitle?.trim()) {
+      const sub = design.appInfo.subtitle.trim();
+      cfg.store.subtitle = cfg.store.subtitle || {};
+      for (const loc of cfg.locales) {
+        cfg.store.subtitle[loc] = sub;
+      }
+      cfg.store.subtitle["en-US"] = sub;
+    }
+    if (design.appInfo.description?.trim()) {
+      const desc = design.appInfo.description.trim();
+      cfg.store.description = cfg.store.description || {};
+      for (const loc of cfg.locales) {
+        cfg.store.description[loc] = desc;
+      }
+      cfg.store.description["en-US"] = desc;
+    }
+    if (design.appInfo.icon?.trim()) {
+      cfg.store.icon = design.appInfo.icon.trim();
+    }
+  }
+  if (design.appIcon && !cfg.store?.icon) {
     cfg.store = cfg.store || ({} as any);
     cfg.store.icon = design.appIcon;
   }

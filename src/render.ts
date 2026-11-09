@@ -8,6 +8,16 @@ import {
   loadImage,
   type SKRSContext2D,
 } from "@napi-rs/canvas";
+import {
+  type BacklightConfig,
+  backgroundToCss,
+  type GlowPoint,
+  type PanoramaSliceInfo,
+  type PatternConfig,
+  parseBackground,
+  type StructuredBackground,
+  withOpacity,
+} from "./background.ts";
 import type { CaptureManifest } from "./capture.ts";
 import {
   type Decoration,
@@ -24,16 +34,6 @@ import { registerFonts, withGlyphFallback } from "./fonts.ts";
 import { pngInfo } from "./image.ts";
 import { BADGE, type Composition, compose, SCREEN_SHADOW, TYPE } from "./layouts.ts";
 import { DEVICES, type DeviceKey, PREVIEW, SCREENSHOT_PIXEL_FORMAT } from "./specs.ts";
-import {
-  type BacklightConfig,
-  type GlowPoint,
-  type PanoramaSliceInfo,
-  type PatternConfig,
-  type StructuredBackground,
-  backgroundToCss,
-  parseBackground,
-  withOpacity,
-} from "./background.ts";
 
 async function readManifest(cfg: LoadedConfig, deviceKey: DeviceKey): Promise<CaptureManifest> {
   const file = join(cfg.outDir, "raw", deviceKey, "manifest.json");
@@ -102,6 +102,22 @@ export async function renderScreenshots(cfg: LoadedConfig, deviceKey: DeviceKey,
       const background = scene.background ?? cfg.theme.background;
       const transparent = isTransparent(background);
       if (!transparent) {
+        let customBgImage: Image | null = null;
+        const parsedBg = parseBackground(background);
+        if (parsedBg.type === "custom-image" && parsedBg.src) {
+          try {
+            const srcPath =
+              parsedBg.src.startsWith("data:") ||
+              parsedBg.src.startsWith("http://") ||
+              parsedBg.src.startsWith("https://")
+                ? parsedBg.src
+                : resolve(cfg.root, parsedBg.src);
+            customBgImage = await loadImage(srcPath);
+          } catch (err) {
+            console.warn(`Failed to load custom background image: ${err}`);
+          }
+        }
+
         const sliceInfo: PanoramaSliceInfo = {
           sliceIndex: first,
           totalSlices: totalTiles,
@@ -112,15 +128,16 @@ export async function renderScreenshots(cfg: LoadedConfig, deviceKey: DeviceKey,
         };
         const pattern: PatternConfig | undefined = cfg.theme.backgroundPattern
           ? {
-            type: cfg.theme.backgroundPattern,
-            opacity: cfg.theme.patternOpacity ?? 0.05,
-            color: cfg.theme.patternColor,
-          }
+              type: cfg.theme.backgroundPattern,
+              opacity: cfg.theme.patternOpacity ?? 0.05,
+              color: cfg.theme.patternColor,
+            }
           : undefined;
 
         renderBackground(ctx, background, c.width, c.height, {
           pattern,
           panoramaOffset: cfg.theme.panoramaMode ? sliceInfo : undefined,
+          customImage: customBgImage ?? undefined,
         });
       }
 
@@ -151,9 +168,16 @@ export async function renderScreenshots(cfg: LoadedConfig, deviceKey: DeviceKey,
       );
 
       for (const device of c.devices) {
-        const sceneId = device.capture === "secondary" ? (secondScene || scene.id) : scene.id;
+        const sceneId = device.capture === "secondary" ? secondScene || scene.id : scene.id;
         const capture = await loadImage(findShot(sceneId).file);
-        drawDevice(ctx, device, capture, bezel, { width: c.designWidth }, cfg.theme.deviceBacklight);
+        drawDevice(
+          ctx,
+          device,
+          capture,
+          bezel,
+          { width: c.designWidth },
+          cfg.theme.deviceBacklight,
+        );
       }
 
       const out: string[] = [];
@@ -228,14 +252,14 @@ function drawCopy(
     },
     ...(text.subhead
       ? [
-        {
-          text: text.subhead,
-          font: `${TYPE.subheadWeight} ${tile.width * TYPE.subheadSize * scale}px ${family}`,
-          color: subheadColor,
-          lineHeight: TYPE.subheadLineHeight,
-          letterSpacing: 0,
-        },
-      ]
+          {
+            text: text.subhead,
+            font: `${TYPE.subheadWeight} ${tile.width * TYPE.subheadSize * scale}px ${family}`,
+            color: subheadColor,
+            lineHeight: TYPE.subheadLineHeight,
+            letterSpacing: 0,
+          },
+        ]
       : []),
   ].map((b) => ({ ...b, lines: wrapLines(ctx, b.text, b.font, b.letterSpacing, copy.maxWidth) }));
 
@@ -461,12 +485,9 @@ export function drawDeviceBacklight(
   const rx = frame.width * 0.85;
   const ry = frame.height * 0.65;
 
-  const haloColor =
-    (typeof backlight === "object" && backlight.color) || "rgba(56, 189, 248, 0.4)";
+  const haloColor = (typeof backlight === "object" && backlight.color) || "rgba(56, 189, 248, 0.4)";
   const intensity =
-    typeof backlight === "object" && backlight.intensity !== undefined
-      ? backlight.intensity
-      : 0.45;
+    typeof backlight === "object" && backlight.intensity !== undefined ? backlight.intensity : 0.45;
 
   ctx.save();
   ctx.translate(cx, cy);
@@ -571,12 +592,13 @@ export function drawAuroraGlow(
   height: number,
   panoramaOffset?: PanoramaSliceInfo,
 ) {
+  const totalW = panoramaOffset ? panoramaOffset.totalWidth : width;
   for (const pt of glowPoints) {
     const cx = panoramaOffset
       ? panoramaOffset.totalWidth * pt.x - panoramaOffset.globalX
       : width * pt.x;
     const cy = height * pt.y;
-    const radius = Math.max(width, height) * (pt.radius || 0.6);
+    const radius = Math.max(totalW, height) * (pt.radius || 0.6);
 
     const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
     const glowColor = withOpacity(pt.color, pt.opacity ?? 0.4);
@@ -655,6 +677,57 @@ export function drawPatternOverlay(
 }
 
 /**
+ * Draws a custom background image with cover or contain scaling,
+ * accounting for panorama offsets when present.
+ */
+export function drawCoverImage(
+  ctx: SKRSContext2D,
+  img: Image,
+  width: number,
+  height: number,
+  fit: "cover" | "contain" = "cover",
+  panoramaOffset?: PanoramaSliceInfo,
+) {
+  const targetW = panoramaOffset ? panoramaOffset.totalWidth : width;
+  const targetH = height;
+  const imgRatio = img.width / img.height;
+  const targetRatio = targetW / targetH;
+
+  let scaledW = targetW;
+  let scaledH = targetH;
+  let offX = 0;
+  let offY = 0;
+
+  if (fit === "cover") {
+    if (imgRatio > targetRatio) {
+      scaledH = targetH;
+      scaledW = img.width * (targetH / img.height);
+      offX = (targetW - scaledW) / 2;
+    } else {
+      scaledW = targetW;
+      scaledH = img.height * (targetW / img.width);
+      offY = (targetH - scaledH) / 2;
+    }
+  } else {
+    // contain
+    if (imgRatio > targetRatio) {
+      scaledW = targetW;
+      scaledH = img.height * (targetW / img.width);
+      offY = (targetH - scaledH) / 2;
+    } else {
+      scaledH = targetH;
+      scaledW = img.width * (targetH / img.height);
+      offX = (targetW - scaledW) / 2;
+    }
+  }
+
+  const finalX = panoramaOffset ? offX - panoramaOffset.globalX : offX;
+  const finalY = offY;
+
+  ctx.drawImage(img, finalX, finalY, scaledW, scaledH);
+}
+
+/**
  * Composites the full screenshot background: base fill/gradient, aurora glow,
  * pattern overlay, and panorama coordinate support.
  */
@@ -666,6 +739,7 @@ export function renderBackground(
   options?: {
     pattern?: PatternConfig;
     panoramaOffset?: PanoramaSliceInfo;
+    customImage?: Image;
   },
 ) {
   const bg = parseBackground(background);
@@ -720,8 +794,16 @@ export function renderBackground(
     drawPatternOverlay(ctx, bg.pattern, width, height, options?.panoramaOffset);
   } else if (bg.type === "custom-image") {
     ctx.save();
-    ctx.fillStyle = bg.overlayColor || "#000000";
-    ctx.fillRect(0, 0, width, height);
+    if (options?.customImage) {
+      drawCoverImage(ctx, options.customImage, width, height, bg.fit, options?.panoramaOffset);
+      if (bg.overlayColor && bg.overlayColor !== "transparent") {
+        ctx.fillStyle = bg.overlayColor;
+        ctx.fillRect(0, 0, width, height);
+      }
+    } else {
+      ctx.fillStyle = bg.overlayColor || "#000000";
+      ctx.fillRect(0, 0, width, height);
+    }
     ctx.restore();
   }
 
@@ -857,7 +939,7 @@ export async function renderPreview(cfg: LoadedConfig, deviceKey: DeviceKey, loc
   ) {
     throw new Error(
       `Preview is ${seconds.toFixed(1)}s; Apple requires ${PREVIEW.minSeconds}-${PREVIEW.maxSeconds}s. ` +
-      `Adjust the segment flows or their holdSeconds and re-capture.`,
+        `Adjust the segment flows or their holdSeconds and re-capture.`,
     );
   }
 
@@ -973,8 +1055,8 @@ export async function verify(
     ok &&= good;
     console.log(
       `  ${good ? "ok  " : "FAIL"} ${basename(file)}  ${width}x${height}` +
-      `${alpha ? (alphaOk ? "  transparent (not for upload)" : "  alpha channel present") : ""}` +
-      `${good ? "" : `  expected ${spec.screenshot.width}x${spec.screenshot.height}, no alpha`}`,
+        `${alpha ? (alphaOk ? "  transparent (not for upload)" : "  alpha channel present") : ""}` +
+        `${good ? "" : `  expected ${spec.screenshot.width}x${spec.screenshot.height}, no alpha`}`,
     );
   }
 
