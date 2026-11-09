@@ -11,10 +11,6 @@ export function cn(...inputs: ClassValue[]) {
  */
 export function isModifiedEvent(event: React.MouseEvent): boolean {
   return Boolean(
-    event.metaKey ||
-    event.altKey ||
-    event.ctrlKey ||
-    event.shiftKey ||
-    event.button !== 0
+    event.metaKey || event.altKey || event.ctrlKey || event.shiftKey || event.button !== 0,
   );
 }

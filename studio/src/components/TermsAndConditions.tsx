@@ -11,8 +11,8 @@ import {
   SunIcon,
 } from "lucide-react";
 import appLogo from "@/assets/logo.png";
-import { Button } from "./ui/button";
 import { isModifiedEvent } from "@/lib/utils";
+import { Button } from "./ui/button";
 
 interface TermsAndConditionsProps {
   onNavigateHome: () => void;

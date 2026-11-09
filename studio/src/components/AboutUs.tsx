@@ -11,8 +11,8 @@ import {
   Zap,
 } from "lucide-react";
 import appLogo from "@/assets/logo.png";
-import { Button } from "./ui/button";
 import { isModifiedEvent } from "@/lib/utils";
+import { Button } from "./ui/button";
 
 interface AboutUsProps {
   onNavigateHome: () => void;
@@ -76,7 +76,11 @@ export function AboutUs({
               aria-label={dark ? "Switch to light theme" : "Switch to dark theme"}
               className="size-9 rounded-xl border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-900 cursor-pointer transition-colors"
             >
-              {dark ? <SunIcon className="size-4 text-amber-400" /> : <MoonIcon className="size-4 text-zinc-600" />}
+              {dark ? (
+                <SunIcon className="size-4 text-amber-400" />
+              ) : (
+                <MoonIcon className="size-4 text-zinc-600" />
+              )}
             </Button>
 
             <Button
@@ -114,7 +118,9 @@ export function AboutUs({
             About AppAssets Studio
           </h1>
           <p className="text-base text-zinc-600 dark:text-zinc-400 leading-relaxed">
-            Empowering mobile developers, indie creators, and product teams to automate submission-ready store assets with pixel perfection, uncompromising privacy, and zero design friction.
+            Empowering mobile developers, indie creators, and product teams to automate
+            submission-ready store assets with pixel perfection, uncompromising privacy, and zero
+            design friction.
           </p>
         </div>
 
@@ -125,10 +131,17 @@ export function AboutUs({
             Why We Built AppAssets Studio
           </h2>
           <p>
-            Launching an iOS or Android application requires preparing dozens of screenshots across multiple screen dimensions, aspect ratios, and localized languages. For indie developers and agile engineering teams, manually adjusting templates in heavy graphic software for every release cycle consumes hours of valuable development time.
+            Launching an iOS or Android application requires preparing dozens of screenshots across
+            multiple screen dimensions, aspect ratios, and localized languages. For indie developers
+            and agile engineering teams, manually adjusting templates in heavy graphic software for
+            every release cycle consumes hours of valuable development time.
           </p>
           <p>
-            AppAssets Studio was created by <strong>Hans Raj</strong> to turn this tedious ordeal into an automated, enjoyable process. Built on modern web technologies, AppAssets Studio provides an end-to-end visual canvas that allows creators to import raw screenshots, apply high-converting typography, wrap screens in official Apple and Google device bezels, and generate submission-compliant ZIP packages in seconds.
+            AppAssets Studio was created by <strong>Hans Raj</strong> to turn this tedious ordeal
+            into an automated, enjoyable process. Built on modern web technologies, AppAssets Studio
+            provides an end-to-end visual canvas that allows creators to import raw screenshots,
+            apply high-converting typography, wrap screens in official Apple and Google device
+            bezels, and generate submission-compliant ZIP packages in seconds.
           </p>
         </section>
 
@@ -139,14 +152,11 @@ export function AboutUs({
               HR
             </div>
             <div className="space-y-1 min-w-0">
-              <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
-                Hans Raj
-              </h3>
-              <p className="text-xs text-[#FF6B00] font-semibold">
-                Founder & Lead Engineer
-              </p>
+              <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Hans Raj</h3>
+              <p className="text-xs text-[#FF6B00] font-semibold">Founder & Lead Engineer</p>
               <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                Software engineer passionate about developer tooling, mobile app architecture, and high-performance web graphics.
+                Software engineer passionate about developer tooling, mobile app architecture, and
+                high-performance web graphics.
               </p>
               <div className="pt-2 flex items-center gap-3 text-xs">
                 <a
@@ -176,7 +186,9 @@ export function AboutUs({
                 Privacy-First Architecture
               </h3>
               <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                Your pre-release application mockups and confidential assets are rendered locally in your browser using hardware-accelerated Canvas rendering. We never sell, index, or distribute your intellectual property.
+                Your pre-release application mockups and confidential assets are rendered locally in
+                your browser using hardware-accelerated Canvas rendering. We never sell, index, or
+                distribute your intellectual property.
               </p>
             </div>
 
@@ -188,7 +200,9 @@ export function AboutUs({
                 Store Compliance by Default
               </h3>
               <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                Every exported asset strictly adheres to Apple App Store Connect and Google Play Console specifications, from exact pixel dimensions (iPhone 16 Pro Max 6.9", iPad 13", 1024x500 Feature Graphics) to required color profiles and file formats.
+                Every exported asset strictly adheres to Apple App Store Connect and Google Play
+                Console specifications, from exact pixel dimensions (iPhone 16 Pro Max 6.9", iPad
+                13", 1024x500 Feature Graphics) to required color profiles and file formats.
               </p>
             </div>
 
@@ -200,7 +214,9 @@ export function AboutUs({
                 Blazing Fast Workflow
               </h3>
               <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                Multi-batch importing, live side-by-side editing, panoramic storytelling across screenshots, and automated AI copywriting powered by Gemini Vision ensure you produce world-class assets in minutes.
+                Multi-batch importing, live side-by-side editing, panoramic storytelling across
+                screenshots, and automated AI copywriting powered by Gemini Vision ensure you
+                produce world-class assets in minutes.
               </p>
             </div>
 
@@ -212,7 +228,9 @@ export function AboutUs({
                 Open Source & Indie-Friendly
               </h3>
               <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                AppAssets Studio core CLI and generator library are licensed under the MIT license, empowering solo developers and large teams alike to script their release pipelines freely.
+                AppAssets Studio core CLI and generator library are licensed under the MIT license,
+                empowering solo developers and large teams alike to script their release pipelines
+                freely.
               </p>
             </div>
           </div>
@@ -225,7 +243,8 @@ export function AboutUs({
               Have questions or need technical support?
             </h3>
             <p className="text-xs text-zinc-600 dark:text-zinc-400">
-              Reach out directly to Hans Raj for feature requests, bug reports, or partnership inquiries.
+              Reach out directly to Hans Raj for feature requests, bug reports, or partnership
+              inquiries.
             </p>
           </div>
           <div className="flex items-center gap-3 shrink-0">
@@ -254,7 +273,10 @@ export function AboutUs({
 
       {/* Footer */}
       <footer className="border-t border-zinc-200/80 dark:border-zinc-800/80 bg-zinc-50 dark:bg-zinc-950 py-8 px-6 mt-auto text-xs text-zinc-500 text-center">
-        <p>© {new Date().getFullYear()} AppAssets Studio. Created by Hans Raj (hans.raj.skipq@gmail.com). All rights reserved.</p>
+        <p>
+          © {new Date().getFullYear()} AppAssets Studio. Created by Hans Raj
+          (hans.raj.skipq@gmail.com). All rights reserved.
+        </p>
       </footer>
     </div>
   );

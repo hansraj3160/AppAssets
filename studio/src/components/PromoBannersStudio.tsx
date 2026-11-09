@@ -543,6 +543,8 @@ export function PromoBannersStudio({
       sceneId: selectedSceneId,
       sceneId2: deviceCount !== "single" ? secondarySceneId : undefined,
       sceneId3: deviceCount === "trio" ? tertiarySceneId : undefined,
+      title: customTitle,
+      appName: customTitle,
       kicker: kickerText,
       headline: customHeadline,
       tagline: customTagline,

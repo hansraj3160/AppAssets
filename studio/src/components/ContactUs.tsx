@@ -13,9 +13,9 @@ import {
 import type React from "react";
 import { useState } from "react";
 import appLogo from "@/assets/logo.png";
+import { isModifiedEvent } from "@/lib/utils";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { isModifiedEvent } from "@/lib/utils";
 
 interface ContactUsProps {
   onNavigateHome: () => void;
@@ -52,9 +52,7 @@ export function ContactUs({
 
     const mailtoUrl = `mailto:${contactEmail}?subject=${encodeURIComponent(
       subject || "AppAssets Studio Inquiry",
-    )}&body=${encodeURIComponent(
-      `From: ${name || "Anonymous"}\n\n${message}`,
-    )}`;
+    )}&body=${encodeURIComponent(`From: ${name || "Anonymous"}\n\n${message}`)}`;
     window.location.href = mailtoUrl;
     setSubmitted(true);
   };
@@ -104,7 +102,11 @@ export function ContactUs({
               aria-label={dark ? "Switch to light theme" : "Switch to dark theme"}
               className="size-9 rounded-xl border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-900 cursor-pointer transition-colors"
             >
-              {dark ? <SunIcon className="size-4 text-amber-400" /> : <MoonIcon className="size-4 text-zinc-600" />}
+              {dark ? (
+                <SunIcon className="size-4 text-amber-400" />
+              ) : (
+                <MoonIcon className="size-4 text-zinc-600" />
+              )}
             </Button>
 
             <Button
@@ -142,7 +144,8 @@ export function ContactUs({
             Contact Hans Raj & AppAssets Team
           </h1>
           <p className="text-base text-zinc-600 dark:text-zinc-400 leading-relaxed">
-            Have a question about screenshot export sizes, need help with App Store Connect guidelines, or want to suggest a new feature? We are here to help.
+            Have a question about screenshot export sizes, need help with App Store Connect
+            guidelines, or want to suggest a new feature? We are here to help.
           </p>
         </div>
 
@@ -172,7 +175,8 @@ export function ContactUs({
             </div>
             <h3 className="font-bold text-sm text-zinc-900 dark:text-white">Response Time</h3>
             <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-              We respond to developer inquiries, bug reports, and feedback within <strong>24 to 48 hours</strong>.
+              We respond to developer inquiries, bug reports, and feedback within{" "}
+              <strong>24 to 48 hours</strong>.
             </p>
           </div>
 
@@ -194,19 +198,26 @@ export function ContactUs({
             Send a Direct Message
           </h2>
           <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mb-6">
-            Fill out the form below to initiate an email directly to Hans Raj at <code>{contactEmail}</code>.
+            Fill out the form below to initiate an email directly to Hans Raj at{" "}
+            <code>{contactEmail}</code>.
           </p>
 
           {submitted ? (
             <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-sm flex items-center gap-2">
               <Check className="size-4 shrink-0" />
-              <span>Email client launched! If it did not open automatically, please write to <strong>{contactEmail}</strong> directly.</span>
+              <span>
+                Email client launched! If it did not open automatically, please write to{" "}
+                <strong>{contactEmail}</strong> directly.
+              </span>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label htmlFor="contact-name" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                  <label
+                    htmlFor="contact-name"
+                    className="text-xs font-semibold text-zinc-700 dark:text-zinc-300"
+                  >
                     Your Name
                   </label>
                   <Input
@@ -219,7 +230,10 @@ export function ContactUs({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label htmlFor="contact-subject" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                  <label
+                    htmlFor="contact-subject"
+                    className="text-xs font-semibold text-zinc-700 dark:text-zinc-300"
+                  >
                     Subject / Topic
                   </label>
                   <Input
@@ -233,7 +247,10 @@ export function ContactUs({
               </div>
 
               <div className="space-y-1.5">
-                <label htmlFor="contact-message" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                <label
+                  htmlFor="contact-message"
+                  className="text-xs font-semibold text-zinc-700 dark:text-zinc-300"
+                >
                   Message <span className="text-[#FF6B00]">*</span>
                 </label>
                 <textarea
@@ -275,7 +292,10 @@ export function ContactUs({
 
       {/* Footer */}
       <footer className="border-t border-zinc-200/80 dark:border-zinc-800/80 bg-zinc-50 dark:bg-zinc-950 py-8 px-6 mt-auto text-xs text-zinc-500 text-center">
-        <p>© {new Date().getFullYear()} AppAssets Studio. Hans Raj (hans.raj.skipq@gmail.com). All rights reserved.</p>
+        <p>
+          © {new Date().getFullYear()} AppAssets Studio. Hans Raj (hans.raj.skipq@gmail.com). All
+          rights reserved.
+        </p>
       </footer>
     </div>
   );

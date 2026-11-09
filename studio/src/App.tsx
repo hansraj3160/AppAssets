@@ -10,6 +10,7 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { BacklightConfig, PatternType } from "../../src/background";
 import { AboutUs } from "./components/AboutUs";
 import { AdBanner } from "./components/AdBanner";
 import { AppDetailsModal } from "./components/AppDetailsModal";
@@ -46,7 +47,6 @@ import {
   type StoreManifest,
   saveDesign,
 } from "./manifest";
-import type { BacklightConfig, PatternType } from "../../src/background";
 
 /** Sentinel for the config's own layout sequence, which the studio can show but not edit. */
 export const CUSTOM_TEMPLATE = "__custom__";
@@ -85,7 +85,15 @@ const ENABLE_PLATFORM: Record<
 /** How long the design must sit still before it is written to disk. */
 const SAVE_DEBOUNCE_MS = 500;
 
-export type Screen = "landing" | "studio" | "privacy" | "terms" | "about" | "contact" | "guidelines" | "not-found";
+export type Screen =
+  | "landing"
+  | "studio"
+  | "privacy"
+  | "terms"
+  | "about"
+  | "contact"
+  | "guidelines"
+  | "not-found";
 
 export function resolveScreenFromLocation(): Screen {
   if (typeof window === "undefined") return "landing";
@@ -293,7 +301,11 @@ function AppContent() {
               }}
               className="flex items-center gap-2.5 group cursor-pointer"
             >
-              <img src="/logo.png" alt="AppAssets Logo" className="size-8 rounded-lg object-cover" />
+              <img
+                src="/logo.png"
+                alt="AppAssets Logo"
+                className="size-8 rounded-lg object-cover"
+              />
               <span className="text-base font-bold tracking-tight text-zinc-900 dark:text-white">
                 App<span className="text-[#FF6B00]">Assets</span> Studio
               </span>

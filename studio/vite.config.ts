@@ -11,16 +11,16 @@ import {
   designHandler,
   exportHandler,
   faviconExportHandler,
+  getSessionIdFromRequest,
   healthHandler,
   iconHandler,
   importHandler,
   localesHandler,
   replaceCaptureHandler,
+  resolveWorkspacePaths,
   type StudioApi,
   singleExportHandler,
   studioPaths,
-  getSessionIdFromRequest,
-  resolveWorkspacePaths,
 } from "../src/studio-server.ts";
 
 const SRC_DIR = resolve(import.meta.dirname, "src");

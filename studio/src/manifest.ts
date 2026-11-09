@@ -1,5 +1,5 @@
-import { apiFetch } from "./lib/api";
 import type { BacklightConfig, PatternType } from "../../src/background";
+import { apiFetch } from "./lib/api";
 
 /** Mirrors the StoreManifest that `appassets manifest` writes to out/store.json. */
 

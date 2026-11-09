@@ -9,8 +9,8 @@ import {
   Tablet,
 } from "lucide-react";
 import appLogo from "@/assets/logo.png";
-import { Button } from "./ui/button";
 import { isModifiedEvent } from "@/lib/utils";
+import { Button } from "./ui/button";
 
 interface GuidelinesProps {
   onNavigateHome: () => void;
@@ -72,7 +72,11 @@ export function Guidelines({
               aria-label={dark ? "Switch to light theme" : "Switch to dark theme"}
               className="size-9 rounded-xl border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-900 cursor-pointer transition-colors"
             >
-              {dark ? <SunIcon className="size-4 text-amber-400" /> : <MoonIcon className="size-4 text-zinc-600" />}
+              {dark ? (
+                <SunIcon className="size-4 text-amber-400" />
+              ) : (
+                <MoonIcon className="size-4 text-zinc-600" />
+              )}
             </Button>
 
             <Button
@@ -110,7 +114,9 @@ export function Guidelines({
             App Store & Google Play Screenshot Guidelines
           </h1>
           <p className="text-base text-zinc-600 dark:text-zinc-400 leading-relaxed">
-            The definitive technical guide for pixel-perfect screenshot dimensions, aspect ratios, file requirements, and conversion-optimized store assets for iOS 18, iPadOS, and Android.
+            The definitive technical guide for pixel-perfect screenshot dimensions, aspect ratios,
+            file requirements, and conversion-optimized store assets for iOS 18, iPadOS, and
+            Android.
           </p>
         </div>
 
@@ -121,7 +127,10 @@ export function Guidelines({
             <h2>Apple App Store Screenshot Dimensions (iOS 18)</h2>
           </div>
           <p className="text-sm sm:text-base text-zinc-600 dark:text-zinc-400 leading-relaxed">
-            Apple requires high-resolution screenshots in RGB 72 dpi color space without alpha transparency. In modern App Store Connect submissions, providing 6.9-inch (or 6.7-inch) and 13-inch iPad screenshots satisfies requirements across most device tiers via Apple's automated downscaling.
+            Apple requires high-resolution screenshots in RGB 72 dpi color space without alpha
+            transparency. In modern App Store Connect submissions, providing 6.9-inch (or 6.7-inch)
+            and 13-inch iPad screenshots satisfies requirements across most device tiers via Apple's
+            automated downscaling.
           </p>
 
           <div className="overflow-x-auto rounded-2xl border border-zinc-200 dark:border-zinc-800">
@@ -136,37 +145,49 @@ export function Guidelines({
               </thead>
               <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800 text-zinc-600 dark:text-zinc-400">
                 <tr>
-                  <td className="p-3.5 font-bold text-zinc-900 dark:text-white">6.9" Display (iPhone 16 Pro Max)</td>
+                  <td className="p-3.5 font-bold text-zinc-900 dark:text-white">
+                    6.9" Display (iPhone 16 Pro Max)
+                  </td>
                   <td className="p-3.5 font-mono">1320 × 2868 px</td>
                   <td className="p-3.5 font-mono">2868 × 1320 px</td>
                   <td className="p-3.5">PNG or JPEG (RGB, No Alpha)</td>
                 </tr>
                 <tr>
-                  <td className="p-3.5 font-bold text-zinc-900 dark:text-white">6.7" Display (iPhone 15/14 Pro Max)</td>
+                  <td className="p-3.5 font-bold text-zinc-900 dark:text-white">
+                    6.7" Display (iPhone 15/14 Pro Max)
+                  </td>
                   <td className="p-3.5 font-mono">1290 × 2796 px</td>
                   <td className="p-3.5 font-mono">2796 × 1290 px</td>
                   <td className="p-3.5">PNG or JPEG (RGB, No Alpha)</td>
                 </tr>
                 <tr>
-                  <td className="p-3.5 font-bold text-zinc-900 dark:text-white">6.5" Display (iPhone 11 Pro Max / XS Max)</td>
+                  <td className="p-3.5 font-bold text-zinc-900 dark:text-white">
+                    6.5" Display (iPhone 11 Pro Max / XS Max)
+                  </td>
                   <td className="p-3.5 font-mono">1242 × 2688 px</td>
                   <td className="p-3.5 font-mono">2688 × 1242 px</td>
                   <td className="p-3.5">PNG or JPEG (RGB, No Alpha)</td>
                 </tr>
                 <tr>
-                  <td className="p-3.5 font-bold text-zinc-900 dark:text-white">5.5" Display (iPhone 8 Plus / 7 Plus)</td>
+                  <td className="p-3.5 font-bold text-zinc-900 dark:text-white">
+                    5.5" Display (iPhone 8 Plus / 7 Plus)
+                  </td>
                   <td className="p-3.5 font-mono">1242 × 2208 px</td>
                   <td className="p-3.5 font-mono">2208 × 1242 px</td>
                   <td className="p-3.5">PNG or JPEG (RGB, No Alpha)</td>
                 </tr>
                 <tr>
-                  <td className="p-3.5 font-bold text-zinc-900 dark:text-white">13" iPad Pro (M4 Display)</td>
+                  <td className="p-3.5 font-bold text-zinc-900 dark:text-white">
+                    13" iPad Pro (M4 Display)
+                  </td>
                   <td className="p-3.5 font-mono">2064 × 2752 px</td>
                   <td className="p-3.5 font-mono">2752 × 2064 px</td>
                   <td className="p-3.5">PNG or JPEG (RGB, No Alpha)</td>
                 </tr>
                 <tr>
-                  <td className="p-3.5 font-bold text-zinc-900 dark:text-white">12.9" iPad Pro (2nd to 6th Gen)</td>
+                  <td className="p-3.5 font-bold text-zinc-900 dark:text-white">
+                    12.9" iPad Pro (2nd to 6th Gen)
+                  </td>
                   <td className="p-3.5 font-mono">2048 × 2732 px</td>
                   <td className="p-3.5 font-mono">2732 × 2048 px</td>
                   <td className="p-3.5">PNG or JPEG (RGB, No Alpha)</td>
@@ -183,7 +204,9 @@ export function Guidelines({
             <h2>Google Play Console Screenshot & Feature Graphic Rules</h2>
           </div>
           <p className="text-sm sm:text-base text-zinc-600 dark:text-zinc-400 leading-relaxed">
-            Google Play Console requires a minimum of 4 screenshots for phone listings and up to 8 per form factor. In addition, a 1024 × 500 promotional Feature Graphic is mandatory for featuring in store collections.
+            Google Play Console requires a minimum of 4 screenshots for phone listings and up to 8
+            per form factor. In addition, a 1024 × 500 promotional Feature Graphic is mandatory for
+            featuring in store collections.
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -193,10 +216,20 @@ export function Guidelines({
                 Phone Screenshots
               </h3>
               <ul className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 space-y-2 list-disc pl-4">
-                <li><strong>Aspect Ratio:</strong> 16:9 or 9:16 (minimum dimension: 320 px, maximum dimension: 3840 px).</li>
-                <li><strong>Standard Recommended:</strong> 1080 × 1920 px or 1080 × 2400 px (Pixel 10 Pro / Galaxy S24).</li>
-                <li><strong>Quantity:</strong> Minimum 4 screenshots required for publishing.</li>
-                <li><strong>Max File Size:</strong> 8 MB per screenshot (PNG or JPEG).</li>
+                <li>
+                  <strong>Aspect Ratio:</strong> 16:9 or 9:16 (minimum dimension: 320 px, maximum
+                  dimension: 3840 px).
+                </li>
+                <li>
+                  <strong>Standard Recommended:</strong> 1080 × 1920 px or 1080 × 2400 px (Pixel 10
+                  Pro / Galaxy S24).
+                </li>
+                <li>
+                  <strong>Quantity:</strong> Minimum 4 screenshots required for publishing.
+                </li>
+                <li>
+                  <strong>Max File Size:</strong> 8 MB per screenshot (PNG or JPEG).
+                </li>
               </ul>
             </div>
 
@@ -206,10 +239,19 @@ export function Guidelines({
                 Feature Graphic (1024 × 500)
               </h3>
               <ul className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 space-y-2 list-disc pl-4">
-                <li><strong>Exact Resolution:</strong> 1024 px wide by 500 px high.</li>
-                <li><strong>File Format:</strong> JPEG or 24-bit PNG (no transparency / alpha).</li>
-                <li><strong>Content Safe Zone:</strong> Keep key logos and headlines centered; avoid edges where store badges may overlap.</li>
-                <li><strong>Max File Size:</strong> 1 MB.</li>
+                <li>
+                  <strong>Exact Resolution:</strong> 1024 px wide by 500 px high.
+                </li>
+                <li>
+                  <strong>File Format:</strong> JPEG or 24-bit PNG (no transparency / alpha).
+                </li>
+                <li>
+                  <strong>Content Safe Zone:</strong> Keep key logos and headlines centered; avoid
+                  edges where store badges may overlap.
+                </li>
+                <li>
+                  <strong>Max File Size:</strong> 1 MB.
+                </li>
               </ul>
             </div>
           </div>
@@ -222,7 +264,9 @@ export function Guidelines({
             <h2>App Store Optimization (ASO) Screenshot Best Practices</h2>
           </div>
           <p className="text-sm sm:text-base text-zinc-600 dark:text-zinc-400 leading-relaxed">
-            Data from millions of App Store impressions proves that screenshots drive over 70% of conversion decisions. Follow these principles when designing your frames in AppAssets Studio:
+            Data from millions of App Store impressions proves that screenshots drive over 70% of
+            conversion decisions. Follow these principles when designing your frames in AppAssets
+            Studio:
           </p>
 
           <div className="space-y-4">
@@ -231,7 +275,9 @@ export function Guidelines({
                 1. The First Screenshot is Your Conversion Lifeline
               </h3>
               <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                In search results, users only see the first 1 to 3 screenshots before scrolling. Highlight your primary value proposition immediately with large, high-contrast headline copy.
+                In search results, users only see the first 1 to 3 screenshots before scrolling.
+                Highlight your primary value proposition immediately with large, high-contrast
+                headline copy.
               </p>
             </div>
 
@@ -240,7 +286,8 @@ export function Guidelines({
                 2. Use Panoramic Storytelling Across Consecutive Slides
               </h3>
               <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                Connect screenshot 1 and 2 with an overlapping UI card or continuous aurora background to entice users to swipe right through your full set of features.
+                Connect screenshot 1 and 2 with an overlapping UI card or continuous aurora
+                background to entice users to swipe right through your full set of features.
               </p>
             </div>
 
@@ -249,7 +296,9 @@ export function Guidelines({
                 3. High Contrast & Legible Typography
               </h3>
               <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                Keep headline copy under 5 to 7 words. Use dark headlines on light backgrounds or pure white text on deep vibrant gradients. Avoid thin weights that become illegible at search scale.
+                Keep headline copy under 5 to 7 words. Use dark headlines on light backgrounds or
+                pure white text on deep vibrant gradients. Avoid thin weights that become illegible
+                at search scale.
               </p>
             </div>
 
@@ -258,7 +307,9 @@ export function Guidelines({
                 4. Automated Store Pre-Flight Audit
               </h3>
               <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                Before exporting, use the built-in <strong>Store Pre-Flight Audit</strong> in AppAssets Studio to check device dimension compliance, headline contrast ratio, and required store assets.
+                Before exporting, use the built-in <strong>Store Pre-Flight Audit</strong> in
+                AppAssets Studio to check device dimension compliance, headline contrast ratio, and
+                required store assets.
               </p>
             </div>
           </div>
@@ -268,7 +319,8 @@ export function Guidelines({
         <div className="mt-12 p-8 rounded-2xl bg-gradient-to-br from-zinc-900 to-black text-white text-center space-y-4 border border-zinc-800">
           <h3 className="text-xl font-bold">Ready to Build Store-Compliant Screenshots?</h3>
           <p className="text-xs sm:text-sm text-zinc-400 max-w-lg mx-auto">
-            Import your raw mobile app captures and let AppAssets Studio generate the exact dimensions for iPhone 16 Pro Max, iPad, and Google Play automatically.
+            Import your raw mobile app captures and let AppAssets Studio generate the exact
+            dimensions for iPhone 16 Pro Max, iPad, and Google Play automatically.
           </p>
           <Button
             type="button"
@@ -308,7 +360,10 @@ export function Guidelines({
             </a>
           )}
         </div>
-        <p>© {new Date().getFullYear()} AppAssets Studio. Hans Raj (hans.raj.skipq@gmail.com). All rights reserved.</p>
+        <p>
+          © {new Date().getFullYear()} AppAssets Studio. Hans Raj (hans.raj.skipq@gmail.com). All
+          rights reserved.
+        </p>
       </footer>
     </div>
   );

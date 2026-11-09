@@ -8,6 +8,16 @@ import {
   loadImage,
   type SKRSContext2D,
 } from "@napi-rs/canvas";
+import {
+  type BacklightConfig,
+  backgroundToCss,
+  type GlowPoint,
+  type PanoramaSliceInfo,
+  type PatternConfig,
+  parseBackground,
+  type StructuredBackground,
+  withOpacity,
+} from "./background.ts";
 import type { CaptureManifest } from "./capture.ts";
 import {
   type Decoration,
@@ -24,16 +34,6 @@ import { registerFonts, withGlyphFallback } from "./fonts.ts";
 import { pngInfo } from "./image.ts";
 import { BADGE, type Composition, compose, SCREEN_SHADOW, TYPE } from "./layouts.ts";
 import { DEVICES, type DeviceKey, PREVIEW, SCREENSHOT_PIXEL_FORMAT } from "./specs.ts";
-import {
-  type BacklightConfig,
-  type GlowPoint,
-  type PanoramaSliceInfo,
-  type PatternConfig,
-  type StructuredBackground,
-  backgroundToCss,
-  parseBackground,
-  withOpacity,
-} from "./background.ts";
 
 async function readManifest(cfg: LoadedConfig, deviceKey: DeviceKey): Promise<CaptureManifest> {
   const file = join(cfg.outDir, "raw", deviceKey, "manifest.json");
@@ -128,10 +128,10 @@ export async function renderScreenshots(cfg: LoadedConfig, deviceKey: DeviceKey,
         };
         const pattern: PatternConfig | undefined = cfg.theme.backgroundPattern
           ? {
-            type: cfg.theme.backgroundPattern,
-            opacity: cfg.theme.patternOpacity ?? 0.05,
-            color: cfg.theme.patternColor,
-          }
+              type: cfg.theme.backgroundPattern,
+              opacity: cfg.theme.patternOpacity ?? 0.05,
+              color: cfg.theme.patternColor,
+            }
           : undefined;
 
         renderBackground(ctx, background, c.width, c.height, {
@@ -168,9 +168,16 @@ export async function renderScreenshots(cfg: LoadedConfig, deviceKey: DeviceKey,
       );
 
       for (const device of c.devices) {
-        const sceneId = device.capture === "secondary" ? (secondScene || scene.id) : scene.id;
+        const sceneId = device.capture === "secondary" ? secondScene || scene.id : scene.id;
         const capture = await loadImage(findShot(sceneId).file);
-        drawDevice(ctx, device, capture, bezel, { width: c.designWidth }, cfg.theme.deviceBacklight);
+        drawDevice(
+          ctx,
+          device,
+          capture,
+          bezel,
+          { width: c.designWidth },
+          cfg.theme.deviceBacklight,
+        );
       }
 
       const out: string[] = [];
@@ -245,14 +252,14 @@ function drawCopy(
     },
     ...(text.subhead
       ? [
-        {
-          text: text.subhead,
-          font: `${TYPE.subheadWeight} ${tile.width * TYPE.subheadSize * scale}px ${family}`,
-          color: subheadColor,
-          lineHeight: TYPE.subheadLineHeight,
-          letterSpacing: 0,
-        },
-      ]
+          {
+            text: text.subhead,
+            font: `${TYPE.subheadWeight} ${tile.width * TYPE.subheadSize * scale}px ${family}`,
+            color: subheadColor,
+            lineHeight: TYPE.subheadLineHeight,
+            letterSpacing: 0,
+          },
+        ]
       : []),
   ].map((b) => ({ ...b, lines: wrapLines(ctx, b.text, b.font, b.letterSpacing, copy.maxWidth) }));
 
@@ -478,12 +485,9 @@ export function drawDeviceBacklight(
   const rx = frame.width * 0.85;
   const ry = frame.height * 0.65;
 
-  const haloColor =
-    (typeof backlight === "object" && backlight.color) || "rgba(56, 189, 248, 0.4)";
+  const haloColor = (typeof backlight === "object" && backlight.color) || "rgba(56, 189, 248, 0.4)";
   const intensity =
-    typeof backlight === "object" && backlight.intensity !== undefined
-      ? backlight.intensity
-      : 0.45;
+    typeof backlight === "object" && backlight.intensity !== undefined ? backlight.intensity : 0.45;
 
   ctx.save();
   ctx.translate(cx, cy);
@@ -935,7 +939,7 @@ export async function renderPreview(cfg: LoadedConfig, deviceKey: DeviceKey, loc
   ) {
     throw new Error(
       `Preview is ${seconds.toFixed(1)}s; Apple requires ${PREVIEW.minSeconds}-${PREVIEW.maxSeconds}s. ` +
-      `Adjust the segment flows or their holdSeconds and re-capture.`,
+        `Adjust the segment flows or their holdSeconds and re-capture.`,
     );
   }
 
@@ -1051,8 +1055,8 @@ export async function verify(
     ok &&= good;
     console.log(
       `  ${good ? "ok  " : "FAIL"} ${basename(file)}  ${width}x${height}` +
-      `${alpha ? (alphaOk ? "  transparent (not for upload)" : "  alpha channel present") : ""}` +
-      `${good ? "" : `  expected ${spec.screenshot.width}x${spec.screenshot.height}, no alpha`}`,
+        `${alpha ? (alphaOk ? "  transparent (not for upload)" : "  alpha channel present") : ""}` +
+        `${good ? "" : `  expected ${spec.screenshot.width}x${spec.screenshot.height}, no alpha`}`,
     );
   }
 

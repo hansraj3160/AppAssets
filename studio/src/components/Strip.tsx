@@ -17,6 +17,7 @@ import { AnimatePresence, Reorder } from "motion/react";
 import type React from "react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
+import { type BacklightConfig, type PatternType, withOpacity } from "../../../src/background";
 import {
   BADGE,
   type Composition,
@@ -28,7 +29,6 @@ import {
   SCREEN_SHADOW,
   TYPE,
 } from "../../../src/layouts";
-import { type BacklightConfig, type PatternType, withOpacity } from "../../../src/background";
 import { CUSTOM_TEMPLATE } from "../App";
 import {
   trackAppImported,
@@ -36,6 +36,7 @@ import {
   trackExport,
   trackScreenshotGeneration,
 } from "../lib/analytics";
+import { apiFetch } from "../lib/api";
 import {
   type AppInfo,
   type Decoration,
@@ -56,7 +57,6 @@ import { CHECKERBOARD, layoutOptions, TRANSPARENT } from "./DesignPanel";
 import { SceneBackgroundPopover } from "./SceneBackgroundPopover";
 import { Select } from "./Sidebar";
 import { Button } from "./ui/button";
-import { apiFetch } from "../lib/api";
 
 /** Tiles shown at once; the App Store product page shows this many before scrolling. */
 const PAGE_SIZE = 5;
@@ -246,9 +246,7 @@ export function buildScreenshotEntries({
       ? [...design.scenes].sort((a, b) => {
           const ra = rankOf(order, a.id);
           const rb = rankOf(order, b.id);
-          return ra === rb
-            ? design.scenes.indexOf(a) - design.scenes.indexOf(b)
-            : ra - rb;
+          return ra === rb ? design.scenes.indexOf(a) - design.scenes.indexOf(b) : ra - rb;
         })
       : design.scenes;
   const resolved = resolveScenes(scenes, {
@@ -525,9 +523,7 @@ export function Strip({
       ? [...design.scenes].sort((a, b) => {
           const ra = rankOf(order, a.id);
           const rb = rankOf(order, b.id);
-          return ra === rb
-            ? design.scenes.indexOf(a) - design.scenes.indexOf(b)
-            : ra - rb;
+          return ra === rb ? design.scenes.indexOf(a) - design.scenes.indexOf(b) : ra - rb;
         })
       : design.scenes;
   // The same resolution the CLI runs, on the scenes in their displayed order.
@@ -913,9 +909,7 @@ export function Strip({
   const importInputRef = useRef<HTMLInputElement>(null);
 
   const handleImportFiles = async (files: FileList | File[]) => {
-    const fileList = Array.from(files).filter((f) =>
-      /\.(png|jpe?g|webp)$/i.test(f.name),
-    );
+    const fileList = Array.from(files).filter((f) => /\.(png|jpe?g|webp)$/i.test(f.name));
     if (fileList.length === 0 || isImporting) return;
     setIsImporting(true);
     try {
@@ -1394,7 +1388,9 @@ export function Strip({
                 {isBulkDownloading && bulkMode === "png" ? (
                   <>
                     <Loader2 className="size-3 animate-spin" />
-                    <span>({bulkDownloadProgress}/{selectedKeys.size})</span>
+                    <span>
+                      ({bulkDownloadProgress}/{selectedKeys.size})
+                    </span>
                   </>
                 ) : (
                   <>
@@ -1481,10 +1477,7 @@ export function Strip({
 
               {/* Import / Add Screenshot Card on right side of screenshots */}
               {showImportCard && (
-                <li
-                  key="import-card"
-                  className="flex flex-col gap-1.5 w-full list-none"
-                >
+                <li key="import-card" className="flex flex-col gap-1.5 w-full list-none">
                   {/* Card Header Spacer to align with screenshot card toolbars */}
                   <div className="flex items-center justify-between px-0.5 text-xs select-none h-7">
                     <span className="text-[10px] font-bold font-mono tracking-wider text-muted-foreground/60 px-1.5 py-0.5 rounded-md bg-muted/40 border border-border/40">
@@ -1747,7 +1740,9 @@ export function Strip({
             {isBulkDownloading && bulkMode === "png" ? (
               <>
                 <Loader2 className="size-3.5 animate-spin" />
-                <span>Downloading ({bulkDownloadProgress}/{selectedKeys.size})...</span>
+                <span>
+                  Downloading ({bulkDownloadProgress}/{selectedKeys.size})...
+                </span>
               </>
             ) : (
               <>
@@ -2305,12 +2300,9 @@ function DeviceView({
   // The screen as fractions of the device box, so it rotates with it.
   const pct = (v: number, of: number) => `${(v / of) * 100}%`;
 
-  const haloColor =
-    (typeof backlight === "object" && backlight.color) || "rgba(56, 189, 248, 0.4)";
+  const haloColor = (typeof backlight === "object" && backlight.color) || "rgba(56, 189, 248, 0.4)";
   const haloIntensity =
-    typeof backlight === "object" && backlight.intensity !== undefined
-      ? backlight.intensity
-      : 0.45;
+    typeof backlight === "object" && backlight.intensity !== undefined ? backlight.intensity : 0.45;
   const blurRatio =
     typeof backlight === "object" && backlight.blurRatio !== undefined
       ? backlight.blurRatio
@@ -2643,9 +2635,7 @@ function Tile({
           isSelected
             ? "ring-2 ring-[#FF6B00] ring-offset-2 ring-offset-background shadow-md shadow-[#FF6B00]/15"
             : "ring-black/10 hover:ring-black/25 dark:ring-white/10 dark:hover:ring-white/30"
-        } ${
-          draggable ? "cursor-grab active:cursor-grabbing" : "cursor-zoom-in"
-        }`}
+        } ${draggable ? "cursor-grab active:cursor-grabbing" : "cursor-zoom-in"}`}
         style={{ aspectRatio: `${width} / ${height}`, viewTransitionName: transitionName }}
       >
         {children}

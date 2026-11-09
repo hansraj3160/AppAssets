@@ -293,13 +293,9 @@ describe("modern background rendering system", () => {
 
     const canvas = createCanvas(300, 600);
     const ctx = canvas.getContext("2d");
-    renderBackground(
-      ctx,
-      { type: "custom-image", src: dataUrl, fit: "cover" },
-      300,
-      600,
-      { customImage: loadedImg },
-    );
+    renderBackground(ctx, { type: "custom-image", src: dataUrl, fit: "cover" }, 300, 600, {
+      customImage: loadedImg,
+    });
 
     const pixel = ctx.getImageData(150, 300, 1, 1).data;
     expect(pixel[0]).toBe(255);
@@ -308,5 +304,3 @@ describe("modern background rendering system", () => {
     expect(pixel[3]).toBe(255);
   });
 });
-
-

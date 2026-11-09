@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import {
   type AuroraBackground,
-  type LinearGradientBackground,
-  type SolidBackground,
   backgroundToCss,
+  type LinearGradientBackground,
   parseBackground,
+  type SolidBackground,
   withOpacity,
 } from "./background.ts";
 

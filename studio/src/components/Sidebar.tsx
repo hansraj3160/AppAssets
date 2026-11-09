@@ -1,4 +1,12 @@
-import { Languages, type LucideIcon, PlayIcon, RefreshCw, SmartphoneIcon, TabletIcon, X } from "lucide-react";
+import {
+  Languages,
+  type LucideIcon,
+  PlayIcon,
+  RefreshCw,
+  SmartphoneIcon,
+  TabletIcon,
+  X,
+} from "lucide-react";
 import { RadioGroup as RadioGroupPrimitive } from "radix-ui";
 import { type ReactNode, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -11,10 +19,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import type { Platform } from "../App";
-import { isRtlLocale, type StoreManifest } from "../manifest";
 import type { BacklightConfig, PatternType } from "../../../src/background";
+import type { Platform } from "../App";
 import { apiFetch } from "../lib/api";
+import { isRtlLocale, type StoreManifest } from "../manifest";
 import { AdBanner } from "./AdBanner";
 import type { BadgeData } from "./BadgePickerPopover";
 import { DesignPanel } from "./DesignPanel";
@@ -150,11 +158,7 @@ export function Sidebar({
         throw new Error(data.error || `Failed to sync captures (${res.status})`);
       }
       const label =
-        platform === "android"
-          ? "Android"
-          : platform === "ipad"
-            ? "iPad"
-            : "Android & iPad";
+        platform === "android" ? "Android" : platform === "ipad" ? "iPad" : "Android & iPad";
       if (onToast) {
         onToast(`✨ Synced screenshots from iPhone to ${label}!`);
       }
@@ -231,7 +235,9 @@ export function Sidebar({
 
               {/* Quick Cross-Platform Sync Action */}
               <div className="flex items-center justify-between px-0.5 pt-0.5">
-                <span className="text-[10px] text-muted-foreground/80 font-medium">Screenshots</span>
+                <span className="text-[10px] text-muted-foreground/80 font-medium">
+                  Screenshots
+                </span>
                 <button
                   type="button"
                   onClick={handleSyncAcrossPlatforms}

@@ -23,8 +23,8 @@ import panoramicImg from "@/assets/panoromic_multi_span.png";
 import showcaseImg from "@/assets/show_case_img.png";
 import singleFocusHeroImg from "@/assets/single_focus_hero.png";
 import trioStoryImg from "@/assets/trio_story.png";
-import { Button } from "./ui/button";
 import { isModifiedEvent } from "@/lib/utils";
+import { Button } from "./ui/button";
 
 interface LandingPageProps {
   onStartDesigning: () => void;
@@ -769,16 +769,22 @@ export function LandingPage({
                   <span className="text-zinc-700 dark:text-zinc-300 text-[11px] sm:text-xs">
                     Google Play 512×512 Opaque Icon
                   </span>
-                  <span className="text-emerald-600 dark:text-emerald-400 font-bold text-[11px] sm:text-xs shrink-0">Verified</span>
+                  <span className="text-emerald-600 dark:text-emerald-400 font-bold text-[11px] sm:text-xs shrink-0">
+                    Verified
+                  </span>
                 </div>
                 <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/60">
                   <span className="text-zinc-700 dark:text-zinc-300 text-[11px] sm:text-xs">
                     Apple 1024×1024 Master Icon
                   </span>
-                  <span className="text-emerald-600 dark:text-emerald-400 font-bold text-[11px] sm:text-xs shrink-0">Verified</span>
+                  <span className="text-emerald-600 dark:text-emerald-400 font-bold text-[11px] sm:text-xs shrink-0">
+                    Verified
+                  </span>
                 </div>
                 <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/60">
-                  <span className="text-zinc-700 dark:text-zinc-300 text-[11px] sm:text-xs">WCAG Text Contrast Ratio</span>
+                  <span className="text-zinc-700 dark:text-zinc-300 text-[11px] sm:text-xs">
+                    WCAG Text Contrast Ratio
+                  </span>
                   <span className="text-emerald-600 dark:text-emerald-400 font-bold text-[11px] sm:text-xs shrink-0">
                     Passed (4.5:1)
                   </span>

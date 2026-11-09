@@ -18,9 +18,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import type { BacklightConfig, PatternType } from "../../../src/background";
 import { CUSTOM_TEMPLATE } from "../App";
 import type { Design, LayoutEntry } from "../manifest";
-import type { BacklightConfig, PatternType } from "../../../src/background";
 import { type BadgeData, BadgePickerPopover } from "./BadgePickerPopover";
 import { FontPicker } from "./FontPicker";
 import { SceneBackgroundPopover } from "./SceneBackgroundPopover";
@@ -360,7 +360,8 @@ export function DesignPanel({
             onSubheadColor(preset.subheadColor);
             onFontSizeScale(preset.fontSizeScale);
             if (onBackgroundPattern) onBackgroundPattern(preset.backgroundPattern ?? "none");
-            if (onPatternOpacity && preset.patternOpacity !== undefined) onPatternOpacity(preset.patternOpacity);
+            if (onPatternOpacity && preset.patternOpacity !== undefined)
+              onPatternOpacity(preset.patternOpacity);
             if (onDeviceBacklight) onDeviceBacklight(preset.deviceBacklight ?? false);
           }}
         />
@@ -378,11 +379,21 @@ export function DesignPanel({
           <Field label="Background" hint={bgName ?? "Custom"}>
             <Tabs value={backgroundTab} onValueChange={setBackgroundTab}>
               <TabsList className="grid grid-cols-5 w-full h-8 text-[11px] p-0.5">
-                <TabsTrigger value="gradients" className="px-1 py-1 text-[11px]">Gradients</TabsTrigger>
-                <TabsTrigger value="aurora" className="px-1 py-1 text-[11px]">Aurora</TabsTrigger>
-                <TabsTrigger value="tech-grids" className="px-1 py-1 text-[11px]">Grids</TabsTrigger>
-                <TabsTrigger value="solids" className="px-1 py-1 text-[11px]">Solids</TabsTrigger>
-                <TabsTrigger value="image" className="px-1 py-1 text-[11px]">Image</TabsTrigger>
+                <TabsTrigger value="gradients" className="px-1 py-1 text-[11px]">
+                  Gradients
+                </TabsTrigger>
+                <TabsTrigger value="aurora" className="px-1 py-1 text-[11px]">
+                  Aurora
+                </TabsTrigger>
+                <TabsTrigger value="tech-grids" className="px-1 py-1 text-[11px]">
+                  Grids
+                </TabsTrigger>
+                <TabsTrigger value="solids" className="px-1 py-1 text-[11px]">
+                  Solids
+                </TabsTrigger>
+                <TabsTrigger value="image" className="px-1 py-1 text-[11px]">
+                  Image
+                </TabsTrigger>
               </TabsList>
             </Tabs>
 
@@ -459,7 +470,9 @@ export function DesignPanel({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <SunMedium className="size-3.5 text-primary" />
-                      <span className="text-xs font-medium text-foreground">Phone Backlight Halo</span>
+                      <span className="text-xs font-medium text-foreground">
+                        Phone Backlight Halo
+                      </span>
                     </div>
                     <button
                       type="button"
@@ -556,7 +569,9 @@ export function DesignPanel({
             {backgroundTab === "tech-grids" && (
               <div className="flex flex-col gap-3 mt-2">
                 <div className="flex flex-col gap-1.5">
-                  <span className="text-[11px] font-medium text-muted-foreground">Grid Pattern Style</span>
+                  <span className="text-[11px] font-medium text-muted-foreground">
+                    Grid Pattern Style
+                  </span>
                   <div className="grid grid-cols-2 gap-1.5">
                     {[
                       { id: "none" as const, label: "None" },
@@ -632,7 +647,9 @@ export function DesignPanel({
                 {/* Continuous Panorama Flow */}
                 <div className="rounded-xl border border-border/60 bg-muted/30 p-2.5 flex items-center justify-between">
                   <div className="flex flex-col">
-                    <span className="text-xs font-medium text-foreground">Continuous Panorama Flow</span>
+                    <span className="text-xs font-medium text-foreground">
+                      Continuous Panorama Flow
+                    </span>
                     <span className="text-[10px] text-muted-foreground">
                       Spans background seamlessly across adjacent tiles
                     </span>
@@ -704,7 +721,9 @@ export function DesignPanel({
                 background.startsWith("http") ? (
                   <div className="flex flex-col gap-2 rounded-xl border border-border/70 bg-card/60 p-2.5">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-foreground">Active Background Image</span>
+                      <span className="text-xs font-medium text-foreground">
+                        Active Background Image
+                      </span>
                       <button
                         type="button"
                         onClick={() => onBackground(GRADIENTS[0].css)}

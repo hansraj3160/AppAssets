@@ -60,6 +60,8 @@ export interface RenderBannerOptions {
   locale?: string;
   deviceKey?: DeviceKey;
   deviceCount?: "single" | "duo" | "trio";
+  appName?: string;
+  customTitle?: string;
   kickerHeadline?: string;
   customHeadline?: string;
   customTagline?: string;
@@ -71,6 +73,39 @@ export interface RenderBannerOptions {
   showWaves?: boolean;
   scale?: 1 | 2;
   retina?: boolean;
+}
+
+/**
+ * Resolves a clean, user-friendly app display name for banners.
+ * Strips binary file extensions (.app, .apk, .ipa) and rejects placeholder angle brackets like <App>.
+ */
+export function resolveCleanAppName(options: RenderBannerOptions, cfg: LoadedConfig): string {
+  const candidates = [
+    options.customTitle,
+    options.appName,
+    cfg.store?.name,
+    (cfg as any).appInfo?.name,
+  ];
+
+  for (const c of candidates) {
+    if (typeof c === "string") {
+      const trimmed = c.trim();
+      if (trimmed && !trimmed.includes("<") && !trimmed.includes(">")) {
+        return trimmed.replace(/\.(app|apk|ipa)$/i, "").trim();
+      }
+    }
+  }
+
+  // Check appPath if provided and not a placeholder
+  if (cfg.appPath) {
+    const last = cfg.appPath.split("/").pop() || "";
+    const cleanLast = last.replace(/\.(app|apk|ipa)$/i, "").trim();
+    if (cleanLast && !cleanLast.includes("<") && !cleanLast.includes(">")) {
+      return cleanLast;
+    }
+  }
+
+  return "AppAssets";
 }
 
 /**
@@ -361,7 +396,7 @@ export async function renderBannerCanvas(options: RenderBannerOptions): Promise<
   }
 
   // 2. Resolve Text & Marketing Content Hierarchy
-  const appName = cfg.store?.name || cfg.appPath?.split("/").pop() || "AppAssets";
+  const appName = resolveCleanAppName(options, cfg);
   const brandWordmark = appName;
 
   const category = cfg.store?.category || "App";

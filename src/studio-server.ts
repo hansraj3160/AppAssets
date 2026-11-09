@@ -136,7 +136,9 @@ export function getSessionIdFromRequest(req?: IncomingMessage | null): string {
   if (cookieHeader) {
     const match = cookieHeader.match(/(?:^|; )appassets_session_id=([^;]*)/);
     if (match?.[1]) {
-      const clean = decodeURIComponent(match[1]).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64);
+      const clean = decodeURIComponent(match[1])
+        .replace(/[^a-zA-Z0-9_-]/g, "")
+        .slice(0, 64);
       if (clean) return clean;
     }
   }
@@ -177,7 +179,10 @@ export function resolveWorkspacePaths(api: StudioApi, sessionId: string): Studio
 /**
  * Ensures that a session's workspace has a valid config file and required assets.
  */
-export async function ensureWorkspaceConfig(basePaths: StudioPaths, wsPaths: StudioPaths): Promise<void> {
+export async function ensureWorkspaceConfig(
+  basePaths: StudioPaths,
+  wsPaths: StudioPaths,
+): Promise<void> {
   await mkdir(wsPaths.configDir, { recursive: true });
   await mkdir(wsPaths.outDir, { recursive: true });
   await mkdir(wsPaths.webDir, { recursive: true });
@@ -210,9 +215,7 @@ export async function ensureWorkspaceConfig(basePaths: StudioPaths, wsPaths: Stu
           }
           if (closeBracket !== -1) {
             baseContent =
-              baseContent.slice(0, openBracket + 1) +
-              "\n  " +
-              baseContent.slice(closeBracket);
+              baseContent.slice(0, openBracket + 1) + "\n  " + baseContent.slice(closeBracket);
           }
         }
       }
@@ -235,7 +238,10 @@ export async function ensureWorkspaceConfig(basePaths: StudioPaths, wsPaths: Stu
 /**
  * Prunes inactive guest workspaces older than maxGuestAgeMs (default 48h).
  */
-export async function pruneOldWorkspaces(workspacesDir: string, maxGuestAgeMs = 48 * 3600 * 1000): Promise<void> {
+export async function pruneOldWorkspaces(
+  workspacesDir: string,
+  maxGuestAgeMs = 48 * 3600 * 1000,
+): Promise<void> {
   if (!existsSync(workspacesDir)) return;
   try {
     const entries = await readdir(workspacesDir, { withFileTypes: true });
@@ -301,11 +307,17 @@ export function designHandler(api: StudioApi): Handler {
           if (sessionId === "default" && existsSync(api.paths.designFile)) {
             readFile(api.paths.designFile, "utf8").then(
               (json) => {
-                res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+                res.writeHead(200, {
+                  "Content-Type": "application/json",
+                  "Cache-Control": "no-store",
+                });
                 res.end(json);
               },
               () => {
-                res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+                res.writeHead(200, {
+                  "Content-Type": "application/json",
+                  "Cache-Control": "no-store",
+                });
                 res.end("{}");
               },
             );
@@ -505,13 +517,17 @@ export function exportHandler(api: StudioApi): (sub: string) => Handler {
         const includeGuidelines = targets.guidelines !== false;
 
         res.write(
-          `$ zip store package (selected: ${[
-            includeIPhone ? "iPhone" : "",
-            includeIPad ? "iPad" : "",
-            includeGooglePlay ? "Google Play" : "",
-            includeMarketing ? "Marketing" : "",
-            includeGuidelines ? "Guidelines" : "",
-          ].filter(Boolean).join(", ") || "none"})\n`,
+          `$ zip store package (selected: ${
+            [
+              includeIPhone ? "iPhone" : "",
+              includeIPad ? "iPad" : "",
+              includeGooglePlay ? "Google Play" : "",
+              includeMarketing ? "Marketing" : "",
+              includeGuidelines ? "Guidelines" : "",
+            ]
+              .filter(Boolean)
+              .join(", ") || "none"
+          })\n`,
         );
         await rm(paths.exportZip, { force: true });
         const extraEntries: ZipEntry[] = [];
@@ -525,12 +541,24 @@ export function exportHandler(api: StudioApi): (sub: string) => Handler {
 
         try {
           const cfg = await loadConfig(paths.configPath);
+          let designJson: any = null;
           if (existsSync(paths.designFile)) {
             try {
-              const designJson = JSON.parse(await readFile(paths.designFile, "utf8"));
+              designJson = JSON.parse(await readFile(paths.designFile, "utf8"));
               applyDesign(cfg, designJson);
             } catch {}
           }
+          const resolvedAppName = designJson?.appInfo?.name || cfg.store?.name;
+          const resolvedTagline =
+            designJson?.appInfo?.subtitle ||
+            (cfg.store?.subtitle &&
+              (cfg.store.subtitle[cfg.locales[0] || "en-US"] ||
+                Object.values(cfg.store.subtitle)[0]));
+          const resolvedKicker = designJson?.appInfo?.category
+            ? `${designJson.appInfo.category} App`.toUpperCase()
+            : undefined;
+          const resolvedIcon = designJson?.appInfo?.icon || cfg.store?.icon;
+
           for (const [bType, bSpec] of Object.entries(BANNER_SPECS)) {
             const isGooglePlayBanner = bSpec.storePath.startsWith("GooglePlay/");
             if (isGooglePlayBanner && !includeGooglePlay) continue;
@@ -540,6 +568,11 @@ export function exportHandler(api: StudioApi): (sub: string) => Handler {
               const buf = await renderBannerCanvas({
                 cfg,
                 type: bType as BannerType,
+                customTitle: resolvedAppName,
+                appName: resolvedAppName,
+                customTagline: resolvedTagline,
+                kickerHeadline: resolvedKicker,
+                customIcon: resolvedIcon,
               });
               extraEntries.push({
                 name: bSpec.storePath,
@@ -592,17 +625,26 @@ export function exportHandler(api: StudioApi): (sub: string) => Handler {
 
         const filter = (relName: string) => {
           if (!includeIPhone) {
-            if (relName.startsWith("AppStore/iPhone") || relName.startsWith("AppStore/Previews/iPhone")) {
+            if (
+              relName.startsWith("AppStore/iPhone") ||
+              relName.startsWith("AppStore/Previews/iPhone")
+            ) {
               return false;
             }
           }
           if (!includeIPad) {
-            if (relName.startsWith("AppStore/iPad") || relName.startsWith("AppStore/Previews/iPad")) {
+            if (
+              relName.startsWith("AppStore/iPad") ||
+              relName.startsWith("AppStore/Previews/iPad")
+            ) {
               return false;
             }
           }
           if (!includeGooglePlay) {
-            if (relName.startsWith("GooglePlay/Phone") || relName.startsWith("GooglePlay/PromoVideo")) {
+            if (
+              relName.startsWith("GooglePlay/Phone") ||
+              relName.startsWith("GooglePlay/PromoVideo")
+            ) {
               return false;
             }
           }
@@ -814,7 +856,9 @@ export function replaceCaptureHandler(api: StudioApi): Handler {
             } catch {}
           }
 
-          const screenshotMap = new Map(existingManifest.screenshots.map((s) => [s.sceneId, s.file]));
+          const screenshotMap = new Map(
+            existingManifest.screenshots.map((s) => [s.sceneId, s.file]),
+          );
           screenshotMap.set(sceneId, targetFile);
 
           const updatedManifest = {
@@ -841,14 +885,23 @@ export function replaceCaptureHandler(api: StudioApi): Handler {
           }
         }
 
-        const manifestRes = await exec(bin!, [...prefix, "manifest", "--config", paths.configPath], { quiet: true });
+        const manifestRes = await exec(
+          bin!,
+          [...prefix, "manifest", "--config", paths.configPath],
+          { quiet: true },
+        );
         if (manifestRes.code !== 0) {
-          console.error("Manifest command failed after replace-capture:", manifestRes.stderr || manifestRes.stdout);
+          console.error(
+            "Manifest command failed after replace-capture:",
+            manifestRes.stderr || manifestRes.stdout,
+          );
         }
 
         res.statusCode = 200;
         res.setHeader("Content-Type", "application/json");
-        res.end(JSON.stringify({ ok: true, device: targetDevices[0], devices: targetDevices, sceneId }));
+        res.end(
+          JSON.stringify({ ok: true, device: targetDevices[0], devices: targetDevices, sceneId }),
+        );
       } catch (err) {
         res.statusCode = 500;
         res.setHeader("Content-Type", "application/json");
@@ -886,7 +939,9 @@ export function syncCapturesHandler(api: StudioApi): Handler {
         const sourceDevice = (parsed.sourceDevice as DeviceKey) || "iphone-6.9";
         const allSupported: DeviceKey[] = ["iphone-6.9", "ipad-13", "pixel-10-pro"];
         const resolvedTargets = (
-          parsed.targetDevices && Array.isArray(parsed.targetDevices) && parsed.targetDevices.length > 0
+          parsed.targetDevices &&
+          Array.isArray(parsed.targetDevices) &&
+          parsed.targetDevices.length > 0
             ? parsed.targetDevices
             : allSupported.filter((d) => d !== sourceDevice)
         ) as DeviceKey[];
@@ -895,7 +950,11 @@ export function syncCapturesHandler(api: StudioApi): Handler {
         if (!existsSync(sourceRawDir)) {
           res.statusCode = 404;
           res.setHeader("Content-Type", "application/json");
-          res.end(JSON.stringify({ error: `Source device ${sourceDevice} has no raw captures directory` }));
+          res.end(
+            JSON.stringify({
+              error: `Source device ${sourceDevice} has no raw captures directory`,
+            }),
+          );
           return;
         }
 
@@ -986,9 +1045,16 @@ export function syncCapturesHandler(api: StudioApi): Handler {
           }
         }
 
-        const manifestRes = await exec(bin!, [...prefix, "manifest", "--config", paths.configPath], { quiet: true });
+        const manifestRes = await exec(
+          bin!,
+          [...prefix, "manifest", "--config", paths.configPath],
+          { quiet: true },
+        );
         if (manifestRes.code !== 0) {
-          console.error("Manifest command failed after sync-captures:", manifestRes.stderr || manifestRes.stdout);
+          console.error(
+            "Manifest command failed after sync-captures:",
+            manifestRes.stderr || manifestRes.stdout,
+          );
         }
 
         res.statusCode = 200;
@@ -1090,9 +1156,7 @@ export function appendScenesToConfig(
 
   // Filter scenes that are not already present in the config
   const scenesToInsert = scenesToAdd.filter(
-    (s) =>
-      !configContent.includes(`id: "${s.id}"`) &&
-      !configContent.includes(`id: '${s.id}'`),
+    (s) => !configContent.includes(`id: "${s.id}"`) && !configContent.includes(`id: '${s.id}'`),
   );
 
   if (scenesToInsert.length === 0) return configContent;
@@ -1236,7 +1300,7 @@ export function importHandler(api: StudioApi): Handler {
         }
 
         const fileSceneAssignments = assignUniqueSceneIds(files, existingSceneIds);
-        const assignmentMap = new Map<typeof files[0], { id: string; label: string }>();
+        const assignmentMap = new Map<(typeof files)[0], { id: string; label: string }>();
         for (const a of fileSceneAssignments) {
           assignmentMap.set(a.f, { id: a.id, label: a.label });
         }
@@ -1265,11 +1329,10 @@ export function importHandler(api: StudioApi): Handler {
           );
 
           for (const f of devFiles) {
-            const assignment =
-              assignmentMap.get(f) ?? {
-                id: `screenshot_${Date.now()}`,
-                label: "Screenshot",
-              };
+            const assignment = assignmentMap.get(f) ?? {
+              id: `screenshot_${Date.now()}`,
+              label: "Screenshot",
+            };
             const { id, label } = assignment;
 
             const base64Data = f.dataUrl.includes(";base64,")
@@ -1611,9 +1674,16 @@ export function deleteHandler(api: StudioApi): Handler {
 
         // Rebuild store.json via manifest command
         const [bin, ...prefix] = cli;
-        const manifestRes = await exec(bin!, [...prefix, "manifest", "--config", paths.configPath], { quiet: true });
+        const manifestRes = await exec(
+          bin!,
+          [...prefix, "manifest", "--config", paths.configPath],
+          { quiet: true },
+        );
         if (manifestRes.code !== 0) {
-          console.error("Manifest failed in deleteHandler:", manifestRes.stderr || manifestRes.stdout);
+          console.error(
+            "Manifest failed in deleteHandler:",
+            manifestRes.stderr || manifestRes.stdout,
+          );
         }
 
         res.statusCode = 200;
@@ -1734,9 +1804,16 @@ export function deleteAllHandler(api: StudioApi): Handler {
 
         // Rebuild store.json via manifest command
         const [bin, ...prefix] = cli;
-        const manifestRes = await exec(bin!, [...prefix, "manifest", "--config", paths.configPath], { quiet: true });
+        const manifestRes = await exec(
+          bin!,
+          [...prefix, "manifest", "--config", paths.configPath],
+          { quiet: true },
+        );
         if (manifestRes.code !== 0) {
-          console.error("Manifest failed in deleteAllHandler:", manifestRes.stderr || manifestRes.stdout);
+          console.error(
+            "Manifest failed in deleteAllHandler:",
+            manifestRes.stderr || manifestRes.stdout,
+          );
         }
 
         res.statusCode = 200;
@@ -1999,7 +2076,9 @@ export function selectedExportZipHandler(api: StudioApi): Handler {
         const body = JSON.parse(rawBody || "{}");
         const device = body.device || "iphone-6.9";
         const locale = body.locale || "en-US";
-        const items: Array<{ sceneId: string; slice?: number }> = Array.isArray(body.items) ? body.items : [];
+        const items: Array<{ sceneId: string; slice?: number }> = Array.isArray(body.items)
+          ? body.items
+          : [];
 
         if (items.length === 0) {
           res.statusCode = 400;
@@ -2128,6 +2207,14 @@ export function bannerExportHandler(api: StudioApi): Handler {
         const kickerHeadline = body.kicker || url.searchParams.get("kicker") || undefined;
         const customHeadline = body.headline || url.searchParams.get("headline") || undefined;
         const customTagline = body.tagline || url.searchParams.get("tagline") || undefined;
+        const customTitle =
+          body.title ||
+          body.appName ||
+          body.customTitle ||
+          url.searchParams.get("title") ||
+          url.searchParams.get("appName") ||
+          url.searchParams.get("customTitle") ||
+          undefined;
 
         let benefits: string[] | undefined = Array.isArray(body.benefits)
           ? body.benefits
@@ -2168,12 +2255,26 @@ export function bannerExportHandler(api: StudioApi): Handler {
         }
 
         const cfg = await loadConfig(paths.configPath);
+        let designJson: any = null;
         if (existsSync(paths.designFile)) {
           try {
-            const designJson = JSON.parse(await readFile(paths.designFile, "utf8"));
+            designJson = JSON.parse(await readFile(paths.designFile, "utf8"));
             applyDesign(cfg, designJson);
           } catch {}
         }
+
+        const resolvedTitle =
+          customTitle || designJson?.appInfo?.name || cfg.store?.name || undefined;
+
+        const resolvedTagline = customTagline || designJson?.appInfo?.subtitle || undefined;
+
+        const resolvedKicker =
+          kickerHeadline ||
+          (designJson?.appInfo?.category
+            ? `${designJson.appInfo.category} App`.toUpperCase()
+            : undefined);
+
+        const resolvedIcon = customIcon || designJson?.appInfo?.icon || undefined;
 
         const buffer = await renderBannerCanvas({
           cfg,
@@ -2184,10 +2285,12 @@ export function bannerExportHandler(api: StudioApi): Handler {
           deviceKey,
           deviceCount,
           locale,
-          kickerHeadline,
+          customTitle: resolvedTitle,
+          appName: resolvedTitle,
+          kickerHeadline: resolvedKicker,
           customHeadline,
-          customTagline,
-          customIcon,
+          customTagline: resolvedTagline,
+          customIcon: resolvedIcon,
           benefits,
           customBackground,
           layout,
@@ -2658,12 +2761,11 @@ export function aiCopyHandler(api: StudioApi, rateLimiter = aiRateLimiter): Hand
           );
 
           const outDirsToTry = Array.from(
-            new Set([
-              sessionPaths.outDir,
-              sessionPaths.webDir,
-              api.paths.outDir,
-              api.paths.webDir,
-            ].filter(Boolean)),
+            new Set(
+              [sessionPaths.outDir, sessionPaths.webDir, api.paths.outDir, api.paths.webDir].filter(
+                Boolean,
+              ),
+            ),
           );
 
           let screenshotPath: string | null = null;
@@ -3070,9 +3172,16 @@ export function localesHandler(api: StudioApi): Handler {
 
           // Run manifest to refresh out/web/store.json
           const [bin, ...prefix] = cli;
-          const manifestRes = await exec(bin!, [...prefix, "manifest", "--config", paths.configPath], { quiet: true });
+          const manifestRes = await exec(
+            bin!,
+            [...prefix, "manifest", "--config", paths.configPath],
+            { quiet: true },
+          );
           if (manifestRes.code !== 0) {
-            console.error("Manifest failed in localesHandler:", manifestRes.stderr || manifestRes.stdout);
+            console.error(
+              "Manifest failed in localesHandler:",
+              manifestRes.stderr || manifestRes.stdout,
+            );
           }
 
           res.writeHead(200, { "Content-Type": "application/json" });
@@ -3094,7 +3203,12 @@ export function localesHandler(api: StudioApi): Handler {
 /** The studio bundle Vite emits; shipped in the npm package. */
 export const STUDIO_DIST = resolve(dirname(fileURLToPath(import.meta.url)), "..", "studio", "dist");
 
-export const STUDIO_PUBLIC = resolve(dirname(fileURLToPath(import.meta.url)), "..", "studio", "public");
+export const STUDIO_PUBLIC = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "studio",
+  "public",
+);
 
 /**
  * Creates the HTTP request handler for AppAssets Studio, handling APIs, static assets,
@@ -3188,7 +3302,7 @@ export function createStudioRequestHandler(api: StudioApi): Handler {
         return;
       }
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-      res.end("<!doctype html><html><body><div id=\"root\"></div></body></html>");
+      res.end('<!doctype html><html><body><div id="root"></div></body></html>');
       return;
     }
 
@@ -3203,7 +3317,7 @@ export function createStudioRequestHandler(api: StudioApi): Handler {
     }
 
     res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" });
-    res.end("<!doctype html><html><body><div id=\"root\">Not Found</div></body></html>");
+    res.end('<!doctype html><html><body><div id="root">Not Found</div></body></html>');
   };
 }
 
@@ -3227,9 +3341,12 @@ export function serveStudio(
   // Prune stale guest workspaces on startup and periodically every 2 hours
   const workspacesDir = join(api.paths.configDir, "workspaces");
   pruneOldWorkspaces(workspacesDir).catch(() => {});
-  const pruneInterval = setInterval(() => {
-    pruneOldWorkspaces(workspacesDir).catch(() => {});
-  }, 2 * 3600 * 1000);
+  const pruneInterval = setInterval(
+    () => {
+      pruneOldWorkspaces(workspacesDir).catch(() => {});
+    },
+    2 * 3600 * 1000,
+  );
   if (typeof pruneInterval.unref === "function") pruneInterval.unref();
 
   return new Promise((done, fail) => {

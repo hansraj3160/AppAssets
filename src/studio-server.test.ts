@@ -19,15 +19,15 @@ import {
   importHandler,
   localesHandler,
   MemoryRateLimiter,
-  PRESET_LOCALES,
   MIME,
+  PRESET_LOCALES,
   renderAppIconCanvas,
   replaceCaptureHandler,
-  syncCapturesHandler,
   resolveDeviceFromDimensions,
   selectedExportZipHandler,
   singleExportHandler,
   studioPaths,
+  syncCapturesHandler,
   updateLocalesInConfig,
 } from "./studio-server.ts";
 
@@ -465,15 +465,9 @@ describe("importHandler", () => {
     await mkdir(webDir, { recursive: true });
 
     // Initial empty config
-    await writeFile(
-      configPath,
-      `export default {\n  scenes: [\n  ],\n};\n`,
-    );
+    await writeFile(configPath, `export default {\n  scenes: [\n  ],\n};\n`);
     // Initial design with order
-    await writeFile(
-      designFile,
-      JSON.stringify({ order: [] }, null, 2),
-    );
+    await writeFile(designFile, JSON.stringify({ order: [] }, null, 2));
 
     const paths = {
       configPath,
@@ -518,7 +512,8 @@ describe("importHandler", () => {
     };
 
     // Batch 1: Import 2 screenshots with identical generic names
-    const dummyPng = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+    const dummyPng =
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
     const res1 = await sendImport([
       { name: "screenshot.png", dataUrl: dummyPng },
       { name: "screenshot.png", dataUrl: dummyPng },
@@ -1809,6 +1804,49 @@ describe("bannerExportHandler", () => {
       expect(buffer!.length).toBeGreaterThan(1000);
     }
 
+    // 4. GET banner uses appInfo from design file
+    {
+      await writeFile(
+        paths.designFile,
+        JSON.stringify({
+          appInfo: {
+            name: "SavvyDivvy",
+            subtitle: "Track Your Finances",
+            category: "Finance & Banking",
+          },
+        }),
+      );
+
+      let statusCode = 0;
+      let headers: Record<string, string> = {};
+      let buffer: Buffer | null = null;
+
+      const req = {
+        method: "GET",
+        url: "/api/export-banner?type=google-play",
+      } as any;
+
+      const res = {
+        writeHead: (code: number, h: Record<string, string>) => {
+          statusCode = code;
+          headers = h;
+        },
+        end: (data: Buffer) => {
+          buffer = data;
+        },
+      } as any;
+
+      handler(req, res);
+      for (let i = 0; i < 50 && statusCode === 0; i++) {
+        await new Promise((r) => setTimeout(r, 40));
+      }
+
+      expect(statusCode).toBe(200);
+      expect(headers["Content-Type"]).toBe("image/png");
+      expect(Buffer.isBuffer(buffer)).toBe(true);
+      expect(buffer!.length).toBeGreaterThan(1000);
+    }
+
     await rm(tmp, { recursive: true, force: true });
   });
 
@@ -2029,7 +2067,9 @@ describe("bannerExportHandler", () => {
       let _putCodeA = 0;
       const putResA: any = {
         statusCode: 0,
-        end() { _putCodeA = this.statusCode || 200; },
+        end() {
+          _putCodeA = this.statusCode || 200;
+        },
       };
       handler(putReqA, putResA);
       putReqA.emit("data", JSON.stringify({ background: "#FF0000", appInfo: { name: "App A" } }));
@@ -2045,7 +2085,9 @@ describe("bannerExportHandler", () => {
       let bodyB = "";
       const getResB: any = {
         writeHead() {},
-        end(data: string) { bodyB = data; },
+        end(data: string) {
+          bodyB = data;
+        },
       };
       handler(getReqB, getResB);
       await new Promise((r) => setTimeout(r, 50));
@@ -2061,7 +2103,9 @@ describe("bannerExportHandler", () => {
       let bodyA = "";
       const getResA: any = {
         writeHead() {},
-        end(data: string) { bodyA = data; },
+        end(data: string) {
+          bodyA = data;
+        },
       };
       handler(getReqA, getResA);
       await new Promise((r) => setTimeout(r, 50));
@@ -2080,14 +2124,20 @@ describe("bannerExportHandler", () => {
     });
 
     test("ads.txt source file contains verified publisher ID and seller cert", async () => {
-      const adsTxtContent = await readFile(join(import.meta.dirname, "..", "studio", "public", "ads.txt"), "utf8");
+      const adsTxtContent = await readFile(
+        join(import.meta.dirname, "..", "studio", "public", "ads.txt"),
+        "utf8",
+      );
       expect(adsTxtContent).toContain("pub-9354906754361033");
       expect(adsTxtContent).toContain("f08c47fec0942fa0");
       expect(adsTxtContent).not.toContain("pub-XXXXXXXXXXXXXXXX");
     });
 
     test("Privacy Policy component contains mandatory AdSense disclosures and opt-out links", async () => {
-      const privacyContent = await readFile(join(import.meta.dirname, "..", "studio", "src", "components", "PrivacyPolicy.tsx"), "utf8");
+      const privacyContent = await readFile(
+        join(import.meta.dirname, "..", "studio", "src", "components", "PrivacyPolicy.tsx"),
+        "utf8",
+      );
       expect(privacyContent).toContain("ca-pub-9354906754361033");
       expect(privacyContent).toContain("Google AdSense");
       expect(privacyContent).toContain("Google Analytics");
@@ -2098,7 +2148,10 @@ describe("bannerExportHandler", () => {
     });
 
     test("AdBanner component enforces non-empty slot ID and prevents duplicate pushes", async () => {
-      const adBannerContent = await readFile(join(import.meta.dirname, "..", "studio", "src", "components", "AdBanner.tsx"), "utf8");
+      const adBannerContent = await readFile(
+        join(import.meta.dirname, "..", "studio", "src", "components", "AdBanner.tsx"),
+        "utf8",
+      );
       expect(adBannerContent).toContain("hasValidSlot");
       expect(adBannerContent).toContain("isFullyConfiguredAdSlot");
       expect(adBannerContent).toContain("isPushedRef");
@@ -2135,7 +2188,10 @@ describe("bannerExportHandler", () => {
       }
     }
 
-    function testRequest(handler: (req: any, res: any) => void, url: string): Promise<MockServerResponse> {
+    function testRequest(
+      handler: (req: any, res: any) => void,
+      url: string,
+    ): Promise<MockServerResponse> {
       return new Promise((resolve) => {
         const req: any = {
           method: "GET",
@@ -2164,7 +2220,15 @@ describe("bannerExportHandler", () => {
         paths: studioPaths(join(import.meta.dirname, "..", "appassets.config.ts")),
         cli: ["echo"],
       });
-      for (const route of ["/", "/privacy", "/terms", "/about", "/contact", "/guidelines", "/studio"]) {
+      for (const route of [
+        "/",
+        "/privacy",
+        "/terms",
+        "/about",
+        "/contact",
+        "/guidelines",
+        "/studio",
+      ]) {
         const res = await testRequest(handler, route);
         expect(res.statusCode).toBe(200);
         expect(res.headers["content-type"]).toContain("text/html");
