@@ -10,6 +10,8 @@ import {
   assignUniqueSceneIds,
   bannerExportHandler,
   createStudioRequestHandler,
+  deleteHandler,
+  designHandler,
   exportHandler,
   extractLocalesFromConfig,
   faviconExportHandler,
@@ -19,9 +21,12 @@ import {
   iconHandler,
   importHandler,
   localesHandler,
+  MAX_JSON_BODY_BYTES,
   MemoryRateLimiter,
   MIME,
+  PayloadTooLargeError,
   PRESET_LOCALES,
+  readBody,
   renderAppIconCanvas,
   replaceCaptureHandler,
   resolveDeviceFromDimensions,
@@ -2372,6 +2377,127 @@ describe("bannerExportHandler", () => {
       expect(res.statusCode).toBe(404);
       expect(res.headers["content-type"]).toContain("application/json");
       expect(JSON.parse(res.body).error).toBe("Endpoint not found");
+    });
+  });
+
+  describe("P1 Security & Concurrency Hardening", () => {
+    class P1MockResponse extends Writable {
+      statusCode = 200;
+      headers: Record<string, string> = {};
+      body = "";
+      headersSent = false;
+      setHeader(k: string, v: any) {
+        this.headers[k.toLowerCase()] = String(v);
+      }
+      writeHead(code: number, headers?: Record<string, any>) {
+        this.statusCode = code;
+        this.headersSent = true;
+        if (headers) {
+          for (const [k, v] of Object.entries(headers)) this.setHeader(k, v);
+        }
+        return this;
+      }
+      override _write(chunk: any, _encoding: string, callback: (err?: any) => void) {
+        this.body += chunk.toString();
+        callback();
+      }
+    }
+
+    test("readBody rejects payloads exceeding maxBytes via stream or Content-Length", async () => {
+      const oversizedStream = new PassThrough();
+      const readPromise = readBody(oversizedStream as any, 32);
+      oversizedStream.write("x".repeat(40));
+      await expect(readPromise).rejects.toBeInstanceOf(PayloadTooLargeError);
+
+      const headerReq = {
+        headers: { "content-length": String(MAX_JSON_BODY_BYTES + 1) },
+        on: () => {},
+      } as any;
+      await expect(readBody(headerReq, MAX_JSON_BODY_BYTES)).rejects.toBeInstanceOf(
+        PayloadTooLargeError,
+      );
+    });
+
+    test("API handlers return 413 Payload Too Large when body limit is exceeded", async () => {
+      const dir = await mkdtemp(join(tmpdir(), "appassets-413-"));
+      try {
+        const handler = deleteHandler({
+          paths: studioPaths(join(dir, "appassets.config.ts")),
+          cli: ["echo"],
+        });
+        const req = new PassThrough() as any;
+        req.method = "POST";
+        req.headers = { "content-length": String(MAX_JSON_BODY_BYTES + 500) };
+
+        const res = new P1MockResponse();
+        const done = new Promise<void>((resolve) => res.on("finish", () => resolve()));
+        handler(req, res as any);
+        await done;
+
+        expect(res.statusCode).toBe(413);
+        expect(JSON.parse(res.body).error).toContain("Request payload too large");
+
+        const dHandler = designHandler({
+          paths: studioPaths(join(dir, "appassets.config.ts")),
+          cli: ["echo"],
+        });
+        const dReq = new PassThrough() as any;
+        dReq.method = "PUT";
+        dReq.headers = { "content-length": String(50 * 1024 * 1024) };
+        const dRes = new P1MockResponse();
+        const dDone = new Promise<void>((resolve) => dRes.on("finish", () => resolve()));
+        dHandler(dReq, dRes as any);
+        await dDone;
+        expect(dRes.statusCode).toBe(413);
+      } finally {
+        await rm(dir, { recursive: true, force: true });
+      }
+    });
+
+    test("exportHandler isolates export locks per session instead of blocking other users", async () => {
+      const dir = await mkdtemp(join(tmpdir(), "appassets-lock-"));
+      try {
+        await mkdir(join(dir, "workspaces", "uid_userA"), { recursive: true });
+        await mkdir(join(dir, "workspaces", "uid_userB"), { recursive: true });
+        // Use node -e sleep so first session's export stays in-flight cleanly
+        const exp = exportHandler({
+          paths: studioPaths(join(dir, "appassets.config.ts")),
+          cli: ["node", "-e", "setTimeout(() => {}, 250)"],
+        })("");
+
+        const makeExportReq = (sid: string) => {
+          const req = new PassThrough() as any;
+          req.method = "POST";
+          req.headers = { "x-session-id": sid };
+          const res = new P1MockResponse();
+          const finished = new Promise<P1MockResponse>((resolve) =>
+            res.on("finish", () => resolve(res)),
+          );
+          exp(req, res as any);
+          req.end("{}");
+          return finished;
+        };
+
+        // Start session A export
+        const sessionAPromise = makeExportReq("uid_userA");
+        await new Promise((r) => setTimeout(r, 30));
+
+        // Same session A second request must get 409
+        const sessionADupe = await makeExportReq("uid_userA");
+        expect(sessionADupe.statusCode).toBe(409);
+
+        // Concurrent different session B must NOT be blocked with 409
+        const sessionBPromise = makeExportReq("uid_userB");
+        const [resA, resB] = await Promise.all([sessionAPromise, sessionBPromise]);
+        expect(resA.statusCode).toBe(200);
+        expect(resB.statusCode).toBe(200);
+
+        // Lock releases after completion
+        const sessionAAfter = await makeExportReq("uid_userA");
+        expect(sessionAAfter.statusCode).toBe(200);
+      } finally {
+        await rm(dir, { recursive: true, force: true });
+      }
     });
   });
 });

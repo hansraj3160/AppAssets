@@ -17,6 +17,7 @@ import {
   useState,
 } from "react";
 import { Button } from "@/components/ui/button";
+import { useStudioActions } from "@/context/StudioContext";
 import { apiFetch } from "@/lib/api";
 
 function hasFiles(types: readonly string[] | DOMStringList | null | undefined): boolean {
@@ -50,8 +51,9 @@ export function EmptyState({
     targetDevice: string;
     targetPlatform: "ios" | "ipad" | "android";
     imported: number;
-  }) => void;
+  }) => Promise<void> | void;
 }) {
+  const studioActions = useStudioActions();
   const [isDragOver, setIsDragOver] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -138,8 +140,9 @@ export function EmptyState({
         targetPlatform: "ios" | "ipad" | "android";
       };
 
+      const toastMsg = `✨ Successfully imported ${result.imported || filePayloads.length} screenshot(s) into ${result.targetDevice || deviceKey || "device"}!`;
       if (onImportSuccess) {
-        onImportSuccess(result);
+        await onImportSuccess(result);
       } else {
         if (result.targetPlatform && result.targetDevice) {
           const app = appName || "";
@@ -155,16 +158,17 @@ export function EmptyState({
           localStorage.setItem(key1, updated);
           localStorage.setItem(key2, updated);
         }
-        sessionStorage.setItem(
-          "appassets_toast",
-          `✨ Successfully imported ${result.imported || filePayloads.length} screenshot(s) into ${result.targetDevice || deviceKey || "device"}!`,
-        );
-        window.location.reload();
+        if (studioActions) {
+          studioActions.toast(toastMsg);
+          await studioActions.refresh();
+        } else {
+          window.dispatchEvent(new CustomEvent("appassets:refresh", { detail: { toast: toastMsg } }));
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to import images");
-      setLoading(false);
     } finally {
+      setLoading(false);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }

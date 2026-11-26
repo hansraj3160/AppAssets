@@ -17,6 +17,7 @@ declare module "firebase/auth" {
     emailVerified?: boolean;
     providerData?: Array<{ providerId: string }>;
     reload?: () => Promise<void>;
+    getIdToken?: (forceRefresh?: boolean) => Promise<string>;
   }
   export interface Auth {
     currentUser: User | null;
@@ -55,6 +56,11 @@ declare module "firebase/firestore" {
     data(): T | undefined;
     id: string;
   }
+  export interface Transaction {
+    get<T = any>(documentRef: DocumentReference<T>): Promise<DocumentSnapshot<T>>;
+    set<T = any>(documentRef: DocumentReference<T>, data: T, options?: any): Transaction;
+    update(documentRef: DocumentReference, data: Record<string, any>): Transaction;
+  }
   export function getFirestore(app?: any): Firestore;
   export function doc(
     firestore: Firestore,
@@ -64,6 +70,10 @@ declare module "firebase/firestore" {
   export function getDoc(reference: DocumentReference): Promise<DocumentSnapshot>;
   export function setDoc(reference: DocumentReference, data: any, options?: any): Promise<void>;
   export function updateDoc(reference: DocumentReference, data: any): Promise<void>;
+  export function runTransaction<T>(
+    firestore: Firestore,
+    updateFunction: (transaction: Transaction) => Promise<T>,
+  ): Promise<T>;
   export function onSnapshot(
     reference: DocumentReference,
     observer: (snapshot: DocumentSnapshot) => void,

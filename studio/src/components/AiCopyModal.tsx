@@ -68,6 +68,7 @@ export function AiCopyModal({
     isEmailVerified,
     aiCreditsRemaining,
     consumeAiCredit,
+    refundAiCredit,
     openAuthModal,
     sendVerificationEmail,
     reloadUserVerification,
@@ -86,6 +87,7 @@ export function AiCopyModal({
   const [resendCooldown, setResendCooldown] = useState<number | null>(null);
   const [verificationNotice, setVerificationNotice] = useState<string | null>(null);
   const autoFetchedForRef = useRef<string | null>(null);
+  const inFlightRef = useRef(false);
 
   const appName = appInfo?.name || manifest?.app?.name;
   const appCategory = appInfo?.category || manifest?.app?.category;
@@ -133,6 +135,7 @@ export function AiCopyModal({
 
   const fetchAiSuggestions = useCallback(
     async (overrideTone?: string) => {
+      if (inFlightRef.current) return;
       if (!user) {
         openAuthModal();
         return;
@@ -150,11 +153,23 @@ export function AiCopyModal({
         return;
       }
 
+      inFlightRef.current = true;
       setLoading(true);
       setError(null);
       setAppliedIndex(null);
 
+      let creditReserved = false;
       try {
+        if (!isPro) {
+          const reserved = await consumeAiCredit();
+          if (!reserved) {
+            throw new Error(
+              "Unable to reserve an AI credit. Your free quota may be exhausted or Firestore is unreachable.",
+            );
+          }
+          creditReserved = true;
+        }
+
         let imageBase64: string | undefined;
         const deviceCaptures = manifest?.design?.captures?.[device];
         const cleanSceneId = sceneId.split("#")[0];
@@ -239,9 +254,6 @@ export function AiCopyModal({
           throw new Error(data.error || `Failed to generate AI copy (HTTP ${res.status})`);
         }
 
-        // Successfully generated copy: deduct 1 AI credit for free plan users
-        await consumeAiCredit();
-
         setCooldownSeconds(null);
         setScreenAnalysis(data.screenAnalysis || null);
         setSuggestions(data.suggestions || []);
@@ -251,8 +263,12 @@ export function AiCopyModal({
           char_count: data.suggestions?.[0]?.headline?.length,
         });
       } catch (err) {
+        if (creditReserved) {
+          await refundAiCredit();
+        }
         setError(err instanceof Error ? err.message : String(err));
       } finally {
+        inFlightRef.current = false;
         setLoading(false);
       }
     },
@@ -262,6 +278,7 @@ export function AiCopyModal({
       isEmailVerified,
       aiCreditsRemaining,
       consumeAiCredit,
+      refundAiCredit,
       openAuthModal,
       sceneId,
       device,

@@ -30,6 +30,7 @@ import {
   TYPE,
 } from "../../../src/layouts";
 import { CUSTOM_TEMPLATE } from "../App";
+import { useStudioActions } from "../context/StudioContext";
 import {
   trackAppImported,
   trackAssetDownloaded,
@@ -617,6 +618,7 @@ export function Strip({
       scene: () => <PreviewScene segments={segments} />,
     });
   }
+  const studioActions = useStudioActions();
   const [assetVersion, setAssetVersion] = useState(() => Date.now());
 
   const screenshotItems = buildScreenshotEntries({
@@ -703,11 +705,15 @@ export function Strip({
         body: JSON.stringify({ sceneId }),
       });
       if (res.ok) {
-        if (onToast) onToast(`Removed screenshot "${sceneId}"`);
+        const msg = `Removed screenshot "${sceneId}"`;
+        if (onToast) onToast(msg);
+        else studioActions?.toast(msg);
         if (onRefresh) {
           await onRefresh();
+        } else if (studioActions) {
+          await studioActions.refresh();
         } else {
-          window.location.reload();
+          window.dispatchEvent(new CustomEvent("appassets:refresh", { detail: { toast: msg } }));
         }
       } else {
         const data = await res.json().catch(() => ({}));
@@ -726,11 +732,15 @@ export function Strip({
         headers: { "Content-Type": "application/json" },
       });
       if (res.ok) {
-        if (onToast) onToast("Removed all screenshots");
+        const msg = "Removed all screenshots";
+        if (onToast) onToast(msg);
+        else studioActions?.toast(msg);
         if (onRefresh) {
           await onRefresh();
+        } else if (studioActions) {
+          await studioActions.refresh();
         } else {
-          window.location.reload();
+          window.dispatchEvent(new CustomEvent("appassets:refresh", { detail: { toast: msg } }));
         }
       } else {
         const data = await res.json().catch(() => ({}));
@@ -951,17 +961,18 @@ export function Strip({
         device: tileSpec.key,
       });
       const count = resData.imported || filePayloads.length;
+      const msg = `✨ Successfully imported ${count} screenshot(s)!`;
       if (onToast) {
-        onToast(`✨ Successfully imported ${count} screenshot(s)!`);
+        onToast(msg);
+      } else {
+        studioActions?.toast(msg);
       }
       if (onRefresh) {
         await onRefresh();
+      } else if (studioActions) {
+        await studioActions.refresh();
       } else {
-        sessionStorage.setItem(
-          "appassets_toast",
-          `✨ Successfully imported ${count} screenshot(s)!`,
-        );
-        window.location.reload();
+        window.dispatchEvent(new CustomEvent("appassets:refresh", { detail: { toast: msg } }));
       }
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to import images");
@@ -1006,17 +1017,18 @@ export function Strip({
         scene_id: sceneId,
       });
       setAssetVersion(Date.now());
+      const msg = `✨ Updated screenshot for "${sceneId}" across iPhone, iPad, and Android!`;
       if (onToast) {
-        onToast(`✨ Updated screenshot for "${sceneId}" across iPhone, iPad, and Android!`);
+        onToast(msg);
+      } else {
+        studioActions?.toast(msg);
       }
       if (onRefresh) {
         await onRefresh();
+      } else if (studioActions) {
+        await studioActions.refresh();
       } else {
-        sessionStorage.setItem(
-          "appassets_toast",
-          `✨ Updated screenshot for "${sceneId}" across iPhone, iPad, and Android!`,
-        );
-        window.location.reload();
+        window.dispatchEvent(new CustomEvent("appassets:refresh", { detail: { toast: msg } }));
       }
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to replace capture");

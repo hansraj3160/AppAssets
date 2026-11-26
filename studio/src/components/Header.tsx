@@ -19,6 +19,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import appLogo from "@/assets/logo.png";
 import { useAuth } from "@/context/AuthContext";
+import { useStudioActions } from "@/context/StudioContext";
 import { CUSTOM_TEMPLATE } from "../App";
 import { apiFetch } from "../lib/api";
 import { getSessionId } from "../lib/session";
@@ -83,6 +84,7 @@ export function Header({
     openAuthModal,
     openUpgradeModal,
   } = useAuth();
+  const studioActions = useStudioActions();
   const [clearing, setClearing] = useState(false);
 
   // Export pipeline state
@@ -168,10 +170,14 @@ export function Header({
       });
       if (res.ok) {
         if (onToast) onToast("Removed all screenshots");
+        else studioActions?.toast("Removed all screenshots");
+
         if (onRefresh) {
           await onRefresh();
+        } else if (studioActions) {
+          await studioActions.refresh();
         } else {
-          window.location.reload();
+          window.dispatchEvent(new CustomEvent("appassets:refresh"));
         }
       } else {
         const data = await res.json().catch(() => ({}));

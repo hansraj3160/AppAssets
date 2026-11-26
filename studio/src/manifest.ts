@@ -128,8 +128,11 @@ export class ManifestError extends Error {
   }
 }
 
-export async function loadManifest(): Promise<StoreManifest> {
-  const res = await apiFetch("/store.json", { cache: "no-store" });
+export async function loadManifest(sessionId?: string): Promise<StoreManifest> {
+  const res = await apiFetch("/store.json", {
+    cache: "no-store",
+    headers: sessionId ? { "X-Session-ID": sessionId } : undefined,
+  });
   if (!res.ok) {
     throw new ManifestError(
       "There is no out/store.json yet. Generate the assets first.",
@@ -210,9 +213,12 @@ export type SceneCopy = {
   subhead?: Record<string, string>;
 };
 
-export async function loadDesign(): Promise<SavedDesign> {
+export async function loadDesign(sessionId?: string): Promise<SavedDesign> {
   try {
-    const res = await apiFetch("/api/design", { cache: "no-store" });
+    const res = await apiFetch("/api/design", {
+      cache: "no-store",
+      headers: sessionId ? { "X-Session-ID": sessionId } : undefined,
+    });
     if (!res.ok) return {};
     const parsed = await res.json();
     return parsed && typeof parsed === "object" ? (parsed as SavedDesign) : {};
@@ -221,10 +227,12 @@ export async function loadDesign(): Promise<SavedDesign> {
   }
 }
 
-export async function saveDesign(design: SavedDesign): Promise<void> {
+export async function saveDesign(design: SavedDesign, sessionId?: string): Promise<void> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (sessionId) headers["X-Session-ID"] = sessionId;
   const res = await apiFetch("/api/design", {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify(design),
   });
   if (!res.ok) throw new Error(`Saving appassets.design.json failed: ${await res.text()}`);

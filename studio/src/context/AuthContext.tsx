@@ -7,12 +7,19 @@ import {
   signOut,
   type User,
 } from "firebase/auth";
-import { doc, getDoc, increment, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  onSnapshot,
+  runTransaction,
+  setDoc,
+  updateDoc,
+} from "firebase/firestore";
 import type React from "react";
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { setUserProperties } from "@/lib/analytics";
 import { auth, db, googleProvider } from "@/lib/firebase";
-import { setAuthSession } from "@/lib/session";
+import { getSessionId, setAuthSession } from "@/lib/session";
 
 export interface UserProfile {
   uid: string;
@@ -32,6 +39,8 @@ interface AuthContextValue {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
+  sessionId: string;
+  authVersion: number;
   isPro: boolean;
   isEmailVerified: boolean;
   aiCreditsRemaining: number;
@@ -42,6 +51,7 @@ interface AuthContextValue {
   sendVerificationEmail: () => Promise<void>;
   reloadUserVerification: () => Promise<boolean>;
   consumeAiCredit: () => Promise<boolean>;
+  refundAiCredit: () => Promise<void>;
   isAuthModalOpen: boolean;
   openAuthModal: () => void;
   closeAuthModal: () => void;
@@ -57,15 +67,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sessionId, setSessionId] = useState<string>(() => getSessionId());
+  const [authVersion, setAuthVersion] = useState(0);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+  const creditQueueRef = useRef<Promise<unknown>>(Promise.resolve());
+
+  const runCreditOp = useCallback(<T,>(fn: () => Promise<T>): Promise<T> => {
+    const next = creditQueueRef.current.then(fn, fn);
+    creditQueueRef.current = next.catch(() => undefined);
+    return next;
+  }, []);
 
   useEffect(() => {
     let unsubscribeProfile: (() => void) | null = null;
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
+      if (unsubscribeProfile) {
+        unsubscribeProfile();
+        unsubscribeProfile = null;
+      }
       setUser(currentUser);
-      setAuthSession(currentUser ? currentUser.uid : null);
+      setAuthVersion((v) => v + 1);
+      const nextSessionId = setAuthSession(currentUser ? currentUser.uid : null);
+      setSessionId(nextSessionId);
       if (currentUser) {
         const userRef = doc(db, "users", currentUser.uid);
         try {
@@ -168,7 +193,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await auth.currentUser.reload();
       }
       const updated = auth.currentUser;
-      setUser(updated ? { ...updated } : null);
+      setUser(updated);
+      setAuthVersion((v) => v + 1);
       return Boolean(updated?.emailVerified);
     }
     return false;
@@ -206,21 +232,83 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsAuthModalOpen(true);
       return false;
     }
-    if (aiCreditsRemaining <= 0) {
-      return false;
-    }
 
-    try {
+    return runCreditOp(async () => {
       const userRef = doc(db, "users", user.uid);
-      await updateDoc(userRef, {
-        aiCreditsUsed: increment(1),
-      });
-      return true;
-    } catch (err) {
-      console.error("Failed to update credit usage in Firestore:", err);
-      // Allow if Firestore update failed locally so user experience isn't blocked
-      return true;
-    }
+      try {
+        const result = await runTransaction(db, async (tx) => {
+          const snap = await tx.get(userRef);
+          if (!snap.exists()) {
+            const newProfile: UserProfile = {
+              uid: user.uid,
+              email: user.email,
+              displayName: user.displayName || user.email?.split("@")[0] || "User",
+              photoURL: user.photoURL,
+              plan: "free",
+              isPro: false,
+              aiCreditsUsed: 1,
+              aiCreditsLimit: DEFAULT_FREE_CREDITS,
+              createdAt: new Date().toISOString(),
+            };
+            tx.set(userRef, newProfile);
+            return { ok: true, used: 1, limit: DEFAULT_FREE_CREDITS, isPro: false };
+          }
+          const data = snap.data() as UserProfile;
+          if (data.isPro) {
+            return { ok: true, used: data.aiCreditsUsed ?? 0, limit: data.aiCreditsLimit ?? DEFAULT_FREE_CREDITS, isPro: true };
+          }
+          const used = data.aiCreditsUsed ?? 0;
+          const limit = data.aiCreditsLimit ?? DEFAULT_FREE_CREDITS;
+          if (used >= limit) {
+            return { ok: false, used, limit, isPro: false };
+          }
+          const nextUsed = used + 1;
+          tx.update(userRef, { aiCreditsUsed: nextUsed });
+          return { ok: true, used: nextUsed, limit, isPro: false };
+        });
+
+        setProfile((prev) =>
+          prev
+            ? {
+                ...prev,
+                aiCreditsUsed: result.used,
+                aiCreditsLimit: result.limit,
+                isPro: result.isPro,
+              }
+            : null,
+        );
+        return result.ok;
+      } catch (err) {
+        console.error("Failed to consume AI credit in Firestore:", err);
+        return false;
+      }
+    });
+  };
+
+  const refundAiCredit = async (): Promise<void> => {
+    if (!user || isPro) return;
+    await runCreditOp(async () => {
+      const userRef = doc(db, "users", user.uid);
+      try {
+        const nextUsed = await runTransaction(db, async (tx) => {
+          const snap = await tx.get(userRef);
+          if (!snap.exists()) return null;
+          const data = snap.data() as UserProfile;
+          if (data.isPro) return data.aiCreditsUsed ?? 0;
+          const used = data.aiCreditsUsed ?? 0;
+          const updated = Math.max(0, used - 1);
+          if (updated !== used) {
+            tx.update(userRef, { aiCreditsUsed: updated });
+          }
+          return updated;
+        });
+        if (nextUsed !== null) {
+          setProfile((prev) => (prev ? { ...prev, aiCreditsUsed: nextUsed } : null));
+        }
+      } catch (err) {
+        console.error("Failed to refund AI credit in Firestore:", err);
+      }
+    });
   };
 
   const toggleProPlan = async () => {
@@ -251,6 +339,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         profile,
         loading,
+        sessionId,
+        authVersion,
         isPro,
         isEmailVerified,
         aiCreditsRemaining,
@@ -261,6 +351,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         sendVerificationEmail,
         reloadUserVerification,
         consumeAiCredit,
+        refundAiCredit,
         isAuthModalOpen,
         openAuthModal: () => setIsAuthModalOpen(true),
         closeAuthModal: () => setIsAuthModalOpen(false),
