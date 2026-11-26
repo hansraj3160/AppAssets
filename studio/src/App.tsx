@@ -9,7 +9,7 @@ import {
   UploadIcon,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BacklightConfig, PatternType } from "../../src/background";
 import { AboutUs } from "./components/AboutUs";
 import { AdBanner } from "./components/AdBanner";
@@ -28,7 +28,8 @@ import { StoreMockupPreview } from "./components/StoreMockupPreview";
 import { Strip } from "./components/Strip";
 import { TermsAndConditions } from "./components/TermsAndConditions";
 import { UpgradeModal } from "./components/UpgradeModal";
-import { AuthProvider } from "./context/AuthContext";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import { StudioActionsContext } from "./context/StudioContext";
 import { initGA, trackAppImported, trackPageView, trackToolOpened } from "./lib/analytics";
 import { apiFetch } from "./lib/api";
 import { getSessionId } from "./lib/session";
@@ -128,11 +129,16 @@ export function App() {
 }
 
 function AppContent() {
-  const [loaded, setLoaded] = useState<{ manifest: StoreManifest; design: SavedDesign } | null>(
-    null,
-  );
+  const { sessionId } = useAuth();
+  const [loaded, setLoaded] = useState<{
+    manifest: StoreManifest;
+    design: SavedDesign;
+    sessionId: string;
+    refreshId: number;
+  } | null>(null);
   const [error, setError] = useState<Error | null>(null);
   const [screen, setScreen] = useState<Screen>(resolveScreenFromLocation);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const navigateTo = useCallback(
     (view: "landing" | "studio" | "privacy" | "terms" | "about" | "contact" | "guidelines") => {
@@ -193,18 +199,63 @@ function AppContent() {
     localStorage.setItem("appassets_theme", dark ? "dark" : "light");
   }, [dark]);
 
-  const refresh = useCallback(async () => {
+  const refreshSeqRef = useRef(0);
+  const activeSessionRef = useRef(sessionId);
+  activeSessionRef.current = sessionId;
+
+  const refresh = useCallback(async (targetSessionId = activeSessionRef.current) => {
+    const seq = ++refreshSeqRef.current;
     try {
-      const [manifest, design] = await Promise.all([loadManifest(), loadDesign()]);
-      setLoaded({ manifest, design });
+      const [manifest, design] = await Promise.all([
+        loadManifest(targetSessionId),
+        loadDesign(targetSessionId),
+      ]);
+      if (seq !== refreshSeqRef.current || activeSessionRef.current !== targetSessionId) {
+        return;
+      }
+      setError(null);
+      setLoaded((prev) => ({
+        manifest,
+        design,
+        sessionId: targetSessionId,
+        refreshId: (prev?.refreshId ?? 0) + 1,
+      }));
     } catch (e) {
+      if (seq !== refreshSeqRef.current || activeSessionRef.current !== targetSessionId) {
+        return;
+      }
       setError(e instanceof Error ? e : new Error(String(e)));
     }
   }, []);
 
+  const loadedSessionRef = useRef<string | null>(null);
   useEffect(() => {
-    refresh();
+    if (loadedSessionRef.current !== sessionId) {
+      if (loadedSessionRef.current !== null) {
+        setLoaded(null);
+      }
+      loadedSessionRef.current = sessionId;
+      void refresh(sessionId);
+    }
+  }, [sessionId, refresh]);
+
+  useEffect(() => {
+    const onRefreshEvent = (e: Event) => {
+      const detail = (e as CustomEvent<{ toast?: string }>).detail;
+      if (detail?.toast) setToastMessage(detail.toast);
+      void refresh();
+    };
+    window.addEventListener("appassets:refresh", onRefreshEvent);
+    return () => window.removeEventListener("appassets:refresh", onRefreshEvent);
   }, [refresh]);
+
+  const studioActions = useMemo(
+    () => ({
+      refresh: () => refresh(),
+      toast: (msg: string) => setToastMessage(msg),
+    }),
+    [refresh],
+  );
 
   if (screen === "landing") {
     return (
@@ -345,12 +396,14 @@ function AppContent() {
 
   if (error)
     return (
-      <EmptyState
-        icon={TriangleAlertIcon}
-        title="The studio could not load"
-        body={error.message}
-        command={error instanceof ManifestError ? error.command : undefined}
-      />
+      <StudioActionsContext.Provider value={studioActions}>
+        <EmptyState
+          icon={TriangleAlertIcon}
+          title="The studio could not load"
+          body={error.message}
+          command={error instanceof ManifestError ? error.command : undefined}
+        />
+      </StudioActionsContext.Provider>
     );
   if (!loaded)
     return (
@@ -362,18 +415,23 @@ function AppContent() {
       </div>
     );
   return (
-    <>
+    <StudioActionsContext.Provider value={studioActions}>
       <Loaded
+        key={loaded.sessionId}
         manifest={loaded.manifest}
         saved={loaded.design}
+        sessionId={loaded.sessionId}
+        refreshId={loaded.refreshId}
         onRefresh={refresh}
         dark={dark}
         setDark={setDark}
+        toastMessage={toastMessage}
+        onToast={setToastMessage}
         onNavigateToLanding={() => navigateTo("landing")}
       />
       <AuthModal />
       <UpgradeModal />
-    </>
+    </StudioActionsContext.Provider>
   );
 }
 
@@ -394,18 +452,27 @@ function AppContent() {
 function Loaded({
   manifest,
   saved,
+  sessionId,
+  refreshId,
   onRefresh,
   dark,
   setDark,
+  toastMessage,
+  onToast,
   onNavigateToLanding,
 }: {
   manifest: StoreManifest;
   saved: SavedDesign;
+  sessionId: string;
+  refreshId: number;
   onRefresh: () => Promise<void> | void;
   dark: boolean;
   setDark: (v: boolean | ((prev: boolean) => boolean)) => void;
+  toastMessage: string | null;
+  onToast: (msg: string | null) => void;
   onNavigateToLanding?: () => void;
 }) {
+  const setToastMessage = onToast;
   const design = manifest.design;
   const view = loadView(manifest.app.name);
   // Both store tabs render even when only one platform is configured, so the
@@ -443,30 +510,9 @@ function Loaded({
   });
   const knownLayout = (key: string | undefined) =>
     key && design.layouts.some((l) => l.key === key) ? key : undefined;
-  const { state, set } = useHistory<DesignState>(() => ({
-    background: saved.background ?? design.theme.background,
-    frame:
-      saved.frame && design.frameVariants.includes(saved.frame)
-        ? saved.frame
-        : (design.frameVariant ?? ""),
-    fontFamily: saved.fontFamily ?? design.theme.fontFamily,
-    headlineColor: saved.headlineColor ?? "",
-    subheadColor: saved.subheadColor ?? "",
-    fontSizeScale: saved.fontSizeScale ?? 1,
-    backgroundPattern: saved.backgroundPattern ?? design.theme.backgroundPattern ?? "none",
-    patternOpacity: saved.patternOpacity ?? design.theme.patternOpacity ?? 0.05,
-    patternColor: saved.patternColor ?? design.theme.patternColor,
-    deviceBacklight: saved.deviceBacklight ?? design.theme.deviceBacklight ?? false,
-    panoramaMode: saved.panoramaMode ?? design.theme.panoramaMode ?? false,
-    copy: saved.copy ?? {},
-    layout: knownLayout(saved.layout) ?? design.layout,
-    template: initialTemplate(design, saved),
-    screenOnly: saved.screenOnly ?? design.screenOnly,
-    sceneLayouts: initialSceneLayouts(design, saved, knownLayout),
-    sceneBackgrounds: saved.sceneBackgrounds ?? {},
-    sceneBadges: saved.sceneBadges ?? {},
-    order: initialOrder(design, saved),
-  }));
+  const { state, set, reset } = useHistory<DesignState>(() =>
+    buildDesignState(design, saved, knownLayout),
+  );
   const {
     background,
     frame,
@@ -557,45 +603,22 @@ function Loaded({
   const [isLocaleModalOpen, setIsLocaleModalOpen] = useState(false);
   const [isAppDetailsModalOpen, setIsAppDetailsModalOpen] = useState(false);
 
-  const [appInfo, setAppInfo] = useState<AppInfo>(() => ({
-    name: saved.appInfo?.name || manifest.app.name || "",
-    subtitle:
-      saved.appInfo?.subtitle ||
-      manifest.app.subtitle?.[locale] ||
-      manifest.app.subtitle?.["en-US"] ||
-      Object.values(manifest.app.subtitle || {})[0] ||
-      "",
-    category: saved.appInfo?.category || manifest.app.category || "",
-    developer: saved.appInfo?.developer || manifest.app.developer || "",
-    description:
-      saved.appInfo?.description ||
-      manifest.app.description?.[locale] ||
-      manifest.app.description?.["en-US"] ||
-      Object.values(manifest.app.description || {})[0] ||
-      "",
-    icon: saved.appInfo?.icon || saved.appIcon || "",
-  }));
+  const [appInfo, setAppInfo] = useState<AppInfo>(() => buildAppInfo(manifest, saved, locale));
+
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasDirtyChangesRef = useRef(false);
+  const skipNextAutoSaveRef = useRef(false);
 
   const handleUpdateAppInfo = (newInfo: AppInfo) => {
     setAppInfo(newInfo);
-    saveDesign({
-      background,
-      frame: frame || undefined,
-      fontFamily,
-      headlineColor: headlineColor || undefined,
-      subheadColor: subheadColor || undefined,
-      fontSizeScale: fontSizeScale !== 1 ? fontSizeScale : undefined,
-      copy: Object.keys(copy).length > 0 ? copy : undefined,
-      order: order.length > 0 ? order : undefined,
-      template: template === CUSTOM_TEMPLATE ? undefined : template,
-      layout,
-      screenOnly,
-      sceneLayouts: Object.keys(sceneLayouts).length > 0 ? sceneLayouts : undefined,
-      sceneBackgrounds: Object.keys(sceneBackgrounds).length > 0 ? sceneBackgrounds : undefined,
-      sceneBadges: Object.keys(sceneBadges).length > 0 ? sceneBadges : undefined,
-      appInfo: newInfo.name?.trim() ? newInfo : undefined,
-      appIcon: newInfo.icon || undefined,
-    }).catch((e: Error) => setSaveError(e.message));
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    hasDirtyChangesRef.current = false;
+    saveDesign(buildSavePayload(state, newInfo), sessionId).catch((e: Error) =>
+      setSaveError(e.message),
+    );
   };
 
   const setSceneCopy = (sceneId: string, fieldName: "headline" | "subhead", text: string) =>
@@ -633,8 +656,8 @@ function Loaded({
 
   // Write the design to disk once it has sat still for a moment; a drag on
   // the gradient picker fires many changes a second. Skips the initial mount
-  // so opening the studio never creates the file by itself. An empty frame
-  // means the config's custom bezel art, which has nothing to save.
+  // and server-driven refreshes so opening/reloading never creates or overwrites
+  // design state unnecessarily.
   const [saveError, setSaveError] = useState<string | null>(null);
   const mounted = useRef(false);
   useEffect(() => {
@@ -642,83 +665,93 @@ function Loaded({
       mounted.current = true;
       return;
     }
+    if (skipNextAutoSaveRef.current) {
+      skipNextAutoSaveRef.current = false;
+      return;
+    }
+    hasDirtyChangesRef.current = true;
+    const payload = buildSavePayload(state, appInfo);
     const timer = setTimeout(() => {
-      saveDesign({
-        background,
-        frame: frame || undefined,
-        fontFamily,
-        headlineColor: headlineColor || undefined,
-        subheadColor: subheadColor || undefined,
-        fontSizeScale: fontSizeScale !== 1 ? fontSizeScale : undefined,
-        backgroundPattern: backgroundPattern !== "none" ? backgroundPattern : undefined,
-        patternOpacity: patternOpacity !== 0.05 ? patternOpacity : undefined,
-        patternColor: patternColor || undefined,
-        deviceBacklight: deviceBacklight || undefined,
-        panoramaMode: panoramaMode || undefined,
-        copy: Object.keys(copy).length > 0 ? copy : undefined,
-        order: order.length > 0 ? order : undefined,
-        template: template === CUSTOM_TEMPLATE ? undefined : template,
-        layout,
-        screenOnly,
-        sceneLayouts: Object.keys(sceneLayouts).length > 0 ? sceneLayouts : undefined,
-        sceneBackgrounds: Object.keys(sceneBackgrounds).length > 0 ? sceneBackgrounds : undefined,
-        sceneBadges: Object.keys(sceneBadges).length > 0 ? sceneBadges : undefined,
-        appInfo: appInfo.name?.trim() ? appInfo : undefined,
-        appIcon: appInfo.icon || undefined,
-      }).then(
+      saveTimerRef.current = null;
+      hasDirtyChangesRef.current = false;
+      saveDesign(payload, sessionId).then(
         () => setSaveError(null),
         (e: Error) => setSaveError(e.message),
       );
     }, SAVE_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [
-    background,
-    frame,
-    fontFamily,
-    headlineColor,
-    subheadColor,
-    fontSizeScale,
-    backgroundPattern,
-    patternOpacity,
-    patternColor,
-    deviceBacklight,
-    panoramaMode,
-    copy,
-    order,
-    template,
-    layout,
-    screenOnly,
-    sceneLayouts,
-    sceneBackgrounds,
-    sceneBadges,
-    appInfo,
-  ]);
+    saveTimerRef.current = timer;
+    return () => {
+      clearTimeout(timer);
+      if (saveTimerRef.current === timer) {
+        saveTimerRef.current = null;
+      }
+    };
+  }, [state, appInfo, sessionId]);
+
+  // Keep useHistory state, appInfo, and locale aligned whenever the workspace
+  // manifest/design refreshes in-place (e.g. after import, delete, or locale update).
+  const latestStateRef = useRef(state);
+  latestStateRef.current = state;
+  const latestLocaleRef = useRef(locale);
+  latestLocaleRef.current = locale;
+  const lastRefreshIdRef = useRef(refreshId);
+
+  useEffect(() => {
+    if (lastRefreshIdRef.current === refreshId) return;
+    lastRefreshIdRef.current = refreshId;
+
+    const curLocale = latestLocaleRef.current;
+    const resolvedLocale =
+      manifest.locales.length > 0 && !manifest.locales.includes(curLocale)
+        ? manifest.locales[0]!
+        : curLocale;
+    if (resolvedLocale !== curLocale) {
+      setLocale(resolvedLocale);
+    }
+
+    const validKnownLayout = (key: string | undefined) =>
+      key && manifest.design.layouts.some((l) => l.key === key) ? key : undefined;
+    const fromServer = buildDesignState(manifest.design, saved, validKnownLayout);
+    const validSceneIds = new Set(manifest.design.scenes.map((s) => s.id));
+    const serverCleared = validSceneIds.size === 0 && !saved.order?.length;
+
+    if (serverCleared || !hasDirtyChangesRef.current) {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+      skipNextAutoSaveRef.current = true;
+      hasDirtyChangesRef.current = false;
+      reset(fromServer);
+      setAppInfo(buildAppInfo(manifest, saved, resolvedLocale));
+    } else {
+      const prev = latestStateRef.current;
+      const mergedOrderSource = prev.order.length > 0 ? prev.order : (saved.order ?? []);
+      reset({
+        ...prev,
+        order: initialOrder(manifest.design, { ...saved, order: mergedOrderSource }),
+        copy: filterSceneRecord(
+          Object.keys(prev.copy).length > 0 ? prev.copy : fromServer.copy,
+          validSceneIds,
+        ),
+        sceneLayouts: filterSceneRecord(prev.sceneLayouts, validSceneIds),
+        sceneBackgrounds: filterSceneRecord(prev.sceneBackgrounds, validSceneIds),
+        sceneBadges: filterSceneRecord(prev.sceneBadges, validSceneIds),
+      });
+      if (saved.appInfo || saved.appIcon) {
+        setAppInfo(buildAppInfo(manifest, saved, resolvedLocale));
+      }
+    }
+  }, [refreshId, manifest, saved, reset]);
 
   const flushDesign = async () => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    hasDirtyChangesRef.current = false;
     try {
-      await saveDesign({
-        background,
-        frame: frame || undefined,
-        fontFamily,
-        headlineColor: headlineColor || undefined,
-        subheadColor: subheadColor || undefined,
-        fontSizeScale: fontSizeScale !== 1 ? fontSizeScale : undefined,
-        backgroundPattern: backgroundPattern !== "none" ? backgroundPattern : undefined,
-        patternOpacity: patternOpacity !== 0.05 ? patternOpacity : undefined,
-        patternColor: patternColor || undefined,
-        deviceBacklight: deviceBacklight || undefined,
-        panoramaMode: panoramaMode || undefined,
-        copy: Object.keys(copy).length > 0 ? copy : undefined,
-        order: order.length > 0 ? order : undefined,
-        template: template === CUSTOM_TEMPLATE ? undefined : template,
-        layout,
-        screenOnly,
-        sceneLayouts: Object.keys(sceneLayouts).length > 0 ? sceneLayouts : undefined,
-        sceneBackgrounds: Object.keys(sceneBackgrounds).length > 0 ? sceneBackgrounds : undefined,
-        sceneBadges: Object.keys(sceneBadges).length > 0 ? sceneBadges : undefined,
-        appInfo: appInfo.name?.trim() ? appInfo : undefined,
-        appIcon: appInfo.icon || undefined,
-      });
+      await saveDesign(buildSavePayload(state, appInfo), sessionId);
       setSaveError(null);
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : String(e));
@@ -765,7 +798,6 @@ function Loaded({
 
   const [isDraggingOverCanvas, setIsDraggingOverCanvas] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const dragCounter = useRef(0);
 
   // Prevent browser's default behavior of navigating away or rejecting drops on window
@@ -803,7 +835,7 @@ function Loaded({
       sessionStorage.removeItem("goldie_toast");
       setToastMessage(savedToast);
     }
-  }, []);
+  }, [setToastMessage]);
 
   const readFileData = (
     file: File,
@@ -1371,6 +1403,96 @@ type DesignState = {
   /** Screenshot scene ids as arranged by dragging tiles; empty means the config's order. */
   order: string[];
 };
+
+function buildDesignState(
+  design: Design,
+  saved: SavedDesign,
+  knownLayout: (key: string | undefined) => string | undefined,
+): DesignState {
+  return {
+    background: saved.background ?? design.theme.background,
+    frame:
+      saved.frame && design.frameVariants.includes(saved.frame)
+        ? saved.frame
+        : (design.frameVariant ?? ""),
+    fontFamily: saved.fontFamily ?? design.theme.fontFamily,
+    headlineColor: saved.headlineColor ?? "",
+    subheadColor: saved.subheadColor ?? "",
+    fontSizeScale: saved.fontSizeScale ?? 1,
+    backgroundPattern: saved.backgroundPattern ?? design.theme.backgroundPattern ?? "none",
+    patternOpacity: saved.patternOpacity ?? design.theme.patternOpacity ?? 0.05,
+    patternColor: saved.patternColor ?? design.theme.patternColor,
+    deviceBacklight: saved.deviceBacklight ?? design.theme.deviceBacklight ?? false,
+    panoramaMode: saved.panoramaMode ?? design.theme.panoramaMode ?? false,
+    copy: saved.copy ?? {},
+    layout: knownLayout(saved.layout) ?? design.layout,
+    template: initialTemplate(design, saved),
+    screenOnly: saved.screenOnly ?? design.screenOnly,
+    sceneLayouts: initialSceneLayouts(design, saved, knownLayout),
+    sceneBackgrounds: saved.sceneBackgrounds ?? {},
+    sceneBadges: saved.sceneBadges ?? {},
+    order: initialOrder(design, saved),
+  };
+}
+
+function buildAppInfo(manifest: StoreManifest, saved: SavedDesign, locale: string): AppInfo {
+  return {
+    name: saved.appInfo?.name || manifest.app.name || "",
+    subtitle:
+      saved.appInfo?.subtitle ||
+      manifest.app.subtitle?.[locale] ||
+      manifest.app.subtitle?.["en-US"] ||
+      Object.values(manifest.app.subtitle || {})[0] ||
+      "",
+    category: saved.appInfo?.category || manifest.app.category || "",
+    developer: saved.appInfo?.developer || manifest.app.developer || "",
+    description:
+      saved.appInfo?.description ||
+      manifest.app.description?.[locale] ||
+      manifest.app.description?.["en-US"] ||
+      Object.values(manifest.app.description || {})[0] ||
+      "",
+    icon: saved.appInfo?.icon || saved.appIcon || "",
+  };
+}
+
+function buildSavePayload(state: DesignState, appInfo: AppInfo): SavedDesign {
+  return {
+    background: state.background,
+    frame: state.frame || undefined,
+    fontFamily: state.fontFamily,
+    headlineColor: state.headlineColor || undefined,
+    subheadColor: state.subheadColor || undefined,
+    fontSizeScale: state.fontSizeScale !== 1 ? state.fontSizeScale : undefined,
+    backgroundPattern: state.backgroundPattern !== "none" ? state.backgroundPattern : undefined,
+    patternOpacity: state.patternOpacity !== 0.05 ? state.patternOpacity : undefined,
+    patternColor: state.patternColor || undefined,
+    deviceBacklight: state.deviceBacklight || undefined,
+    panoramaMode: state.panoramaMode || undefined,
+    copy: Object.keys(state.copy).length > 0 ? state.copy : undefined,
+    order: state.order.length > 0 ? state.order : undefined,
+    template: state.template === CUSTOM_TEMPLATE ? undefined : state.template,
+    layout: state.layout,
+    screenOnly: state.screenOnly,
+    sceneLayouts: Object.keys(state.sceneLayouts).length > 0 ? state.sceneLayouts : undefined,
+    sceneBackgrounds:
+      Object.keys(state.sceneBackgrounds).length > 0 ? state.sceneBackgrounds : undefined,
+    sceneBadges: Object.keys(state.sceneBadges).length > 0 ? state.sceneBadges : undefined,
+    appInfo: appInfo.name?.trim() ? appInfo : undefined,
+    appIcon: appInfo.icon || undefined,
+  };
+}
+
+function filterSceneRecord<T>(rec: Record<string, T>, validSceneIds: Set<string>): Record<string, T> {
+  const out: Record<string, T> = {};
+  for (const [key, val] of Object.entries(rec)) {
+    const baseId = key.split("#")[0]!;
+    if (validSceneIds.has(baseId)) {
+      out[key] = val;
+    }
+  }
+  return out;
+}
 
 function initialTemplate(design: Design, saved: SavedDesign): string {
   if (saved.template !== undefined && design.templates.some((t) => t.key === saved.template))

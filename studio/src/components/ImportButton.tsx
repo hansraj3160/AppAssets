@@ -1,6 +1,7 @@
 import { ImagePlusIcon, Loader2Icon } from "lucide-react";
 import { type ChangeEvent, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useStudioActions } from "@/context/StudioContext";
 import { apiFetch } from "@/lib/api";
 
 export function ImportButton({
@@ -20,6 +21,7 @@ export function ImportButton({
   preferredDevice?: string;
   onSuccess?: (count: number) => Promise<void> | void;
 }) {
+  const studioActions = useStudioActions();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -102,14 +104,14 @@ export function ImportButton({
         targetDevice?: string;
       };
       const count = resData.imported || filePayloads.length;
+      const toastMsg = `✨ Successfully imported ${count} screenshot(s)!`;
       if (onSuccess) {
         await onSuccess(count);
+      } else if (studioActions) {
+        studioActions.toast(toastMsg);
+        await studioActions.refresh();
       } else {
-        sessionStorage.setItem(
-          "appassets_toast",
-          `✨ Successfully imported ${count} screenshot(s)!`,
-        );
-        window.location.reload();
+        window.dispatchEvent(new CustomEvent("appassets:refresh", { detail: { toast: toastMsg } }));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to import images");

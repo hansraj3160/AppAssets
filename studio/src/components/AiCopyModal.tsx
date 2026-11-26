@@ -1,10 +1,12 @@
 import {
   AlertCircle,
   Check,
+  CheckCircle2,
   Clock,
   Feather,
   Loader2,
   Lock,
+  Mail,
   RefreshCw,
   Shield,
   Sparkles,
@@ -60,7 +62,17 @@ export function AiCopyModal({
   appInfo,
   onApplyCopy,
 }: AiCopyModalProps) {
-  const { user, isPro, aiCreditsRemaining, consumeAiCredit, openAuthModal } = useAuth();
+  const {
+    user,
+    isPro,
+    isEmailVerified,
+    aiCreditsRemaining,
+    consumeAiCredit,
+    refundAiCredit,
+    openAuthModal,
+    sendVerificationEmail,
+    reloadUserVerification,
+  } = useAuth();
   const [selectedTone, setSelectedTone] = useState("all");
   const [customPrompt, setCustomPrompt] = useState("");
   const [loading, setLoading] = useState(false);
@@ -70,7 +82,12 @@ export function AiCopyModal({
   const [appliedIndex, setAppliedIndex] = useState<number | null>(null);
   const [rateLimit, setRateLimit] = useState<{ limit: number; remaining: number } | null>(null);
   const [cooldownSeconds, setCooldownSeconds] = useState<number | null>(null);
+  const [checkingVerification, setCheckingVerification] = useState(false);
+  const [resendingEmail, setResendingEmail] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState<number | null>(null);
+  const [verificationNotice, setVerificationNotice] = useState<string | null>(null);
   const autoFetchedForRef = useRef<string | null>(null);
+  const inFlightRef = useRef(false);
 
   const appName = appInfo?.name || manifest?.app?.name;
   const appCategory = appInfo?.category || manifest?.app?.category;
@@ -95,6 +112,21 @@ export function AiCopyModal({
     return () => clearInterval(timer);
   }, [cooldownSeconds]);
 
+  // Countdown timer for resend verification cooldown
+  useEffect(() => {
+    if (resendCooldown === null || resendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => {
+        if (prev === null || prev <= 1) {
+          clearInterval(timer);
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
+
   useEffect(() => {
     if (isOpen) {
       trackToolOpened("ai_copywriter", { scene_id: sceneId });
@@ -103,8 +135,15 @@ export function AiCopyModal({
 
   const fetchAiSuggestions = useCallback(
     async (overrideTone?: string) => {
+      if (inFlightRef.current) return;
       if (!user) {
         openAuthModal();
+        return;
+      }
+      if (!isPro && !isEmailVerified) {
+        setError(
+          "Please verify your email address to unlock your 10 free AI credits.",
+        );
         return;
       }
       if (!isPro && aiCreditsRemaining <= 0) {
@@ -114,11 +153,23 @@ export function AiCopyModal({
         return;
       }
 
+      inFlightRef.current = true;
       setLoading(true);
       setError(null);
       setAppliedIndex(null);
 
+      let creditReserved = false;
       try {
+        if (!isPro) {
+          const reserved = await consumeAiCredit();
+          if (!reserved) {
+            throw new Error(
+              "Unable to reserve an AI credit. Your free quota may be exhausted or Firestore is unreachable.",
+            );
+          }
+          creditReserved = true;
+        }
+
         let imageBase64: string | undefined;
         const deviceCaptures = manifest?.design?.captures?.[device];
         const cleanSceneId = sceneId.split("#")[0];
@@ -203,9 +254,6 @@ export function AiCopyModal({
           throw new Error(data.error || `Failed to generate AI copy (HTTP ${res.status})`);
         }
 
-        // Successfully generated copy: deduct 1 AI credit for free plan users
-        await consumeAiCredit();
-
         setCooldownSeconds(null);
         setScreenAnalysis(data.screenAnalysis || null);
         setSuggestions(data.suggestions || []);
@@ -215,16 +263,22 @@ export function AiCopyModal({
           char_count: data.suggestions?.[0]?.headline?.length,
         });
       } catch (err) {
+        if (creditReserved) {
+          await refundAiCredit();
+        }
         setError(err instanceof Error ? err.message : String(err));
       } finally {
+        inFlightRef.current = false;
         setLoading(false);
       }
     },
     [
       user,
       isPro,
+      isEmailVerified,
       aiCreditsRemaining,
       consumeAiCredit,
+      refundAiCredit,
       openAuthModal,
       sceneId,
       device,
@@ -238,14 +292,14 @@ export function AiCopyModal({
     ],
   );
 
-  // Auto-generate on open once per scene/device/locale only if user is logged in
+  // Auto-generate on open once per scene/device/locale only if user is logged in AND verified
   useEffect(() => {
     if (!isOpen) {
       autoFetchedForRef.current = null;
       return;
     }
 
-    if (!user) {
+    if (!user || (!isPro && !isEmailVerified)) {
       return;
     }
 
@@ -257,7 +311,7 @@ export function AiCopyModal({
       setScreenAnalysis(null);
       fetchAiSuggestions();
     }
-  }, [isOpen, user, sceneId, device, locale, fetchAiSuggestions]);
+  }, [isOpen, user, isPro, isEmailVerified, sceneId, device, locale, fetchAiSuggestions]);
 
   const handleApplyBoth = (suggestion: AiSuggestion, index: number) => {
     onApplyCopy(sceneId, "headline", suggestion.headline);
@@ -306,23 +360,30 @@ export function AiCopyModal({
                   GEMINI VISION
                 </span>
                 {user ? (
-                  <span
-                    className={`rounded-md px-2 py-0.5 text-[10px] font-semibold tracking-wide flex items-center gap-1 transition-colors ${
-                      isPro
-                        ? "bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30"
-                        : aiCreditsRemaining <= 2
-                          ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
-                          : "bg-primary/10 text-primary border border-primary/20"
-                    }`}
-                    title={
-                      isPro
-                        ? "Pro Plan: Unlimited generations"
-                        : `${aiCreditsRemaining} free credits left`
-                    }
-                  >
-                    <Sparkles className="size-2.5 text-amber-500 fill-amber-500" />
-                    <span>{isPro ? "PRO • Unlimited" : `${aiCreditsRemaining}/10 credits`}</span>
-                  </span>
+                  !isPro && !isEmailVerified ? (
+                    <span className="rounded-md bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1">
+                      <Lock className="size-2.5" />
+                      <span>Email Unverified</span>
+                    </span>
+                  ) : (
+                    <span
+                      className={`rounded-md px-2 py-0.5 text-[10px] font-semibold tracking-wide flex items-center gap-1 transition-colors ${
+                        isPro
+                          ? "bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30"
+                          : aiCreditsRemaining <= 2
+                            ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                            : "bg-primary/10 text-primary border border-primary/20"
+                      }`}
+                      title={
+                        isPro
+                          ? "Pro Plan: Unlimited generations"
+                          : `${aiCreditsRemaining} free credits left`
+                      }
+                    >
+                      <Sparkles className="size-2.5 text-amber-500 fill-amber-500" />
+                      <span>{isPro ? "PRO • Unlimited" : `${aiCreditsRemaining}/10 credits`}</span>
+                    </span>
+                  )
                 ) : (
                   <span className="rounded-md bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1">
                     <Lock className="size-2.5" />
@@ -377,6 +438,7 @@ export function AiCopyModal({
                   const isPillDisabled =
                     loading ||
                     (cooldownSeconds !== null && cooldownSeconds > 0) ||
+                    (!isPro && !isEmailVerified) ||
                     (!isPro && aiCreditsRemaining <= 0);
                   return (
                     <button
@@ -406,6 +468,7 @@ export function AiCopyModal({
                 disabled={
                   loading ||
                   (cooldownSeconds !== null && cooldownSeconds > 0) ||
+                  (!isPro && !isEmailVerified) ||
                   (!isPro && aiCreditsRemaining <= 0)
                 }
                 onClick={() => fetchAiSuggestions()}
@@ -419,9 +482,11 @@ export function AiCopyModal({
                 <span>
                   {cooldownSeconds
                     ? `Wait ${cooldownSeconds}s`
-                    : !isPro && aiCreditsRemaining <= 0
-                      ? "0 Credits Left"
-                      : "Regenerate"}
+                    : !isPro && !isEmailVerified
+                      ? "Verify Email"
+                      : !isPro && aiCreditsRemaining <= 0
+                        ? "0 Credits Left"
+                        : "Regenerate"}
                 </span>
               </Button>
             </div>
@@ -436,7 +501,7 @@ export function AiCopyModal({
                   onKeyDown={(e) => {
                     if (e.key === "Enter") fetchAiSuggestions();
                   }}
-                  disabled={!isPro && aiCreditsRemaining <= 0}
+                  disabled={(!isPro && !isEmailVerified) || (!isPro && aiCreditsRemaining <= 0)}
                   placeholder="Optional direction (max 300 chars, e.g. 'Focus on zero fees and security')"
                   className="h-8 text-xs w-full bg-muted/40 pr-14"
                 />
@@ -454,6 +519,7 @@ export function AiCopyModal({
                   disabled={
                     loading ||
                     (cooldownSeconds !== null && cooldownSeconds > 0) ||
+                    (!isPro && !isEmailVerified) ||
                     (!isPro && aiCreditsRemaining <= 0)
                   }
                   className="h-8 text-xs cursor-pointer"
@@ -511,6 +577,108 @@ export function AiCopyModal({
               </Button>
               <p className="mt-3 text-[11px] text-muted-foreground">
                 Free forever • Instant access • No credit card required
+              </p>
+            </div>
+          ) : !isPro && !isEmailVerified ? (
+            <div className="flex flex-col items-center justify-center my-auto py-10 px-4 text-center max-w-md mx-auto animate-in fade-in">
+              <div className="relative flex size-14 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-500 border border-amber-500/25 shadow-sm mb-4">
+                <Mail className="size-7 text-[#FF6B00]" />
+              </div>
+              <h3 className="text-xl font-bold tracking-tight text-foreground">
+                Verify Your Email Address
+              </h3>
+              <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+                We've sent a verification link to{" "}
+                <span className="font-semibold text-foreground underline decoration-[#FF6B00]/40">
+                  {user.email}
+                </span>
+                . Please verify your email to unlock your{" "}
+                <span className="font-semibold text-[#FF6B00]">10 Free AI Credits</span> and prevent spam.
+              </p>
+
+              {verificationNotice ? (
+                <div className="mt-4 w-full text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 p-2.5 rounded-lg text-center font-medium">
+                  {verificationNotice}
+                </div>
+              ) : null}
+
+              {error ? (
+                <div className="mt-4 w-full text-xs text-red-500 dark:text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg text-center">
+                  {error}
+                </div>
+              ) : null}
+
+              <div className="mt-6 w-full space-y-2">
+                <Button
+                  onClick={async () => {
+                    setError(null);
+                    setVerificationNotice(null);
+                    setCheckingVerification(true);
+                    try {
+                      const verified = await reloadUserVerification();
+                      if (verified) {
+                        setVerificationNotice("Email verified! Unlocking 10 credits now...");
+                        setTimeout(() => {
+                          fetchAiSuggestions();
+                        }, 500);
+                      } else {
+                        setError(
+                          "Email not verified yet. Please click the link in your email inbox (or spam) first.",
+                        );
+                      }
+                    } catch (err: any) {
+                      setError(err?.message || "Verification check failed.");
+                    } finally {
+                      setCheckingVerification(false);
+                    }
+                  }}
+                  disabled={checkingVerification}
+                  size="lg"
+                  className="w-full gap-2 bg-[#FF6B00] hover:bg-[#FF8A00] active:bg-[#e05f00] text-white font-semibold shadow-xs cursor-pointer text-sm h-11 rounded-xl transition-colors"
+                >
+                  {checkingVerification ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="size-4" />
+                  )}
+                  <span>I Have Verified My Email</span>
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={async () => {
+                    setError(null);
+                    setVerificationNotice(null);
+                    setResendingEmail(true);
+                    try {
+                      await sendVerificationEmail();
+                      setVerificationNotice(`Verification email re-sent to ${user.email}.`);
+                      setResendCooldown(60);
+                    } catch (err: any) {
+                      setError(err?.message || "Failed to resend email.");
+                    } finally {
+                      setResendingEmail(false);
+                    }
+                  }}
+                  disabled={resendingEmail || (resendCooldown !== null && resendCooldown > 0)}
+                  className="w-full h-9 text-xs font-medium rounded-xl border border-border bg-background hover:bg-muted text-foreground cursor-pointer transition-all"
+                >
+                  {resendingEmail ? (
+                    <Loader2 className="size-3.5 animate-spin mr-1.5" />
+                  ) : (
+                    <Mail className="size-3.5 mr-1.5" />
+                  )}
+                  <span>
+                    {resendCooldown && resendCooldown > 0
+                      ? `Resend Link (${resendCooldown}s)`
+                      : "Resend Verification Link"}
+                  </span>
+                </Button>
+              </div>
+
+              <p className="mt-4 text-[11px] text-muted-foreground">
+                Didn't receive the email? Check your spam/junk folder.
               </p>
             </div>
           ) : (

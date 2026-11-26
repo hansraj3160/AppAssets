@@ -49,6 +49,13 @@ export function useHistory<T>(initial: () => T) {
     setState(next);
   }, []);
 
+  const reset = useCallback((nextState: T) => {
+    past.current = [];
+    future.current = [];
+    current.current = { state: nextState, field: null, at: 0 };
+    setState(nextState);
+  }, []);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey) || e.altKey || e.key.toLowerCase() !== "z") return;
@@ -61,7 +68,7 @@ export function useHistory<T>(initial: () => T) {
     return () => window.removeEventListener("keydown", onKey);
   }, [undo, redo]);
 
-  return { state, set, undo, redo };
+  return { state, set, undo, redo, reset };
 }
 
 function isTextTarget(target: EventTarget | null): boolean {

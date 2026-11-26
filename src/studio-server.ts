@@ -265,11 +265,68 @@ export async function pruneOldWorkspaces(
 
 type Handler = (req: IncomingMessage, res: ServerResponse) => void;
 
-function readBody(req: IncomingMessage): Promise<string> {
-  return new Promise((done) => {
-    let body = "";
-    req.on("data", (chunk) => (body += chunk));
-    req.on("end", () => done(body));
+export const MAX_JSON_BODY_BYTES = 2 * 1024 * 1024;
+export const MAX_DESIGN_BODY_BYTES = 10 * 1024 * 1024;
+export const MAX_MEDIA_BODY_BYTES = 60 * 1024 * 1024;
+
+/** Error thrown when an incoming HTTP body exceeds its configured byte limit. */
+export class PayloadTooLargeError extends Error {
+  statusCode = 413;
+  constructor(maxBytes: number) {
+    const mb = Math.max(1, Math.round(maxBytes / (1024 * 1024)));
+    super(`Request payload too large (limit ${mb} MB).`);
+    this.name = "PayloadTooLargeError";
+  }
+}
+
+function sendRequestError(res: ServerResponse, err: unknown, asJson = true): void {
+  if (res.headersSent || res.writableEnded) return;
+  const status = err instanceof PayloadTooLargeError ? err.statusCode : 500;
+  const msg = err instanceof Error ? err.message : String(err);
+  res.statusCode = status;
+  if (asJson) {
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify({ error: msg }));
+  } else {
+    res.end(msg);
+  }
+}
+
+export function readBody(req: IncomingMessage, maxBytes = MAX_JSON_BODY_BYTES): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const contentLength = Number(req.headers?.["content-length"]);
+    if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+      reject(new PayloadTooLargeError(maxBytes));
+      return;
+    }
+
+    const chunks: Buffer[] = [];
+    let totalBytes = 0;
+    let settled = false;
+
+    req.on("data", (chunk: Buffer | string) => {
+      if (settled) return;
+      const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      totalBytes += buf.length;
+      if (totalBytes > maxBytes) {
+        settled = true;
+        chunks.length = 0;
+        reject(new PayloadTooLargeError(maxBytes));
+        return;
+      }
+      chunks.push(buf);
+    });
+    req.on("end", () => {
+      if (settled) return;
+      settled = true;
+      resolve(Buffer.concat(chunks).toString("utf8"));
+    });
+    req.on("error", (err) => {
+      if (settled) return;
+      settled = true;
+      chunks.length = 0;
+      reject(err);
+    });
   });
 }
 
@@ -335,7 +392,14 @@ export function designHandler(api: StudioApi): Handler {
       res.end("GET or PUT only");
       return;
     }
-    readBody(req).then(async (body) => {
+    (async () => {
+      let body: string;
+      try {
+        body = await readBody(req, MAX_DESIGN_BODY_BYTES);
+      } catch (err) {
+        sendRequestError(res, err, false);
+        return;
+      }
       let design: Record<string, unknown>;
       try {
         design = JSON.parse(body);
@@ -356,7 +420,7 @@ export function designHandler(api: StudioApi): Handler {
         res.statusCode = 500;
         res.end(`Failed to write ${paths.designFile}: ${err}`);
       }
-    });
+    })();
   };
 }
 
@@ -417,7 +481,7 @@ export async function renderAppIconCanvas(
 
 /** Handles /api/export and /api/export/download. `sub` is the path after /api/export. */
 export function exportHandler(api: StudioApi): (sub: string) => Handler {
-  let busy = false;
+  const busySessions = new Set<string>();
 
   return (sub) => (req, res) => {
     const sessionId = getSessionIdFromRequest(req);
@@ -447,21 +511,28 @@ export function exportHandler(api: StudioApi): (sub: string) => Handler {
       res.end("POST only");
       return;
     }
-    if (busy) {
+    if (busySessions.has(sessionId)) {
       res.statusCode = 409;
       res.end("An export is already running.");
       return;
     }
-    busy = true;
+    busySessions.add(sessionId);
 
-    readBody(req).then(async (body) => {
+    (async () => {
       let opts: ExportOptions;
       try {
-        opts = JSON.parse(body || "{}");
-      } catch {
-        busy = false;
-        res.statusCode = 400;
-        res.end("Body must be JSON.");
+        const body = await readBody(req, MAX_JSON_BODY_BYTES);
+        try {
+          opts = JSON.parse(body || "{}");
+        } catch {
+          busySessions.delete(sessionId);
+          res.statusCode = 400;
+          res.end("Body must be JSON.");
+          return;
+        }
+      } catch (err) {
+        busySessions.delete(sessionId);
+        sendRequestError(res, err, false);
         return;
       }
 
@@ -731,10 +802,10 @@ export function exportHandler(api: StudioApi): (sub: string) => Handler {
       } catch (err) {
         res.write(`[failed] ${err instanceof Error ? err.message : err}\n`);
       } finally {
-        busy = false;
+        busySessions.delete(sessionId);
         res.end();
       }
-    });
+    })();
   };
 }
 
@@ -838,127 +909,128 @@ export function replaceCaptureHandler(api: StudioApi): Handler {
     const paths = resolveWorkspacePaths(api, sessionId);
     const cli = api.cli;
 
-    readBody(req).then(async (body) => {
-      try {
-        if (sessionId !== "default") {
-          await ensureWorkspaceConfig(api.paths, paths);
-        }
-        const {
-          sceneId,
-          device: preferredDevice,
-          autoRoute,
-          targetMode,
-          file,
-        } = JSON.parse(body) as {
-          sceneId: string;
-          device?: string;
-          autoRoute?: boolean;
-          targetMode?: "current" | "single" | "all";
-          file: { name: string; dataUrl: string; width?: number; height?: number };
-        };
+    readBody(req, MAX_MEDIA_BODY_BYTES).then(
+      async (body) => {
+        try {
+          if (sessionId !== "default") {
+            await ensureWorkspaceConfig(api.paths, paths);
+          }
+          const {
+            sceneId,
+            device: preferredDevice,
+            autoRoute,
+            targetMode,
+            file,
+          } = JSON.parse(body) as {
+            sceneId: string;
+            device?: string;
+            autoRoute?: boolean;
+            targetMode?: "current" | "single" | "all";
+            file: { name: string; dataUrl: string; width?: number; height?: number };
+          };
 
-        if (!sceneId || !file?.dataUrl) {
-          res.statusCode = 400;
-          res.setHeader("Content-Type", "application/json");
-          res.end(JSON.stringify({ error: "sceneId and file with dataUrl are required" }));
-          return;
-        }
+          if (!sceneId || !file?.dataUrl) {
+            res.statusCode = 400;
+            res.setHeader("Content-Type", "application/json");
+            res.end(JSON.stringify({ error: "sceneId and file with dataUrl are required" }));
+            return;
+          }
 
-        const base64Data = file.dataUrl.includes(";base64,")
-          ? file.dataUrl.split(";base64,")[1]!
-          : file.dataUrl.replace(/^data:[^;]+;base64,/, "");
-        const buffer = Buffer.from(base64Data, "base64");
+          const base64Data = file.dataUrl.includes(";base64,")
+            ? file.dataUrl.split(";base64,")[1]!
+            : file.dataUrl.replace(/^data:[^;]+;base64,/, "");
+          const buffer = Buffer.from(base64Data, "base64");
 
-        const bufDim = getDimensionsFromBuffer(buffer);
-        const width = file.width ?? bufDim?.width ?? 0;
-        const height = file.height ?? bufDim?.height ?? 0;
+          const bufDim = getDimensionsFromBuffer(buffer);
+          const width = file.width ?? bufDim?.width ?? 0;
+          const height = file.height ?? bufDim?.height ?? 0;
 
-        let targetDevices: DeviceKey[];
-        if (targetMode === "single" || targetMode === "current") {
-          let singleDev: DeviceKey;
-          if (autoRoute || !preferredDevice) {
-            singleDev = resolveDeviceFromDimensions(width, height, preferredDevice);
+          let targetDevices: DeviceKey[];
+          if (targetMode === "single" || targetMode === "current") {
+            let singleDev: DeviceKey;
+            if (autoRoute || !preferredDevice) {
+              singleDev = resolveDeviceFromDimensions(width, height, preferredDevice);
+            } else {
+              singleDev = (preferredDevice as DeviceKey) || "iphone-6.9";
+            }
+            targetDevices = [singleDev];
           } else {
-            singleDev = (preferredDevice as DeviceKey) || "iphone-6.9";
-          }
-          targetDevices = [singleDev];
-        } else {
-          // Default: apply to all configured devices (iphone-6.9, ipad-13, pixel-10-pro)
-          targetDevices = ["iphone-6.9", "ipad-13", "pixel-10-pro"];
-        }
-
-        const [bin, ...prefix] = cli;
-
-        for (const targetDev of targetDevices) {
-          const rawDir = join(paths.outDir, "raw", targetDev);
-          await mkdir(rawDir, { recursive: true });
-
-          const targetFile = join(rawDir, `${sceneId}.png`);
-          await writeFile(targetFile, buffer);
-
-          // Update raw/<targetDev>/manifest.json
-          const manifestPath = join(rawDir, "manifest.json");
-          let existingManifest: { screenshots: Array<{ sceneId: string; file: string }> } = {
-            screenshots: [],
-          };
-          if (existsSync(manifestPath)) {
-            try {
-              existingManifest = JSON.parse(await readFile(manifestPath, "utf8"));
-            } catch {}
+            // Default: apply to all configured devices (iphone-6.9, ipad-13, pixel-10-pro)
+            targetDevices = ["iphone-6.9", "ipad-13", "pixel-10-pro"];
           }
 
-          const screenshotMap = new Map(
-            existingManifest.screenshots.map((s) => [s.sceneId, s.file]),
-          );
-          screenshotMap.set(sceneId, targetFile);
+          const [bin, ...prefix] = cli;
 
-          const updatedManifest = {
-            device: targetDev,
-            udid: "manual",
-            capturedAt: new Date().toISOString(),
-            screenshots: Array.from(screenshotMap.entries()).map(([sId, fPath]) => ({
-              sceneId: sId,
-              file: fPath,
-            })),
-            preview: null,
-          };
-          await writeFile(manifestPath, JSON.stringify(updatedManifest, null, 2));
+          for (const targetDev of targetDevices) {
+            const rawDir = join(paths.outDir, "raw", targetDev);
+            await mkdir(rawDir, { recursive: true });
 
-          // Re-frame the screenshot for this device
-          try {
-            await exec(
-              bin!,
-              [...prefix, "frame", "--config", paths.configPath, "--device", targetDev],
-              { quiet: true },
+            const targetFile = join(rawDir, `${sceneId}.png`);
+            await writeFile(targetFile, buffer);
+
+            // Update raw/<targetDev>/manifest.json
+            const manifestPath = join(rawDir, "manifest.json");
+            let existingManifest: { screenshots: Array<{ sceneId: string; file: string }> } = {
+              screenshots: [],
+            };
+            if (existsSync(manifestPath)) {
+              try {
+                existingManifest = JSON.parse(await readFile(manifestPath, "utf8"));
+              } catch {}
+            }
+
+            const screenshotMap = new Map(
+              existingManifest.screenshots.map((s) => [s.sceneId, s.file]),
             );
-          } catch (frameErr) {
-            console.error(`Frame failed after capture replace for ${targetDev}:`, frameErr);
+            screenshotMap.set(sceneId, targetFile);
+
+            const updatedManifest = {
+              device: targetDev,
+              udid: "manual",
+              capturedAt: new Date().toISOString(),
+              screenshots: Array.from(screenshotMap.entries()).map(([sId, fPath]) => ({
+                sceneId: sId,
+                file: fPath,
+              })),
+              preview: null,
+            };
+            await writeFile(manifestPath, JSON.stringify(updatedManifest, null, 2));
+
+            // Re-frame the screenshot for this device
+            try {
+              await exec(
+                bin!,
+                [...prefix, "frame", "--config", paths.configPath, "--device", targetDev],
+                { quiet: true },
+              );
+            } catch (frameErr) {
+              console.error(`Frame failed after capture replace for ${targetDev}:`, frameErr);
+            }
           }
-        }
 
-        const manifestRes = await exec(
-          bin!,
-          [...prefix, "manifest", "--config", paths.configPath],
-          { quiet: true },
-        );
-        if (manifestRes.code !== 0) {
-          console.error(
-            "Manifest command failed after replace-capture:",
-            manifestRes.stderr || manifestRes.stdout,
+          const manifestRes = await exec(
+            bin!,
+            [...prefix, "manifest", "--config", paths.configPath],
+            { quiet: true },
           );
-        }
+          if (manifestRes.code !== 0) {
+            console.error(
+              "Manifest command failed after replace-capture:",
+              manifestRes.stderr || manifestRes.stdout,
+            );
+          }
 
-        res.statusCode = 200;
-        res.setHeader("Content-Type", "application/json");
-        res.end(
-          JSON.stringify({ ok: true, device: targetDevices[0], devices: targetDevices, sceneId }),
-        );
-      } catch (err) {
-        res.statusCode = 500;
-        res.setHeader("Content-Type", "application/json");
-        res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
-      }
-    });
+          res.statusCode = 200;
+          res.setHeader("Content-Type", "application/json");
+          res.end(
+            JSON.stringify({ ok: true, device: targetDevices[0], devices: targetDevices, sceneId }),
+          );
+        } catch (err) {
+          sendRequestError(res, err, true);
+        }
+      },
+      (err) => sendRequestError(res, err, true),
+    );
   };
 }
 
@@ -975,11 +1047,12 @@ export function syncCapturesHandler(api: StudioApi): Handler {
     const paths = resolveWorkspacePaths(api, sessionId);
     const cli = api.cli;
 
-    readBody(req).then(async (body) => {
-      try {
-        if (sessionId !== "default") {
-          await ensureWorkspaceConfig(api.paths, paths);
-        }
+    readBody(req, MAX_JSON_BODY_BYTES).then(
+      async (body) => {
+        try {
+          if (sessionId !== "default") {
+            await ensureWorkspaceConfig(api.paths, paths);
+          }
 
         let parsed: { sourceDevice?: string; targetDevices?: string[] } = {};
         if (body) {
@@ -1119,11 +1192,9 @@ export function syncCapturesHandler(api: StudioApi): Handler {
           }),
         );
       } catch (err) {
-        res.statusCode = 500;
-        res.setHeader("Content-Type", "application/json");
-        res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+        sendRequestError(res, err, true);
       }
-    });
+    }, (err) => sendRequestError(res, err, true));
   };
 }
 
@@ -1246,11 +1317,12 @@ export function importHandler(api: StudioApi): Handler {
     const paths = resolveWorkspacePaths(api, sessionId);
     const cli = api.cli;
 
-    readBody(req).then(async (body) => {
-      try {
-        if (sessionId !== "default") {
-          await ensureWorkspaceConfig(api.paths, paths);
-        }
+    readBody(req, MAX_MEDIA_BODY_BYTES).then(
+      async (body) => {
+        try {
+          if (sessionId !== "default") {
+            await ensureWorkspaceConfig(api.paths, paths);
+          }
         const { files, autoRoute, preferredDevice, targetMode } = JSON.parse(body) as {
           files: Array<{ name: string; dataUrl: string; width?: number; height?: number }>;
           autoRoute?: boolean;
@@ -1479,11 +1551,9 @@ export function importHandler(api: StudioApi): Handler {
         );
       } catch (err) {
         console.error("Import error in importHandler:", err);
-        res.statusCode = 500;
-        res.setHeader("Content-Type", "application/json");
-        res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+        sendRequestError(res, err, true);
       }
-    });
+    }, (err) => sendRequestError(res, err, true));
   };
 }
 
@@ -1516,48 +1586,50 @@ export function iconHandler(api: StudioApi): Handler {
     }
 
     if (req.method === "POST") {
-      readBody(req).then(async (body) => {
-        try {
-          const { dataUrl } = JSON.parse(body) as { dataUrl: string };
-          if (!dataUrl) {
-            res.statusCode = 400;
-            res.end("dataUrl required");
-            return;
+      readBody(req, MAX_MEDIA_BODY_BYTES).then(
+        async (body) => {
+          try {
+            const { dataUrl } = JSON.parse(body) as { dataUrl: string };
+            if (!dataUrl) {
+              res.statusCode = 400;
+              res.end("dataUrl required");
+              return;
+            }
+
+            const base64Data = dataUrl.includes(";base64,")
+              ? dataUrl.split(";base64,")[1]!
+              : dataUrl.replace(/^data:[^;]+;base64,/, "");
+            const buffer = Buffer.from(base64Data, "base64");
+
+            await mkdir(paths.webDir, { recursive: true });
+            await mkdir(paths.outDir, { recursive: true });
+
+            await writeFile(join(paths.webDir, "icon.png"), buffer);
+            await writeFile(join(paths.outDir, "icon.png"), buffer);
+
+            // Persist in goldie.design.json
+            let design: Record<string, any> = {};
+            if (existsSync(paths.designFile)) {
+              try {
+                design = JSON.parse(await readFile(paths.designFile, "utf8"));
+              } catch {}
+            }
+            design.appIcon = "/icon.png";
+            if (design.appInfo && typeof design.appInfo === "object") {
+              design.appInfo.icon = "/icon.png";
+            }
+            const tmp = `${paths.designFile}.tmp`;
+            await writeFile(tmp, `${JSON.stringify(design, null, 2)}\n`);
+            await rename(tmp, paths.designFile);
+
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ success: true, iconUrl: "/icon.png" }));
+          } catch (err) {
+            sendRequestError(res, err, false);
           }
-
-          const base64Data = dataUrl.includes(";base64,")
-            ? dataUrl.split(";base64,")[1]!
-            : dataUrl.replace(/^data:[^;]+;base64,/, "");
-          const buffer = Buffer.from(base64Data, "base64");
-
-          await mkdir(paths.webDir, { recursive: true });
-          await mkdir(paths.outDir, { recursive: true });
-
-          await writeFile(join(paths.webDir, "icon.png"), buffer);
-          await writeFile(join(paths.outDir, "icon.png"), buffer);
-
-          // Persist in goldie.design.json
-          let design: Record<string, any> = {};
-          if (existsSync(paths.designFile)) {
-            try {
-              design = JSON.parse(await readFile(paths.designFile, "utf8"));
-            } catch {}
-          }
-          design.appIcon = "/icon.png";
-          if (design.appInfo && typeof design.appInfo === "object") {
-            design.appInfo.icon = "/icon.png";
-          }
-          const tmp = `${paths.designFile}.tmp`;
-          await writeFile(tmp, `${JSON.stringify(design, null, 2)}\n`);
-          await rename(tmp, paths.designFile);
-
-          res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ success: true, iconUrl: "/icon.png" }));
-        } catch (err) {
-          res.statusCode = 500;
-          res.end(err instanceof Error ? err.message : String(err));
-        }
-      });
+        },
+        (err) => sendRequestError(res, err, false),
+      );
       return;
     }
 
@@ -1666,9 +1738,10 @@ export function deleteHandler(api: StudioApi): Handler {
     const paths = resolveWorkspacePaths(api, sessionId);
     const cli = api.cli;
 
-    readBody(req).then(async (body) => {
-      try {
-        const { sceneId } = JSON.parse(body) as { sceneId?: string };
+    readBody(req, MAX_JSON_BODY_BYTES).then(
+      async (body) => {
+        try {
+          const { sceneId } = JSON.parse(body) as { sceneId?: string };
         if (!sceneId || typeof sceneId !== "string") {
           res.statusCode = 400;
           res.setHeader("Content-Type", "application/json");
@@ -1741,11 +1814,9 @@ export function deleteHandler(api: StudioApi): Handler {
         res.setHeader("Content-Type", "application/json");
         res.end(JSON.stringify({ ok: true, deleted: sceneId }));
       } catch (err) {
-        res.statusCode = 500;
-        res.setHeader("Content-Type", "application/json");
-        res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+        sendRequestError(res, err, true);
       }
-    });
+    }, (err) => sendRequestError(res, err, true));
   };
 }
 
@@ -2145,9 +2216,10 @@ export function selectedExportZipHandler(api: StudioApi): Handler {
     const paths = resolveWorkspacePaths(api, sessionId);
     const cli = api.cli;
 
-    readBody(req).then(async (rawBody) => {
-      try {
-        const body = JSON.parse(rawBody || "{}");
+    readBody(req, MAX_JSON_BODY_BYTES).then(
+      async (rawBody) => {
+        try {
+          const body = JSON.parse(rawBody || "{}");
         const rawDevice = body.device || "iphone-6.9";
         const isIphone =
           rawDevice === "iphone-6.9" ||
@@ -2257,11 +2329,9 @@ export function selectedExportZipHandler(api: StudioApi): Handler {
         });
         res.end(zipBuffer);
       } catch (err) {
-        res.statusCode = 500;
-        res.setHeader("Content-Type", "application/json");
-        res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+        sendRequestError(res, err, true);
       }
-    });
+    }, (err) => sendRequestError(res, err, true));
   };
 }
 
@@ -2275,8 +2345,8 @@ export function bannerExportHandler(api: StudioApi): Handler {
       try {
         let body: Record<string, any> = {};
         if (req.method === "POST") {
+          const raw = await readBody(req, MAX_JSON_BODY_BYTES);
           try {
-            const raw = await readBody(req);
             body = raw ? JSON.parse(raw) : {};
           } catch {}
         }
@@ -2400,9 +2470,7 @@ export function bannerExportHandler(api: StudioApi): Handler {
         });
         res.end(buffer);
       } catch (err) {
-        res.statusCode = 500;
-        res.setHeader("Content-Type", "application/json");
-        res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+        sendRequestError(res, err, true);
       }
     })();
   };
@@ -2435,7 +2503,7 @@ export function faviconExportHandler(api: StudioApi): Handler {
         let customDataUrl: string | null = null;
 
         if (req.method === "POST") {
-          const body = await readBody(req);
+          const body = await readBody(req, MAX_MEDIA_BODY_BYTES);
           try {
             const parsed = JSON.parse(body || "{}");
             if (parsed.appName) appName = parsed.appName;
@@ -2551,9 +2619,7 @@ Copy the files into your web root (e.g. \`public/\` in Next.js, Vite, or Astro) 
         });
         res.end(zipBuffer);
       } catch (err) {
-        res.statusCode = 500;
-        res.setHeader("Content-Type", "application/json");
-        res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+        sendRequestError(res, err, true);
       }
     })();
   };
@@ -2771,20 +2837,21 @@ export function aiCopyHandler(api: StudioApi, rateLimiter = aiRateLimiter): Hand
       return;
     }
 
-    readBody(req).then(async (body) => {
-      try {
-        const sessionId = getSessionIdFromRequest(req);
-        const sessionPaths = resolveWorkspacePaths(api, sessionId);
+    readBody(req, MAX_MEDIA_BODY_BYTES).then(
+      async (body) => {
+        try {
+          const sessionId = getSessionIdFromRequest(req);
+          const sessionPaths = resolveWorkspacePaths(api, sessionId);
 
-        const {
-          sceneId,
-          device = "iphone-6.9",
-          locale = "en-US",
-          tone,
-          customPrompt,
-          appContext,
-          imageBase64: directImageBase64,
-        } = JSON.parse(body || "{}") as {
+          const {
+            sceneId,
+            device = "iphone-6.9",
+            locale = "en-US",
+            tone,
+            customPrompt,
+            appContext,
+            imageBase64: directImageBase64,
+          } = JSON.parse(body || "{}") as {
           sceneId?: string;
           device?: string;
           locale?: string;
@@ -3083,11 +3150,9 @@ CRITICAL RULES:
         );
       } catch (err) {
         console.error("AI Copy generation error in aiCopyHandler:", err);
-        res.statusCode = 500;
-        res.setHeader("Content-Type", "application/json");
-        res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+        sendRequestError(res, err, true);
       }
-    });
+    }, (err) => sendRequestError(res, err, true));
   };
 }
 
@@ -3192,13 +3257,14 @@ export function localesHandler(api: StudioApi): Handler {
     }
 
     if (req.method === "POST") {
-      readBody(req).then(async (body) => {
-        try {
-          const payload = JSON.parse(body || "{}") as {
-            action?: "add" | "remove";
-            locale?: string;
-            locales?: string[];
-          };
+      readBody(req, MAX_JSON_BODY_BYTES).then(
+        async (body) => {
+          try {
+            const payload = JSON.parse(body || "{}") as {
+              action?: "add" | "remove";
+              locale?: string;
+              locales?: string[];
+            };
 
           let currentLocales: string[] = [];
           const configFiles = getConfigPaths(paths);
@@ -3277,11 +3343,9 @@ export function localesHandler(api: StudioApi): Handler {
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ ok: true, locales: updatedLocales }));
         } catch (err) {
-          res.statusCode = 500;
-          res.setHeader("Content-Type", "application/json");
-          res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+          sendRequestError(res, err, true);
         }
-      });
+      }, (err) => sendRequestError(res, err, true));
       return;
     }
 
