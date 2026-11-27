@@ -16,18 +16,19 @@ import {
   Wand2,
 } from "lucide-react";
 import { useState } from "react";
-import duoOverlapImg from "@/assets/duo_overlap.png";
-import heroImage from "@/assets/hero_section.png";
-import appLogo from "@/assets/logo.png";
-import panoramicImg from "@/assets/panoromic_multi_span.png";
-import showcaseImg from "@/assets/show_case_img.png";
-import singleFocusHeroImg from "@/assets/single_focus_hero.png";
-import trioStoryImg from "@/assets/trio_story.png";
-import { isModifiedEvent } from "@/lib/utils";
+import duoOverlapImg from "@/assets/duo_overlap.webp";
+import heroImage from "@/assets/hero_section.webp";
+import panoramicImg from "@/assets/panoromic_multi_span.webp";
+import showcaseImg from "@/assets/show_case_img.webp";
+import singleFocusHeroImg from "@/assets/single_focus_hero.webp";
+import trioStoryImg from "@/assets/trio_story.webp";
 import type { ShowcaseCategory } from "@/lib/showcaseCategories";
+import { isModifiedEvent } from "@/lib/utils";
 import { CategoryShowcase } from "./CategoryShowcase";
 import { RealSamplesShowcase } from "./RealSamplesShowcase";
 import { Button } from "./ui/button";
+
+const appLogo = "/favicon.svg";
 
 interface LandingPageProps {
   onStartDesigning: (style?: ShowcaseCategory) => void;

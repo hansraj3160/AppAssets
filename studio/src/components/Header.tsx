@@ -18,7 +18,6 @@ import {
   User as UserIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import appLogo from "@/assets/logo.png";
 import { useAuth } from "@/context/AuthContext";
 import { useStudioActions } from "@/context/StudioContext";
 import { CUSTOM_TEMPLATE } from "../App";
@@ -30,6 +29,8 @@ import { ImportButton } from "./ImportButton";
 import { StoreAuditModal } from "./StoreAuditModal";
 import { Button } from "./ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+
+const appLogo = "/favicon.svg";
 
 export function Header({
   manifest,

@@ -8,9 +8,10 @@ import {
   SunIcon,
   Tablet,
 } from "lucide-react";
-import appLogo from "@/assets/logo.png";
 import { isModifiedEvent } from "@/lib/utils";
 import { Button } from "./ui/button";
+
+const appLogo = "/favicon.svg";
 
 interface GuidelinesProps {
   onNavigateHome: () => void;

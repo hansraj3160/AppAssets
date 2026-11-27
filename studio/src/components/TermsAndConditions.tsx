@@ -10,9 +10,10 @@ import {
   Sparkles,
   SunIcon,
 } from "lucide-react";
-import appLogo from "@/assets/logo.png";
 import { isModifiedEvent } from "@/lib/utils";
 import { Button } from "./ui/button";
+
+const appLogo = "/favicon.svg";
 
 interface TermsAndConditionsProps {
   onNavigateHome: () => void;

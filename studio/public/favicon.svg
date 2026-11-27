@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" fill="none">
+  <title>AppAssets Studio</title>
+  <defs>
+    <linearGradient id="bg" x1="16" y1="8" x2="112" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1C1F27"/>
+      <stop offset="100%" stop-color="#0E1015"/>
+    </linearGradient>
+    <linearGradient id="orangeMain" x1="68" y1="24" x2="108" y2="104" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FF5E00"/>
+      <stop offset="100%" stop-color="#FF8C00"/>
+    </linearGradient>
+    <linearGradient id="orangeLower" x1="56" y1="64" x2="104" y2="108" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FF7A00"/>
+      <stop offset="100%" stop-color="#FFB21A"/>
+    </linearGradient>
+    <linearGradient id="amberInner" x1="54" y1="76" x2="62" y2="106" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFB81C"/>
+      <stop offset="100%" stop-color="#FF8A00"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="120" height="120" rx="28" fill="url(#bg)"/>
+  <path d="M54 24H70C74.5 24 78.2 26.5 80.2 30.6L110.5 94.8C113 100.1 109.1 106 103.3 106H84.5C80.3 106 76.5 103.6 74.7 99.8L56.8 62.2L68.4 38.6L54 24Z" fill="url(#orangeMain)"/>
+  <path d="M56.8 62.2L108.5 96.4C109.6 101.3 106.1 106 101.2 106H84.5C80.3 106 76.5 103.6 74.7 99.8L56.8 62.2Z" fill="url(#orangeLower)"/>
+  <path d="M44 106L55.2 84.5C57.5 80.1 63.8 80.1 66.1 84.5L72.6 97.6C74.4 101.3 71.7 106 67.5 106H44Z" fill="url(#amberInner)"/>
+  <path d="M55.4 24H72.5C74.2 24 75.7 24.4 77 25.1L38.2 106H24.6C18.8 106 15 100.1 17.5 94.9L47.3 30.8C48.8 26.7 51.9 24 55.4 24Z" fill="#FFFFFF"/>
+</svg>

@@ -392,7 +392,7 @@ function AppContent() {
               className="flex items-center gap-2.5 group cursor-pointer"
             >
               <img
-                src="/logo.png"
+                src="/favicon.svg"
                 alt="AppAssets Logo"
                 className="size-8 rounded-lg object-cover"
               />

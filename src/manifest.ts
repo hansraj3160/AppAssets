@@ -1,4 +1,3 @@
-import { existsSync } from "node:fs";
 import {
   copyFile,
   lstat,
@@ -183,24 +182,6 @@ export async function writeManifest(cfg: LoadedConfig): Promise<string> {
   // Decoration images, copied so the browser can draw the same layers.
   const decorDir = join(webDir, "decor");
   await mkdir(decorDir, { recursive: true });
-
-  // Brand Assets & Showcase Images
-  const brandAssets = [
-    "logo.png",
-    "favicon.png",
-    "hero_section.png",
-    "single_focus_hero.png",
-    "duo_overlap.png",
-    "trio_story.png",
-    "show_case_img.png",
-    "panoromic_multi_span.png",
-  ];
-  for (const asset of brandAssets) {
-    const assetPath = join(cfg.root, "assets", asset);
-    if (existsSync(assetPath)) {
-      await copyFile(assetPath, join(webDir, asset));
-    }
-  }
   const webDecorations = async (list: Decoration[] | undefined) =>
     Promise.all(
       (list ?? []).map(async (d) => {

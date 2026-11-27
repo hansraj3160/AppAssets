@@ -12,10 +12,11 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
-import appLogo from "@/assets/logo.png";
 import { isModifiedEvent } from "@/lib/utils";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+
+const appLogo = "/favicon.svg";
 
 interface ContactUsProps {
   onNavigateHome: () => void;

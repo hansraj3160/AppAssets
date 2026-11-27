@@ -127,7 +127,14 @@ function appassetsApi(): Plugin {
         }
 
         const cleanUrlPath = (req.url ?? "/").split("?")[0] ?? "/";
-        if (cleanUrlPath.endsWith(".png")) {
+        const extMatch = cleanUrlPath.match(/\.(png|svg|ico|webp)$/i);
+        if (extMatch) {
+          const mimeTypes: Record<string, string> = {
+            png: "image/png",
+            svg: "image/svg+xml",
+            ico: "image/x-icon",
+            webp: "image/webp",
+          };
           const relPath = cleanUrlPath.replace(/^\/+/, "");
           const studioFile = join(STUDIO_PUBLIC, relPath);
           const rootPublicFile = join(APPASSETS_ROOT, "public", relPath);
@@ -137,7 +144,8 @@ function appassetsApi(): Plugin {
               ? rootPublicFile
               : null;
           if (resolvedFile) {
-            res.setHeader("Content-Type", "image/png");
+            const ext = extMatch[1]?.toLowerCase() ?? "png";
+            res.setHeader("Content-Type", mimeTypes[ext] ?? "application/octet-stream");
             createReadStream(resolvedFile).pipe(res);
             return;
           }
