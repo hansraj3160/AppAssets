@@ -67,6 +67,10 @@ export function AuthModal() {
       setError("Please enter your email above to receive a password reset link.");
       return;
     }
+    if (!auth) {
+      setError("Authentication is not configured in this environment.");
+      return;
+    }
     setError(null);
     setLoadingReset(true);
     try {

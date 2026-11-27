@@ -80,6 +80,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (!auth) {
+      setLoading(false);
+      return;
+    }
     let unsubscribeProfile: (() => void) | null = null;
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
@@ -91,7 +95,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setAuthVersion((v) => v + 1);
       const nextSessionId = setAuthSession(currentUser ? currentUser.uid : null);
       setSessionId(nextSessionId);
-      if (currentUser) {
+      if (currentUser && db) {
         const userRef = doc(db, "users", currentUser.uid);
         try {
           const snap = await getDoc(userRef);
@@ -154,6 +158,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [profile]);
 
   const signInWithGoogle = async () => {
+    if (!auth || !googleProvider) {
+      throw new Error("Authentication is not configured in this environment.");
+    }
     try {
       await signInWithPopup(auth, googleProvider);
       setIsAuthModalOpen(false);
@@ -165,11 +172,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInWithEmail = async (email: string, pass: string) => {
+    if (!auth) {
+      throw new Error("Authentication is not configured in this environment.");
+    }
     await signInWithEmailAndPassword(auth, email, pass);
     setIsAuthModalOpen(false);
   };
 
   const signUpWithEmail = async (email: string, pass: string): Promise<User | null> => {
+    if (!auth) {
+      throw new Error("Authentication is not configured in this environment.");
+    }
     const cred = await createUserWithEmailAndPassword(auth, email, pass);
     if (cred.user) {
       try {
@@ -182,13 +195,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const sendVerificationEmail = async () => {
-    if (auth.currentUser) {
+    if (auth?.currentUser) {
       await sendEmailVerification(auth.currentUser);
     }
   };
 
   const reloadUserVerification = async (): Promise<boolean> => {
-    if (auth.currentUser) {
+    if (auth?.currentUser) {
       if (typeof auth.currentUser.reload === "function") {
         await auth.currentUser.reload();
       }
@@ -201,7 +214,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOutUser = async () => {
-    await signOut(auth);
+    if (auth) {
+      await signOut(auth);
+    }
     setProfile(null);
   };
 
@@ -234,6 +249,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     return runCreditOp(async () => {
+      if (!db) return true;
       const userRef = doc(db, "users", user.uid);
       try {
         const result = await runTransaction(db, async (tx) => {
@@ -288,6 +304,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refundAiCredit = async (): Promise<void> => {
     if (!user || isPro) return;
     await runCreditOp(async () => {
+      if (!db) return;
       const userRef = doc(db, "users", user.uid);
       try {
         const nextUsed = await runTransaction(db, async (tx) => {
@@ -322,6 +339,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Optimistic local update
     setProfile((prev) => (prev ? { ...prev, isPro: newIsPro, plan: newPlan } : null));
 
+    if (!db) return;
     try {
       const userRef = doc(db, "users", user.uid);
       await updateDoc(userRef, {

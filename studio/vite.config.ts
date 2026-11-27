@@ -18,9 +18,11 @@ import {
   localesHandler,
   replaceCaptureHandler,
   resolveWorkspacePaths,
+  selectedExportZipHandler,
   type StudioApi,
   singleExportHandler,
   studioPaths,
+  syncCapturesHandler,
 } from "../src/studio-server.ts";
 
 const SRC_DIR = resolve(import.meta.dirname, "src");
@@ -54,20 +56,31 @@ export default defineConfig(({ command }) => ({
   resolve: { alias: { "@": SRC_DIR } },
   envPrefix: ["VITE_", "NEXT_PUBLIC_"],
   publicDir: command === "build" ? resolve(import.meta.dirname, "public") : PATHS.webDir,
-  server: { port: 4321, open: true, fs: { allow: [APPASSETS_ROOT, PATHS.outDir] } },
+  server: {
+    host: "0.0.0.0",
+    port: 3000,
+    allowedHosts: true,
+    open: false,
+    fs: { allow: [APPASSETS_ROOT, PATHS.outDir] },
+  },
 }));
 
 /** Mounts the shared /api handlers on the dev server, running the CLI from source. */
 function appassetsApi(): Plugin {
-  const api: StudioApi = { paths: PATHS, cli: ["bun", join(APPASSETS_ROOT, "src", "cli.ts")] };
+  const api: StudioApi = {
+    paths: PATHS,
+    cli: [process.execPath, join(APPASSETS_ROOT, "src", "cli.ts")],
+  };
   const design = designHandler(api);
   const exp = exportHandler(api);
   const expSingle = singleExportHandler(api);
+  const expSelectedZip = selectedExportZipHandler(api);
   const expBanner = bannerExportHandler(api);
   const expFavicon = faviconExportHandler(api);
   const icon = iconHandler(api);
   const imp = importHandler(api);
   const repCapture = replaceCaptureHandler(api);
+  const syncCaptures = syncCapturesHandler(api);
   const del = deleteHandler(api);
   const delAll = deleteAllHandler(api);
   const locales = localesHandler(api);
@@ -83,11 +96,13 @@ function appassetsApi(): Plugin {
       server.middlewares.use("/api/locales", locales);
       server.middlewares.use("/api/icon", icon);
       server.middlewares.use("/api/export-single", expSingle);
+      server.middlewares.use("/api/export-selected-zip", expSelectedZip);
       server.middlewares.use("/api/export-banner", expBanner);
       server.middlewares.use("/api/export-favicon", expFavicon);
       server.middlewares.use("/api/export", (req, res) => exp(req.url ?? "")(req, res));
       server.middlewares.use("/api/import", imp);
       server.middlewares.use("/api/replace-capture", repCapture);
+      server.middlewares.use("/api/sync-captures", syncCaptures);
       server.middlewares.use("/api/delete-all", delAll);
       server.middlewares.use("/api/delete", del);
       server.middlewares.use((req, res, next) => {
@@ -111,11 +126,19 @@ function appassetsApi(): Plugin {
           }
         }
 
-        if (req.url?.endsWith(".png")) {
-          const filePath = join(STUDIO_PUBLIC, req.url.slice(1));
-          if (existsSync(filePath)) {
+        const cleanUrlPath = (req.url ?? "/").split("?")[0] ?? "/";
+        if (cleanUrlPath.endsWith(".png")) {
+          const relPath = cleanUrlPath.replace(/^\/+/, "");
+          const studioFile = join(STUDIO_PUBLIC, relPath);
+          const rootPublicFile = join(APPASSETS_ROOT, "public", relPath);
+          const resolvedFile = existsSync(studioFile)
+            ? studioFile
+            : existsSync(rootPublicFile)
+              ? rootPublicFile
+              : null;
+          if (resolvedFile) {
             res.setHeader("Content-Type", "image/png");
-            createReadStream(filePath).pipe(res);
+            createReadStream(resolvedFile).pipe(res);
             return;
           }
         }

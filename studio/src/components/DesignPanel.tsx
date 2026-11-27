@@ -779,30 +779,32 @@ export function DesignPanel({
             )}
           </Field>
 
-          <Field label="Device Frame">
-            <Tabs
-              value={screenOnly ? "screen" : "bezel"}
-              onValueChange={(v) => onScreenOnly(v === "screen")}
-            >
-              <TabsList className="w-full">
-                <TabsTrigger value="bezel">Bezel</TabsTrigger>
-                <TabsTrigger value="screen">Screen only</TabsTrigger>
-              </TabsList>
-            </Tabs>
-            {showFrames ? (
-              <div className="mt-2 flex flex-col gap-1 rounded-lg border border-border/50 bg-background/50 p-1.5">
-                {frameChoices.map(([key, label]) => (
-                  <FrameOption
-                    key={key || "custom"}
-                    label={label}
-                    tint={FRAME_META[key]?.tint}
-                    selected={frame === key}
-                    onClick={() => onFrame(key)}
-                  />
-                ))}
-              </div>
-            ) : null}
-          </Field>
+          <div data-tour="device-frame">
+            <Field label="Device Frame">
+              <Tabs
+                value={screenOnly ? "screen" : "bezel"}
+                onValueChange={(v) => onScreenOnly(v === "screen")}
+              >
+                <TabsList className="w-full">
+                  <TabsTrigger value="bezel">Bezel</TabsTrigger>
+                  <TabsTrigger value="screen">Screen only</TabsTrigger>
+                </TabsList>
+              </Tabs>
+              {showFrames ? (
+                <div className="mt-2 flex flex-col gap-1 rounded-lg border border-border/50 bg-background/50 p-1.5">
+                  {frameChoices.map(([key, label]) => (
+                    <FrameOption
+                      key={key || "custom"}
+                      label={label}
+                      tint={FRAME_META[key]?.tint}
+                      selected={frame === key}
+                      onClick={() => onFrame(key)}
+                    />
+                  ))}
+                </div>
+              ) : null}
+            </Field>
+          </div>
         </div>
       </SidebarSection>
 

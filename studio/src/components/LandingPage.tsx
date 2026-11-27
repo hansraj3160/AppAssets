@@ -24,10 +24,13 @@ import showcaseImg from "@/assets/show_case_img.png";
 import singleFocusHeroImg from "@/assets/single_focus_hero.png";
 import trioStoryImg from "@/assets/trio_story.png";
 import { isModifiedEvent } from "@/lib/utils";
+import type { ShowcaseCategory } from "@/lib/showcaseCategories";
+import { CategoryShowcase } from "./CategoryShowcase";
+import { RealSamplesShowcase } from "./RealSamplesShowcase";
 import { Button } from "./ui/button";
 
 interface LandingPageProps {
-  onStartDesigning: () => void;
+  onStartDesigning: (style?: ShowcaseCategory) => void;
   dark: boolean;
   onToggleDark: () => void;
   onOpenPrivacy?: () => void;
@@ -49,7 +52,6 @@ export function LandingPage({
 }: LandingPageProps) {
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
   const [selectedTemplateTab, setSelectedTemplateTab] = useState<string>("single");
-  const [activeShowcaseCategory, setActiveShowcaseCategory] = useState<string>("fitness");
 
   const faqs = [
     {
@@ -115,49 +117,6 @@ export function LandingPage({
     },
   };
 
-  const showcaseItems = [
-    {
-      id: "fitness",
-      name: "Fitness & Health",
-      title: "Track Daily Activity",
-      subtitle: "Concentric rings & heart-rate pulse monitoring",
-      gradient: "from-[#FF6B00] via-[#FF8A00] to-pink-600",
-      stats: "8,420 Steps • 640 kcal",
-    },
-    {
-      id: "fintech",
-      name: "Fintech & Wealth",
-      title: "Smart Portfolio",
-      subtitle: "Real-time balance, instant transfers & analytics",
-      gradient: "from-emerald-500 via-teal-600 to-cyan-700",
-      stats: "$38,450.20 • +18.4%",
-    },
-    {
-      id: "social",
-      name: "Social & Chat",
-      title: "Team Collaboration",
-      subtitle: "Rich messaging, voice clips & live member presence",
-      gradient: "from-blue-600 via-indigo-600 to-violet-700",
-      stats: "Instant Sync • E2E Safe",
-    },
-    {
-      id: "music",
-      name: "Music & Audio",
-      title: "Lossless Audio Stream",
-      subtitle: "Dynamic visualizers & personalized daily mixes",
-      gradient: "from-purple-600 via-fuchsia-600 to-pink-600",
-      stats: "Spatial Audio • 320kbps",
-    },
-    {
-      id: "productivity",
-      name: "Productivity",
-      title: "Effortless Focus",
-      subtitle: "Kanban task boards & daily goal streaks",
-      gradient: "from-slate-700 via-zinc-800 to-neutral-900",
-      stats: "Zero Distractions",
-    },
-  ];
-
   return (
     <div className="min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-zinc-100 flex flex-col font-sans transition-colors selection:bg-[#FF6B00]/20 selection:text-[#FF6B00] overflow-x-hidden w-full max-w-full">
       {/* 1. Sticky Navigation Header */}
@@ -166,7 +125,7 @@ export function LandingPage({
           {/* Brand Logo */}
           <button
             type="button"
-            onClick={onStartDesigning}
+            onClick={() => onStartDesigning()}
             className="flex items-center gap-2 sm:gap-2.5 cursor-pointer group text-left border-none bg-transparent p-0 shrink-0"
           >
             <img
@@ -271,7 +230,7 @@ export function LandingPage({
 
             <Button
               type="button"
-              onClick={onStartDesigning}
+              onClick={() => onStartDesigning()}
               className="h-8 sm:h-8.5 px-3 sm:px-4 rounded-full font-semibold text-xs bg-[#FF6B00] hover:bg-[#FF8A00] text-white shadow-xs transition-all active:scale-95 cursor-pointer flex items-center gap-1.5 shrink-0"
             >
               <span>Start Designing</span>
@@ -322,7 +281,7 @@ export function LandingPage({
               <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row items-start sm:items-center gap-4">
                 <Button
                   type="button"
-                  onClick={onStartDesigning}
+                  onClick={() => onStartDesigning()}
                   className="h-12 sm:h-13 px-7 sm:px-8 rounded-full font-semibold text-sm sm:text-base bg-gradient-to-r from-[#FF6B00] via-[#FF8A00] to-[#FFB21A] text-white hover:opacity-95 shadow-lg shadow-[#FF6B00]/25 hover:shadow-xl hover:shadow-[#FF6B00]/35 hover:scale-102 transition-all active:scale-98 cursor-pointer flex items-center gap-2 w-full sm:w-auto justify-center"
                 >
                   <span>Start Designing</span>
@@ -358,7 +317,7 @@ export function LandingPage({
               <button
                 type="button"
                 className="relative w-full max-w-2xl group cursor-pointer border-none bg-transparent p-0 text-left"
-                onClick={onStartDesigning}
+                onClick={() => onStartDesigning()}
                 title="Click to start designing in AppAssets Studio"
                 aria-label="Start designing in AppAssets Studio"
               >
@@ -400,95 +359,11 @@ export function LandingPage({
         </div>
       </section>
 
-      {/* 4. Showcase Section ("Showcase for Every App Category") */}
-      <section
-        id="showcase"
-        className="py-16 sm:py-20 lg:py-28 bg-white dark:bg-black px-4 sm:px-6 border-b border-zinc-200/80 dark:border-zinc-800"
-      >
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center max-w-2xl mx-auto mb-10 sm:mb-12">
-            <span className="text-xs font-bold uppercase tracking-wider text-[#FF6B00] dark:text-[#FF8A00]">
-              SHOWCASE
-            </span>
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight mt-2 text-zinc-900 dark:text-white">
-              Beautiful Screenshots for Every App Category
-            </h2>
-            <p className="mt-3 text-sm sm:text-base text-zinc-600 dark:text-zinc-400">
-              See how modern apps present their features. Select any category to jump straight into
-              designing.
-            </p>
+      {/* 3.5 Real Sample Screenshots Created with AppAssets Studio */}
+      <RealSamplesShowcase onStartDesigning={() => onStartDesigning()} />
 
-            {/* Category Selector Pills */}
-            <div className="flex flex-wrap items-center justify-center gap-2 mt-8">
-              {showcaseItems.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => setActiveShowcaseCategory(item.id)}
-                  className={`px-4 py-2 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-                    activeShowcaseCategory === item.id
-                      ? "bg-[#FF6B00] text-white shadow-sm"
-                      : "bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
-                  }`}
-                >
-                  {item.name}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Active Category Display Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            {showcaseItems.map((cat) => {
-              const isSelected = activeShowcaseCategory === cat.id;
-              return (
-                <div
-                  key={cat.id}
-                  className={`rounded-3xl p-6 border transition-all duration-300 flex flex-col justify-between ${
-                    isSelected
-                      ? "bg-zinc-50 dark:bg-zinc-900/90 border-[#FF6B00]/60 dark:border-[#FF6B00]/70 shadow-md scale-102 ring-2 ring-[#FF6B00]/20"
-                      : "bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800/80 shadow-xs hover:border-zinc-300"
-                  }`}
-                >
-                  <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                      {cat.name}
-                    </span>
-                    <h3 className="text-xl font-bold mt-1 text-zinc-900 dark:text-white">
-                      {cat.title}
-                    </h3>
-                    <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1 leading-relaxed">
-                      {cat.subtitle}
-                    </p>
-                  </div>
-
-                  {/* Visual Card Preview */}
-                  <div
-                    className={`mt-6 h-48 rounded-2xl bg-gradient-to-br ${cat.gradient} p-4 text-white flex flex-col justify-between shadow-inner relative overflow-hidden`}
-                  >
-                    <div className="flex justify-between items-center text-[10px] font-semibold opacity-90">
-                      <span>9:41</span>
-                      <span>5G 100%</span>
-                    </div>
-                    <div className="my-auto space-y-1">
-                      <div className="text-base font-extrabold">{cat.title}</div>
-                      <div className="text-xs opacity-90 font-medium">{cat.stats}</div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={onStartDesigning}
-                      className="h-8 rounded-lg bg-white/20 hover:bg-white/30 backdrop-blur-md text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-white/20"
-                    >
-                      <span>Design This Style</span>
-                      <ArrowRight className="size-3.5" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
+      {/* 4. Showcase Section ("Category Showcase") */}
+      <CategoryShowcase onDesignStyle={(style) => onStartDesigning(style)} />
 
       {/* 5. Bento Grid Features Section ("Everything You Need to Create Stunning Screenshots") */}
       <section
@@ -672,7 +547,7 @@ export function LandingPage({
               <div className="pt-2">
                 <Button
                   type="button"
-                  onClick={onStartDesigning}
+                  onClick={() => onStartDesigning()}
                   className="h-10 px-5 rounded-full text-xs font-semibold bg-[#FF6B00] hover:bg-[#FF8A00] text-white cursor-pointer flex items-center gap-2 shadow-xs transition-all active:scale-95"
                 >
                   <span>Use This Layout in Studio</span>
@@ -685,7 +560,7 @@ export function LandingPage({
             {templatePreviews[selectedTemplateTab]?.image ? (
               <button
                 type="button"
-                onClick={onStartDesigning}
+                onClick={() => onStartDesigning()}
                 aria-label={`Open ${templatePreviews[selectedTemplateTab]?.title} template in Studio`}
                 className="w-full md:w-1/2 max-w-[420px] h-64 sm:h-72 md:h-80 rounded-2xl bg-white border border-zinc-200 dark:border-zinc-700/60 p-3 shadow-md flex items-center justify-center relative overflow-hidden group cursor-pointer transition-all hover:border-[#FF6B00]/50 hover:shadow-lg focus:outline-hidden focus-visible:ring-2 focus-visible:ring-[#FF6B00]"
               >
@@ -737,7 +612,7 @@ export function LandingPage({
               <div className="pt-2">
                 <Button
                   type="button"
-                  onClick={onStartDesigning}
+                  onClick={() => onStartDesigning()}
                   className="h-10 px-5 rounded-full font-semibold text-xs bg-[#FF6B00] hover:bg-[#FF8A00] text-white cursor-pointer shadow-xs transition-all active:scale-95"
                 >
                   Audit Your Store Listing
@@ -855,7 +730,7 @@ export function LandingPage({
             <div className="pt-3 sm:pt-4 flex justify-center">
               <Button
                 type="button"
-                onClick={onStartDesigning}
+                onClick={() => onStartDesigning()}
                 className="h-12 sm:h-13 px-6 sm:px-8 rounded-full font-semibold text-sm sm:text-base bg-gradient-to-r from-[#FF6B00] via-[#FF8A00] to-[#FFB21A] text-white hover:opacity-95 shadow-lg shadow-[#FF6B00]/25 hover:shadow-xl hover:shadow-[#FF6B00]/35 hover:scale-102 transition-all active:scale-98 cursor-pointer flex items-center gap-2"
               >
                 <span>Start Designing Now — It's Free</span>

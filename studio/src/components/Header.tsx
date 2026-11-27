@@ -2,6 +2,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Compass,
   FileText,
   Filter,
   FolderArchive,
@@ -52,6 +53,7 @@ export function Header({
   preferredDevice,
   onRefresh,
   onToast,
+  onStartTour,
 }: {
   manifest: StoreManifest;
   dark: boolean;
@@ -74,6 +76,7 @@ export function Header({
   preferredDevice?: string;
   onRefresh?: () => Promise<void> | void;
   onToast?: (message: string) => void;
+  onStartTour?: () => void;
 }) {
   const {
     user,
@@ -352,6 +355,20 @@ export function Header({
           {dark ? <SunIcon className="size-4" /> : <MoonIcon className="size-4" />}
         </Button>
 
+        {onStartTour ? (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onStartTour}
+            aria-label="Start Studio Tour"
+            title="Start interactive Studio tour"
+            className="h-8 px-2 sm:px-2.5 gap-1.5 rounded-lg border-border/80 bg-background/80 hover:bg-muted text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer transition-colors shrink-0 whitespace-nowrap"
+          >
+            <Compass className="size-3.5 text-[#FF6B00] shrink-0" />
+            <span className="hidden lg:inline">Tour</span>
+          </Button>
+        ) : null}
+
         {/* Dynamic App Info Button & Badge */}
         {onOpenAppDetails ? (
           <>
@@ -408,7 +425,10 @@ export function Header({
       </div>
 
       {/* Center: View Switcher (Studio Canvas -> Promo Banner -> Store Preview) */}
-      <div className="flex items-center gap-0.5 sm:gap-1 rounded-xl bg-muted/60 dark:bg-muted/40 p-0.5 sm:p-1 border border-border/60 shadow-2xs shrink-0">
+      <div
+        data-tour="view-switcher"
+        className="flex items-center gap-0.5 sm:gap-1 rounded-xl bg-muted/60 dark:bg-muted/40 p-0.5 sm:p-1 border border-border/60 shadow-2xs shrink-0"
+      >
         <button
           type="button"
           onClick={() => onViewModeChange?.("editor")}
@@ -456,7 +476,7 @@ export function Header({
       </div>
 
       {/* Action Buttons: Audit | Remove | Import | Export */}
-      <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+      <div data-tour="export-actions" className="flex items-center gap-1 sm:gap-2 shrink-0">
         {/* 1. Store Pre-Flight Audit Badge */}
         <button
           type="button"

@@ -26,13 +26,17 @@ import { PromoBannersStudio } from "./components/PromoBannersStudio";
 import { Sidebar } from "./components/Sidebar";
 import { StoreMockupPreview } from "./components/StoreMockupPreview";
 import { Strip } from "./components/Strip";
+import { StudioOnboardingTour } from "./components/StudioOnboardingTour";
 import { TermsAndConditions } from "./components/TermsAndConditions";
+import { THEME_PRESETS } from "./components/ThemePresets";
 import { UpgradeModal } from "./components/UpgradeModal";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { StudioActionsContext } from "./context/StudioContext";
 import { initGA, trackAppImported, trackPageView, trackToolOpened } from "./lib/analytics";
 import { apiFetch } from "./lib/api";
+import { shouldAutoStartTour, TOUR_STORAGE_KEY } from "./lib/onboardingTour";
 import { getSessionId } from "./lib/session";
+import type { ShowcaseCategory } from "./lib/showcaseCategories";
 import { useHistory } from "./lib/useHistory";
 import { isModifiedEvent } from "./lib/utils";
 import {
@@ -257,11 +261,46 @@ function AppContent() {
     [refresh],
   );
 
+  const handleStartDesigning = useCallback(
+    (style?: ShowcaseCategory) => {
+      if (style) {
+        const preset = THEME_PRESETS.find((p) => p.id === style.presetId);
+        const nextDesign: SavedDesign = {
+          ...(loaded?.design ?? {}),
+          background: style.tileBackground,
+          headlineColor: style.tileTone === "light" ? "#0E1B2A" : "#FFFFFF",
+          subheadColor: style.tileTone === "light" ? "#5A6A7D" : "#D4D4D8",
+          ...(preset
+            ? {
+                frame: preset.frame,
+                fontFamily: preset.fontFamily,
+                fontSizeScale: preset.fontSizeScale,
+                deviceBacklight: preset.deviceBacklight,
+              }
+            : {}),
+        };
+        setLoaded((prev) =>
+          prev
+            ? {
+                ...prev,
+                design: nextDesign,
+                refreshId: prev.refreshId + 1,
+              }
+            : prev,
+        );
+        void saveDesign(nextDesign, sessionId).catch(() => {});
+        setToastMessage(`Applied "${style.categoryLabel}" style`);
+      }
+      navigateTo("studio");
+    },
+    [loaded?.design, navigateTo, sessionId],
+  );
+
   if (screen === "landing") {
     return (
       <>
         <LandingPage
-          onStartDesigning={() => navigateTo("studio")}
+          onStartDesigning={handleStartDesigning}
           onOpenPrivacy={() => navigateTo("privacy")}
           onOpenTerms={() => navigateTo("terms")}
           onOpenAbout={() => navigateTo("about")}
@@ -504,6 +543,17 @@ function Loaded({
   const iphoneSize = "1206x2622" as const;
   const [canvasView, setCanvasView] = useState<"editor" | "store" | "promo">("editor");
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isTourOpen, setIsTourOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return shouldAutoStartTour({
+        storageValue: localStorage.getItem(TOUR_STORAGE_KEY),
+        search: window.location.search,
+      });
+    } catch {
+      return false;
+    }
+  });
   const [showMobileTip, setShowMobileTip] = useState(() => {
     if (typeof window === "undefined") return false;
     return !sessionStorage.getItem("dismissed_mobile_tip");
@@ -983,6 +1033,7 @@ function Loaded({
         preferredDevice={device}
         onRefresh={onRefresh}
         onToast={(msg) => setToastMessage(msg)}
+        onStartTour={() => setIsTourOpen(true)}
       />
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -1119,6 +1170,7 @@ function Loaded({
           ) : null}
 
           <main
+            data-tour="canvas-stage"
             className="relative grid flex-1 place-items-center overflow-auto p-3 sm:p-6 md:p-10"
             onDragEnter={(e) => {
               if (e.dataTransfer.types.includes("Files")) {
@@ -1362,6 +1414,35 @@ function Loaded({
         onClose={() => setIsAppDetailsModalOpen(false)}
         appInfo={appInfo}
         onSaveAppInfo={handleUpdateAppInfo}
+      />
+
+      <StudioOnboardingTour
+        isOpen={isTourOpen}
+        onComplete={() => {
+          setIsTourOpen(false);
+          try {
+            localStorage.setItem(TOUR_STORAGE_KEY, "completed");
+          } catch {
+            // Ignore localStorage errors
+          }
+          setToastMessage("Studio tour complete — drag in screenshots to begin!");
+        }}
+        onSkip={() => {
+          setIsTourOpen(false);
+          try {
+            localStorage.setItem(TOUR_STORAGE_KEY, "dismissed");
+          } catch {
+            // Ignore localStorage errors
+          }
+        }}
+        screenOnly={screenOnly}
+        onScreenOnly={setScreenOnly}
+        frame={frame}
+        onFrame={setFrame}
+        frameVariants={design.frameVariants}
+        viewMode={canvasView}
+        onViewModeChange={setCanvasView}
+        onRequestMobileSidebar={setIsMobileSidebarOpen}
       />
     </div>
   );

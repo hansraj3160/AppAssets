@@ -2699,12 +2699,15 @@ export class MemoryRateLimiter {
   private records = new Map<string, { count: number; resetTime: number }>();
   private cleanupTimer: NodeJS.Timeout | null = null;
 
+  public config: RateLimitConfig;
+
   constructor(
-    public config: RateLimitConfig = {
+    config: RateLimitConfig = {
       windowMs: Number(process.env.AI_RATE_LIMIT_WINDOW_MS) || 10 * 60 * 1000,
       maxRequests: Number(process.env.AI_RATE_LIMIT_MAX) || 10,
     },
   ) {
+    this.config = config;
     this.cleanupTimer = setInterval(() => this.cleanup(), 5 * 60 * 1000);
     if (this.cleanupTimer && typeof this.cleanupTimer.unref === "function") {
       this.cleanupTimer.unref();
@@ -3481,12 +3484,12 @@ export function createStudioRequestHandler(api: StudioApi): Handler {
  */
 export function serveStudio(
   api: StudioApi,
-  port = 4321,
+  port = Number(process.env.PORT) || 3000,
   host = process.env.HOST || "0.0.0.0",
 ): Promise<string> {
   if (!existsSync(join(STUDIO_DIST, "index.html"))) {
     throw new Error(
-      `No studio build at ${STUDIO_DIST}. In a source checkout run: bun run studio:build`,
+      `No studio build at ${STUDIO_DIST}. In a source checkout run: npm run studio:build`,
     );
   }
   const handler = createStudioRequestHandler(api);

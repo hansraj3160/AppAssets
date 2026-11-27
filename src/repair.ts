@@ -6,14 +6,23 @@ import type { FlowReport, FlowStepReport } from "./argent.ts";
  * MCP. Nothing repairs itself: the corrected YAML is a reviewed commit.
  */
 export class FlowFailure extends Error {
+  readonly sceneId: string;
+  readonly flowPath: string;
+  readonly udid: string;
+  readonly report: FlowReport;
+
   constructor(
-    readonly sceneId: string,
-    readonly flowPath: string,
-    readonly udid: string,
-    readonly report: FlowReport,
+    sceneId: string,
+    flowPath: string,
+    udid: string,
+    report: FlowReport,
   ) {
     super(`Flow failed for scene "${sceneId}" (${flowPath})`);
     this.name = "FlowFailure";
+    this.sceneId = sceneId;
+    this.flowPath = flowPath;
+    this.udid = udid;
+    this.report = report;
   }
 }
 

@@ -264,6 +264,7 @@ export function EmptyState({
         {/* Prominent Drag & Drop Dropzone Box */}
         {/* biome-ignore lint/a11y/useSemanticElements: custom dropzone container */}
         <div
+          data-tour="canvas-dropzone"
           role="button"
           tabIndex={0}
           onClick={() => !loading && fileInputRef.current?.click()}

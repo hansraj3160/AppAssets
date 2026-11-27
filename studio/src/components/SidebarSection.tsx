@@ -38,8 +38,20 @@ export function SidebarSection({
     }
   }, [isOpen, storageKey]);
 
+  useEffect(() => {
+    const onOpenSection = (e: Event) => {
+      const targetId = (e as CustomEvent<{ id?: string }>).detail?.id;
+      if (targetId === id) {
+        setIsOpen(true);
+      }
+    };
+    window.addEventListener("appassets:open-sidebar-section", onOpenSection);
+    return () => window.removeEventListener("appassets:open-sidebar-section", onOpenSection);
+  }, [id]);
+
   return (
     <div
+      data-tour={id}
       className={cn(
         "overflow-hidden rounded-xl border border-border/70 bg-card/60 shadow-2xs transition-all duration-200",
         className,

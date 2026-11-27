@@ -114,7 +114,7 @@ async function main() {
           paths: studioPaths(cfg.configPath),
           cli: [process.execPath, fileURLToPath(import.meta.url)],
         },
-        opt("port") ? Number(opt("port")) : 4321,
+        opt("port") ? Number(opt("port")) : Number(process.env.PORT) || 3000,
         opt("host") || process.env.HOST || "0.0.0.0",
       );
       console.log(`studio  ${url}`);
