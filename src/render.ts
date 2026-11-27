@@ -30,7 +30,12 @@ import {
   type Theme,
 } from "./config.ts";
 import { execOrThrow } from "./exec.ts";
-import { registerFonts, withGlyphFallback } from "./fonts.ts";
+import {
+  ensureCjkFontsLoaded,
+  needsCjkFont,
+  registerFonts,
+  withGlyphFallback,
+} from "./fonts.ts";
 import { pngInfo } from "./image.ts";
 import { BADGE, type Composition, compose, SCREEN_SHADOW, TYPE } from "./layouts.ts";
 import { DEVICES, type DeviceKey, PREVIEW, SCREENSHOT_PIXEL_FORMAT } from "./specs.ts";
@@ -71,7 +76,6 @@ export async function renderScreenshots(cfg: LoadedConfig, deviceKey: DeviceKey,
   const { image, geom } = deviceFrame(cfg, deviceKey);
   const screenOnly = Boolean(cfg.theme.screenOnly || spec.screenOnly);
   const bezel = screenOnly ? null : await loadImage(image);
-  registerFonts();
 
   const tile = spec.screenshot;
   const findShot = (sceneId: string) => {
@@ -88,6 +92,26 @@ export async function renderScreenshots(cfg: LoadedConfig, deviceKey: DeviceKey,
     slot += r.layout.span;
     return { ...r, first };
   });
+
+  // Register compact Latin WOFF2 fonts eagerly, and lazy-load CJK fonts only
+  // when rendering Chinese/CJK locales, CJK copy, or explicit Noto Sans SC.
+  registerFonts();
+  const renderedTexts: Array<string | undefined> = [];
+  for (const { scene } of jobs) {
+    renderedTexts.push(scene.headline[locale] ?? scene.headline["en-US"]);
+    if (scene.subhead) renderedTexts.push(scene.subhead[locale] ?? scene.subhead["en-US"]);
+    for (const d of [...(cfg.theme.decorations ?? []), ...(scene.decorations ?? [])]) {
+      if (d.kind === "badge") renderedTexts.push(d.text[locale] ?? d.text["en-US"]);
+    }
+  }
+  const useCjk = needsCjkFont({
+    locale,
+    fontFamily: cfg.theme.fontFamily,
+    texts: renderedTexts,
+  });
+  if (useCjk) {
+    await ensureCjkFontsLoaded();
+  }
 
   const totalTiles = jobs.reduce((sum, j) => sum + j.layout.span, 0);
   const totalWidth = totalTiles * tile.width;
@@ -154,6 +178,7 @@ export async function renderScreenshots(cfg: LoadedConfig, deviceKey: DeviceKey,
           },
           resolvedColors,
           locale,
+          useCjk,
         );
       }
 
@@ -165,6 +190,7 @@ export async function renderScreenshots(cfg: LoadedConfig, deviceKey: DeviceKey,
         tile,
         locale,
         scene.id,
+        useCjk,
       );
 
       for (const device of c.devices) {
@@ -236,9 +262,10 @@ function drawCopy(
   text: { headline: string; subhead?: string },
   colors?: { headlineColor?: string; subheadColor?: string },
   locale?: string,
+  includeCjk = false,
 ) {
   const rtl = isRtlLocale(locale);
-  const family = withGlyphFallback(theme.fontFamily);
+  const family = withGlyphFallback(theme.fontFamily, { includeCjk });
   const headlineColor = colors?.headlineColor ?? theme.headlineColor;
   const subheadColor = colors?.subheadColor ?? theme.subheadColor;
   const scale = theme.fontSizeScale ?? 1;
@@ -335,11 +362,12 @@ async function drawDecorations(
   tile: { width: number; height: number },
   locale: string,
   sceneId: string,
+  includeCjk = false,
 ) {
   for (const d of decorations) {
     if (d.kind === "badge") {
       const text = pick(d.text, locale, sceneId, "badge");
-      const font = `${BADGE.weight} ${tile.width * BADGE.fontSize}px ${withGlyphFallback(cfg.theme.fontFamily)}`;
+      const font = `${BADGE.weight} ${tile.width * BADGE.fontSize}px ${withGlyphFallback(cfg.theme.fontFamily, { includeCjk })}`;
       ctx.font = font;
       ctx.letterSpacing = "0px";
       const size = fontSize(font);

@@ -1,0 +1,5 @@
+# Track heavy raw font binaries with Git LFS if ever added locally.
+# Compact browser/canvas WOFF2 subsets stay directly in Git; large CJK OTF/TTF
+# fonts are lazy-loaded on demand from CDN / object storage.
+*.otf filter=lfs diff=lfs merge=lfs -text
+assets/fonts/*.ttf filter=lfs diff=lfs merge=lfs -text

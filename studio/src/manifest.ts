@@ -67,7 +67,9 @@ export type BundledFont = {
   key: string;
   family: string;
   fallback: string;
-  faces: Array<{ weight: number; url: string }>;
+  faces: Array<{ weight: number; url: string; unicodeRange?: string }>;
+  lazy?: boolean;
+  stylesheetUrl?: string;
 };
 
 export type DeviceCaptures = {

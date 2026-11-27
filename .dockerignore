@@ -10,3 +10,7 @@ out
 *.tmp
 *.zip
 coverage
+workspaces
+assets/fonts/*.otf
+assets/fonts/*.ttf
+

@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import {
   copyFile,
   lstat,
@@ -78,12 +79,14 @@ export type StoreManifest = {
     frameVariants: string[];
     /** Url of the config's custom bezel art; null when a bundled variant is used. */
     customFrameUrl: string | null;
-    /** Bundled typefaces, with the @font-face sources the studio declares. */
+    /** Bundled typefaces, with the @font-face WOFF2 subset sources and lazy CJK metadata. */
     fonts: Array<{
       key: string;
       family: string;
       fallback: string;
-      faces: Array<{ weight: number; url: string }>;
+      faces: Array<{ weight: number; url: string; unicodeRange?: string }>;
+      lazy?: boolean;
+      stylesheetUrl?: string;
     }>;
     /** Every layout the studio can pick, in menu order. */
     layouts: Array<{ key: string; label: string; description: string; span: number }>;
@@ -166,17 +169,46 @@ export async function writeManifest(cfg: LoadedConfig): Promise<string> {
     deviceFrames[key] = { url, geom };
   }
 
-  // Bundled typefaces, so the browser renders the same cuts the canvas does.
+  // Bundled WOFF2 subsets for browser previews (~433 KB total). Lazy CJK fonts
+  // are never copied into per-session workspaces; the browser loads chunked
+  // unicode-range WOFF2 subsets via stylesheetUrl only when CJK is active.
   const fontsDir = join(webDir, "fonts");
   await mkdir(fontsDir, { recursive: true });
+  // Prune any legacy unoptimized .otf/.ttf copies from older workspaces.
+  for (const existing of await ls(fontsDir)) {
+    if (existing.endsWith(".otf") || existing.endsWith(".ttf")) {
+      await rm(join(fontsDir, existing), { force: true });
+    }
+  }
+  const copiedFontFiles = new Set<string>();
   const fonts: StoreManifest["design"]["fonts"] = [];
   for (const [key, font] of Object.entries(FONTS)) {
-    const faces: Array<{ weight: number; url: string }> = [];
-    for (const [weight, file] of Object.entries(font.files)) {
-      await copyFile(fontFilePath(file), join(fontsDir, file));
-      faces.push({ weight: Number(weight), url: `fonts/${file}` });
+    const isLazy = "lazy" in font && Boolean(font.lazy);
+    const stylesheetUrl = "stylesheetUrl" in font ? font.stylesheetUrl : undefined;
+    const faces: Array<{ weight: number; url: string; unicodeRange?: string }> = [];
+    if (!isLazy) {
+      for (const face of font.faces) {
+        const srcPath = fontFilePath(face.file);
+        if (!existsSync(srcPath)) continue;
+        if (!copiedFontFiles.has(face.file)) {
+          await copyFile(srcPath, join(fontsDir, face.file));
+          copiedFontFiles.add(face.file);
+        }
+        faces.push({
+          weight: face.weight,
+          url: `fonts/${face.file}`,
+          ...(face.unicodeRange ? { unicodeRange: face.unicodeRange } : {}),
+        });
+      }
     }
-    fonts.push({ key, family: font.family, fallback: font.fallback, faces });
+    fonts.push({
+      key,
+      family: font.family,
+      fallback: font.fallback,
+      faces,
+      ...(isLazy ? { lazy: true } : {}),
+      ...(stylesheetUrl ? { stylesheetUrl } : {}),
+    });
   }
 
   // Decoration images, copied so the browser can draw the same layers.

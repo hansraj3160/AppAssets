@@ -39,6 +39,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=4321
 ENV HOST=0.0.0.0
+ENV APPASSETS_FONT_CACHE_DIR=/tmp/appassets-fonts
 
 # Install runtime libraries required by @napi-rs/canvas
 RUN apt-get update && apt-get install -y --no-install-recommends \
