@@ -1,6 +1,7 @@
 import { readdir, readFile, stat, writeFile } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { deflateRawSync } from "node:zlib";
+import { resolveContainedPath, sanitizeZipEntryName } from "./security.ts";
 
 /**
  * A dependency-free zip writer, so the studio export does not need a `zip`
@@ -40,7 +41,8 @@ export function zipEntries(entries: ZipEntry[]): Buffer {
   let offset = 0;
 
   for (const entry of entries) {
-    const name = Buffer.from(entry.name, "utf8");
+    const safeName = sanitizeZipEntryName(entry.name);
+    const name = Buffer.from(safeName, "utf8");
     const packed = deflateRawSync(entry.data);
     const crc = crc32(entry.data);
     const { date, time } = dosDateTime(entry.mtime ?? new Date());
@@ -96,14 +98,17 @@ export function zipEntries(entries: ZipEntry[]): Buffer {
   return Buffer.concat([...parts, ...central, end]);
 }
 
-/** Every file under `dir`, recursively, as absolute paths in sorted order. */
-async function walk(dir: string): Promise<string[]> {
+/** Every regular file under `dir` confined to `root`, recursively, in sorted order. */
+async function walk(dir: string, root: string): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
   const files: string[] = [];
   for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
-    const path = join(dir, entry.name);
-    if (entry.isDirectory()) files.push(...(await walk(path)));
-    else if (entry.isFile()) files.push(path);
+    // Skip symbolic links to prevent escaping the archive root directory.
+    if (entry.isSymbolicLink()) continue;
+    const candidate = resolveContainedPath(root, [relative(root, join(dir, entry.name))]);
+    if (!candidate) continue;
+    if (entry.isDirectory()) files.push(...(await walk(candidate, root)));
+    else if (entry.isFile()) files.push(candidate);
   }
   return files;
 }
@@ -211,16 +216,24 @@ export async function zipDirs(
   extraEntries?: ZipEntry[],
   filter?: (name: string, absPath: string) => boolean,
 ): Promise<number> {
+  const resolvedRoot = resolve(root);
   const entries: ZipEntry[] = [];
   if (extraEntries) {
-    entries.push(...extraEntries);
+    for (const extra of extraEntries) {
+      entries.push({ ...extra, name: sanitizeZipEntryName(extra.name) });
+    }
   }
   for (const dir of dirs) {
-    for (const file of await walk(join(root, dir))) {
-      let relName = relative(root, file).split("\\").join("/");
+    const containedDir = resolveContainedPath(resolvedRoot, [dir]);
+    if (!containedDir) {
+      throw new Error(`Directory escapes archive root: ${dir}`);
+    }
+    for (const file of await walk(containedDir, resolvedRoot)) {
+      let relName = relative(resolvedRoot, file).split("\\").join("/");
       if (transformName) {
         relName = transformName(relName);
       }
+      relName = sanitizeZipEntryName(relName);
       if (filter && !filter(relName, file)) {
         continue;
       }

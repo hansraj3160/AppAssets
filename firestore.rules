@@ -1,8 +1,146 @@
 rules_version = '2';
+
+// Hardened least-privilege Firestore security rules for AppAssets Studio.
+// Enforces:
+// - Global default-deny catch-all for all unspecified collections
+// - Strictly user-scoped PII access on /users/{userId} (owner-only get; no list/delete)
+// - Full schema, key allowlist, type, and length validation on create & update
+// - Immutability on uid, createdAt, plan, isPro, and aiCreditsLimit (prevents client-side privilege escalation)
+// - Verified-email step-by-step (+1 / -1) credit updates only
+
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // Global Safety Net: deny everything unless explicitly allowed below
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Shared security primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedEmail() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string
+        && id.size() >= 1
+        && id.size() <= 128
+        && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidOptionalString(val, maxLen) {
+      return val == null || (val is string && val.size() <= maxLen);
+    }
+
+    // Validation blueprint for /users/{userId}
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasAll([
+          'uid',
+          'email',
+          'displayName',
+          'photoURL',
+          'plan',
+          'isPro',
+          'aiCreditsUsed',
+          'aiCreditsLimit',
+          'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'uid',
+          'email',
+          'displayName',
+          'photoURL',
+          'plan',
+          'isPro',
+          'aiCreditsUsed',
+          'aiCreditsLimit',
+          'createdAt'
+        ])
+        && data.uid is string
+        && data.uid == userId
+        && data.uid == request.auth.uid
+        && isValidOptionalString(data.email, 320)
+        && isValidOptionalString(data.displayName, 120)
+        && isValidOptionalString(data.photoURL, 2048)
+        && data.plan is string
+        && data.plan in ['free', 'pro_monthly', 'pro_annual']
+        && data.isPro is bool
+        && data.aiCreditsUsed is int
+        && data.aiCreditsUsed >= 0
+        && data.aiCreditsUsed <= 100000
+        && data.aiCreditsLimit is int
+        && data.aiCreditsLimit >= 0
+        && data.aiCreditsLimit <= 100000
+        && data.createdAt is string
+        && data.createdAt.size() >= 10
+        && data.createdAt.size() <= 64;
+    }
+
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      // Strictly owner-only document read; block collection enumeration (list)
+      allow get: if isOwner(userId);
+      allow list: if false;
+
+      // Initial profile creation must start on the free tier with default credit bounds
+      allow create: if isOwner(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().plan == 'free'
+        && incoming().isPro == false
+        && incoming().aiCreditsLimit == 10
+        && (
+          incoming().aiCreditsUsed == 0
+          || (isVerifiedEmail() && incoming().aiCreditsUsed == 1)
+        );
+
+      // Action-based updates: billing/plan/limit fields are immutable from client SDKs
+      allow update: if isOwner(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().plan == existing().plan
+        && incoming().isPro == existing().isPro
+        && incoming().aiCreditsLimit == existing().aiCreditsLimit
+        && (
+          // Action: Consume 1 AI credit (requires verified email and available balance)
+          (
+            isVerifiedEmail()
+            && incoming().diff(existing()).affectedKeys().hasOnly(['aiCreditsUsed'])
+            && existing().aiCreditsUsed < existing().aiCreditsLimit
+            && incoming().aiCreditsUsed == existing().aiCreditsUsed + 1
+          )
+          ||
+          // Action: Refund 1 AI credit after a failed AI generation attempt
+          (
+            isVerifiedEmail()
+            && incoming().diff(existing()).affectedKeys().hasOnly(['aiCreditsUsed'])
+            && existing().aiCreditsUsed > 0
+            && incoming().aiCreditsUsed == existing().aiCreditsUsed - 1
+          )
+          ||
+          // Action: Update non-privileged profile display metadata
+          (
+            incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL'])
+          )
+        );
+
+      // Prevent deleting and recreating user docs to reset credit counters
+      allow delete: if false;
     }
   }
 }

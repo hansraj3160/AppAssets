@@ -3,6 +3,7 @@ import { join, resolve } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin, type ViteDevServer } from "vite";
+import { resolveContainedPath } from "../src/security.ts";
 import {
   aiCopyHandler,
   bannerExportHandler,
@@ -119,8 +120,16 @@ function appassetsApi(): Plugin {
             return;
           }
 
-          const sessionFilePath = join(sessionPaths.webDir, path.replace(/^\//, ""));
-          if (existsSync(sessionFilePath) && statSync(sessionFilePath).isFile()) {
+          let decodedPath: string;
+          try {
+            decodedPath = decodeURIComponent(path);
+          } catch {
+            decodedPath = "";
+          }
+          const sessionFilePath = decodedPath
+            ? resolveContainedPath(sessionPaths.webDir, [decodedPath.replace(/^\/+/, "")])
+            : null;
+          if (sessionFilePath && existsSync(sessionFilePath) && statSync(sessionFilePath).isFile()) {
             createReadStream(sessionFilePath).pipe(res);
             return;
           }
@@ -129,20 +138,29 @@ function appassetsApi(): Plugin {
         const cleanUrlPath = (req.url ?? "/").split("?")[0] ?? "/";
         const extMatch = cleanUrlPath.match(/\.(png|svg|ico|webp)$/i);
         if (extMatch) {
+          let decodedClean: string;
+          try {
+            decodedClean = decodeURIComponent(cleanUrlPath);
+          } catch {
+            decodedClean = "";
+          }
           const mimeTypes: Record<string, string> = {
             png: "image/png",
             svg: "image/svg+xml",
             ico: "image/x-icon",
             webp: "image/webp",
           };
-          const relPath = cleanUrlPath.replace(/^\/+/, "");
-          const studioFile = join(STUDIO_PUBLIC, relPath);
-          const rootPublicFile = join(APPASSETS_ROOT, "public", relPath);
-          const resolvedFile = existsSync(studioFile)
-            ? studioFile
-            : existsSync(rootPublicFile)
-              ? rootPublicFile
-              : null;
+          const relPath = decodedClean.replace(/^\/+/, "");
+          const studioFile = relPath ? resolveContainedPath(STUDIO_PUBLIC, [relPath]) : null;
+          const rootPublicFile = relPath
+            ? resolveContainedPath(join(APPASSETS_ROOT, "public"), [relPath])
+            : null;
+          const resolvedFile =
+            studioFile && existsSync(studioFile) && statSync(studioFile).isFile()
+              ? studioFile
+              : rootPublicFile && existsSync(rootPublicFile) && statSync(rootPublicFile).isFile()
+                ? rootPublicFile
+                : null;
           if (resolvedFile) {
             const ext = extMatch[1]?.toLowerCase() ?? "png";
             res.setHeader("Content-Type", mimeTypes[ext] ?? "application/octet-stream");
