@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { BacklightConfig, PatternType } from "../../../src/background";
-import type { Platform } from "../App";
+import type { Platform } from "../lib/studioState";
 import { apiFetch } from "../lib/api";
 import { isRtlLocale, type StoreManifest } from "../manifest";
 import { AdBanner } from "./AdBanner";

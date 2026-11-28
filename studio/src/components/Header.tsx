@@ -17,18 +17,21 @@ import {
   Trash2,
   User as UserIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useStudioActions } from "@/context/StudioContext";
-import { CUSTOM_TEMPLATE } from "../App";
 import { apiFetch } from "../lib/api";
 import { getSessionId } from "../lib/session";
 import { runStoreAudit } from "../lib/storeAudit";
+import { CUSTOM_TEMPLATE } from "../lib/studioState";
 import { type AppInfo, fontKey, type StoreManifest } from "../manifest";
 import { ImportButton } from "./ImportButton";
-import { StoreAuditModal } from "./StoreAuditModal";
 import { Button } from "./ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+
+const StoreAuditModal = lazy(() =>
+  import("./StoreAuditModal").then((m) => ({ default: m.StoreAuditModal })),
+);
 
 const appLogo = "/favicon.svg";
 
@@ -1058,25 +1061,29 @@ export function Header({
         />
       )}
       {/* Store Pre-Flight Audit Modal */}
-      <StoreAuditModal
-        isOpen={isAuditModalOpen}
-        onClose={() => setIsAuditModalOpen(false)}
-        auditResult={auditResult}
-        onAction={(action) => {
-          setIsAuditModalOpen(false);
-          if (action.actionType === "icon-studio" || action.actionType === "app-details") {
-            onOpenAppDetails?.();
-          } else if (action.actionType === "promo-studio") {
-            onViewModeChange?.("promo");
-          } else if (action.actionType === "editor-scene") {
-            onViewModeChange?.("editor");
-          }
-        }}
-        onExportZip={() => {
-          setIsAuditModalOpen(false);
-          void exportZip();
-        }}
-      />
+      {isAuditModalOpen ? (
+        <Suspense fallback={null}>
+          <StoreAuditModal
+            isOpen={isAuditModalOpen}
+            onClose={() => setIsAuditModalOpen(false)}
+            auditResult={auditResult}
+            onAction={(action) => {
+              setIsAuditModalOpen(false);
+              if (action.actionType === "icon-studio" || action.actionType === "app-details") {
+                onOpenAppDetails?.();
+              } else if (action.actionType === "promo-studio") {
+                onViewModeChange?.("promo");
+              } else if (action.actionType === "editor-scene") {
+                onViewModeChange?.("editor");
+              }
+            }}
+            onExportZip={() => {
+              setIsAuditModalOpen(false);
+              void exportZip();
+            }}
+          />
+        </Suspense>
+      ) : null}
     </header>
   );
 }

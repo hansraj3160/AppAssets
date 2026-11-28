@@ -104,18 +104,32 @@ export function initGA(): boolean {
       };
     }
 
-    // Inject gtag script if not already in document
-    const existingScript = document.querySelector(
-      `script[src*="googletagmanager.com/gtag/js?id=${measurementId}"]`,
-    );
-    if (!existingScript) {
-      const script = document.createElement("script");
-      script.async = true;
-      script.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(measurementId)}`;
-      script.onerror = () => {
-        // Silently handle ad-blocker blocking the script
-      };
-      document.head.appendChild(script);
+    // Defer external gtag.js script injection until browser idle so analytics
+    // never blocks First Contentful Paint (FCP) or inflates Total Blocking Time (TBT).
+    const injectGtagScript = () => {
+      try {
+        const existingScript = document.querySelector(
+          `script[src*="googletagmanager.com/gtag/js?id=${measurementId}"]`,
+        );
+        if (existingScript) return;
+        const script = document.createElement("script");
+        script.async = true;
+        script.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(measurementId)}`;
+        script.onerror = () => {
+          // Silently handle ad-blocker blocking the script
+        };
+        document.head.appendChild(script);
+      } catch {
+        // Non-blocking fail-safe
+      }
+    };
+
+    if (typeof window.requestIdleCallback === "function") {
+      window.requestIdleCallback(injectGtagScript, { timeout: 2000 });
+    } else if (typeof setTimeout === "function") {
+      setTimeout(injectGtagScript, 1500);
+    } else {
+      injectGtagScript();
     }
 
     // Configure GA4

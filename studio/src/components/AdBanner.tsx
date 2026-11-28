@@ -49,30 +49,49 @@ export function AdBanner({
   const isFullyConfiguredAdSlot = isConfiguredAdSense && hasValidSlot;
   const isPushedRef = useRef(false);
 
-  // Load Google AdSense script only once when valid credentials and slot exist and user is not Pro/dismissed
+  // Load Google AdSense script lazily on browser idle only when valid credentials and slot exist and user is not Pro/dismissed
   useEffect(() => {
     if (isPro || adDismissed || !isFullyConfiguredAdSlot || isPushedRef.current) return;
 
-    const existingScript = document.querySelector(`script[src*="pagead2.googlesyndication.com"]`);
-    if (!existingScript) {
-      const script = document.createElement("script");
-      script.async = true;
-      script.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${clientId}`;
-      script.crossOrigin = "anonymous";
-      script.onerror = () => setIsAdBlockActive(true);
-      document.head.appendChild(script);
+    let cancelled = false;
+    const loadAndPushAd = () => {
+      if (cancelled || isPushedRef.current) return;
+
+      const existingScript = document.querySelector(`script[src*="pagead2.googlesyndication.com"]`);
+      if (!existingScript) {
+        const script = document.createElement("script");
+        script.async = true;
+        script.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${clientId}`;
+        script.crossOrigin = "anonymous";
+        script.onerror = () => setIsAdBlockActive(true);
+        document.head.appendChild(script);
+      }
+
+      try {
+        if (adRef.current && !adRef.current.getAttribute("data-adsbygoogle-status")) {
+          isPushedRef.current = true;
+          window.adsbygoogle = window.adsbygoogle || [];
+          window.adsbygoogle.push({});
+        }
+      } catch (e) {
+        console.warn("AdSense push error or ad blocker detected:", e);
+        setIsAdBlockActive(true);
+      }
+    };
+
+    if (typeof window.requestIdleCallback === "function") {
+      const idleId = window.requestIdleCallback(loadAndPushAd, { timeout: 2000 });
+      return () => {
+        cancelled = true;
+        window.cancelIdleCallback?.(idleId);
+      };
     }
 
-    try {
-      if (adRef.current && !adRef.current.getAttribute("data-adsbygoogle-status")) {
-        isPushedRef.current = true;
-        window.adsbygoogle = window.adsbygoogle || [];
-        window.adsbygoogle.push({});
-      }
-    } catch (e) {
-      console.warn("AdSense push error or ad blocker detected:", e);
-      setIsAdBlockActive(true);
-    }
+    const timer = window.setTimeout(loadAndPushAd, 1200);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
   }, [isFullyConfiguredAdSlot, isPro, adDismissed]);
 
   const handleGoPro = () => {

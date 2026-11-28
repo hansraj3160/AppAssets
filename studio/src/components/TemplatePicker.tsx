@@ -5,7 +5,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CUSTOM_TEMPLATE } from "../App";
+import { CUSTOM_TEMPLATE } from "../lib/studioState";
 import type { Design } from "../manifest";
 import { TemplateGlyphs } from "./LayoutGlyph";
 

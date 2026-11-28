@@ -12,12 +12,15 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import type { AppInfo } from "../manifest";
-import { AppIconModal } from "./AppIconModal";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+
+const AppIconModal = lazy(() =>
+  import("./AppIconModal").then((m) => ({ default: m.AppIconModal })),
+);
 
 export const CATEGORY_OPTIONS = [
   "VPN & Security",
@@ -475,13 +478,17 @@ export function AppDetailsModal({ isOpen, onClose, appInfo, onSaveAppInfo }: App
       </div>
 
       {/* App Icon Studio & Resizer Dialog */}
-      <AppIconModal
-        isOpen={isIconModalOpen}
-        onClose={() => setIsIconModalOpen(false)}
-        currentIcon={icon}
-        appName={name || "App"}
-        onApplyIcon={handleApplyFromStudio}
-      />
+      {isIconModalOpen ? (
+        <Suspense fallback={null}>
+          <AppIconModal
+            isOpen={isIconModalOpen}
+            onClose={() => setIsIconModalOpen(false)}
+            currentIcon={icon}
+            appName={name || "App"}
+            onApplyIcon={handleApplyFromStudio}
+          />
+        </Suspense>
+      ) : null}
     </div>
   );
 }

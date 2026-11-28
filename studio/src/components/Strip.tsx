@@ -1,14 +1,13 @@
 import { Check, Tag, Trash2, X } from "lucide-react";
 import { AnimatePresence, Reorder } from "motion/react";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { isTemplateKey, type LayoutKey, resolveScenes } from "../../../src/layouts";
-import { CUSTOM_TEMPLATE } from "../App";
 import { useStudioActions } from "../context/StudioContext";
 import { trackAppImported, trackAssetDownloaded, trackExport } from "../lib/analytics";
 import { apiFetch } from "../lib/api";
+import { CUSTOM_TEMPLATE } from "../lib/studioState";
 import { type DesignScene, fontKey } from "../manifest";
-import { AiCopyModal } from "./AiCopyModal";
 import { BadgePickerPopover } from "./BadgePickerPopover";
 import { SceneBackgroundPopover } from "./SceneBackgroundPopover";
 import {
@@ -26,6 +25,10 @@ import { buildScreenshotEntries, PreviewScene } from "./strip/ScreenshotScene";
 import { FloatingSelectionBar, StripHeaderToolbar } from "./strip/SelectionToolbars";
 import { ImportTileCard, Tile } from "./strip/Tile";
 import { Button } from "./ui/button";
+
+const AiCopyModal = lazy(() =>
+  import("./AiCopyModal").then((m) => ({ default: m.AiCopyModal })),
+);
 
 export {
   backgroundLuminance,
@@ -1015,26 +1018,28 @@ export const Strip = memo(function Strip({
       ) : null}
 
       {activeAiSceneId ? (
-        <AiCopyModal
-          isOpen={true}
-          onClose={() => setActiveAiSceneId(null)}
-          sceneId={activeAiSceneId}
-          sceneHeadline={
-            copy[activeAiSceneId]?.headline?.[locale] ??
-            design.scenes.find((s) => s.id === activeAiSceneId)?.headline[locale]
-          }
-          sceneSubhead={
-            copy[activeAiSceneId]?.subhead?.[locale] ??
-            design.scenes.find((s) => s.id === activeAiSceneId)?.subhead?.[locale]
-          }
-          device={tileSpec.key}
-          locale={locale}
-          manifest={manifest}
-          appInfo={appInfo}
-          onApplyCopy={(sId, field, text) => {
-            onCopy(sId, field, text);
-          }}
-        />
+        <Suspense fallback={null}>
+          <AiCopyModal
+            isOpen={true}
+            onClose={() => setActiveAiSceneId(null)}
+            sceneId={activeAiSceneId}
+            sceneHeadline={
+              copy[activeAiSceneId]?.headline?.[locale] ??
+              design.scenes.find((s) => s.id === activeAiSceneId)?.headline[locale]
+            }
+            sceneSubhead={
+              copy[activeAiSceneId]?.subhead?.[locale] ??
+              design.scenes.find((s) => s.id === activeAiSceneId)?.subhead?.[locale]
+            }
+            device={tileSpec.key}
+            locale={locale}
+            manifest={manifest}
+            appInfo={appInfo}
+            onApplyCopy={(sId, field, text) => {
+              onCopy(sId, field, text);
+            }}
+          />
+        </Suspense>
       ) : null}
 
       <FloatingSelectionBar

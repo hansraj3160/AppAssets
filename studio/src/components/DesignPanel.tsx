@@ -1,7 +1,7 @@
 import { LayoutTemplate, Sparkles } from "lucide-react";
 import { memo, useCallback } from "react";
 import type { BacklightConfig, PatternType } from "../../../src/background";
-import { CUSTOM_TEMPLATE } from "../App";
+import { CUSTOM_TEMPLATE } from "../lib/studioState";
 import type { Design } from "../manifest";
 import type { BadgeData } from "./BadgePickerPopover";
 import { BackgroundSection } from "./design-panel/BackgroundSection";

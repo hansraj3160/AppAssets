@@ -179,3 +179,91 @@ test("Dockerfile ships production-only node_modules via dedicated prod-deps stag
   assert.match(dockerfile, /^COPY --from=prod-deps \/app\/node_modules \.\/node_modules$/m);
 });
 
+test("M-2: studio/index.html stays under 5 KB with no eager blocking ad or analytics tags", () => {
+  const html = readRepoFile("studio/index.html");
+  const bytes = Buffer.byteLength(html, "utf8");
+
+  assert.ok(bytes < 5120, `studio/index.html must be under 5 KB, got ${bytes} bytes`);
+  assert.equal(
+    html.includes("googletagmanager.com"),
+    false,
+    "studio/index.html must not eagerly load gtag.js (analytics.ts defers it to idle)",
+  );
+  assert.equal(
+    html.includes("googlesyndication.com"),
+    false,
+    "studio/index.html must not eagerly load adsbygoogle.js (AdBanner.tsx defers it to idle)",
+  );
+  assert.equal(
+    /<script(?![^>]*\bsrc=)/i.test(html),
+    false,
+    "studio/index.html must not contain blocking inline <script> blocks",
+  );
+  assert.match(html, /<script type="module" src="\/src\/main\.tsx"><\/script>/);
+});
+
+test("M-3: backend and frontend share single canonical src/manifest-schema.ts without duplicate definitions", () => {
+  assert.equal(
+    existsSync(path.join(ROOT_DIR, "src/manifest-schema.ts")),
+    true,
+    "src/manifest-schema.ts must exist as the single source of truth",
+  );
+
+  const sharedSchema = readRepoFile("src/manifest-schema.ts");
+  assert.equal(
+    sharedSchema.includes("node:"),
+    false,
+    "src/manifest-schema.ts must stay browser-safe with zero node:* imports",
+  );
+
+  const backendManifest = readRepoFile("src/manifest.ts");
+  const frontendManifest = readRepoFile("studio/src/manifest.ts");
+
+  assert.match(backendManifest, /from "\.\/manifest-schema\.ts"/);
+  assert.match(frontendManifest, /from "\.\.\/\.\.\/src\/manifest-schema"/);
+  assert.equal(
+    /export type StoreManifest\s*=\s*\{/.test(frontendManifest),
+    false,
+    "studio/src/manifest.ts must re-export StoreManifest from src/manifest-schema.ts instead of duplicating it",
+  );
+  assert.equal(
+    /export type Theme\s*=\s*\{/.test(frontendManifest),
+    false,
+    "studio/src/manifest.ts must re-export Theme from src/manifest-schema.ts instead of duplicating it",
+  );
+});
+
+test("M-4: static pages, StudioWorkspace, and heavy modals are code-split with React.lazy()", () => {
+  const publicRoutes = readRepoFile("studio/src/components/PublicRoutes.tsx");
+  for (const page of [
+    "PrivacyPolicy",
+    "TermsAndConditions",
+    "Guidelines",
+    "AboutUs",
+    "ContactUs",
+    "LandingPage",
+  ]) {
+    assert.match(
+      publicRoutes,
+      new RegExp(`const ${page}\\s*=\\s*lazy\\(`),
+      `PublicRoutes.tsx must lazy-load ${page}`,
+    );
+  }
+
+  const appTsx = readRepoFile("studio/src/App.tsx");
+  assert.match(appTsx, /const StudioWorkspace\s*=\s*lazy\(/);
+
+  const stripTsx = readRepoFile("studio/src/components/Strip.tsx");
+  assert.match(stripTsx, /const AiCopyModal\s*=\s*lazy\(/);
+
+  const appDetailsTsx = readRepoFile("studio/src/components/AppDetailsModal.tsx");
+  assert.match(appDetailsTsx, /const AppIconModal\s*=\s*lazy\(/);
+
+  const studioWorkspaceTsx = readRepoFile("studio/src/components/StudioWorkspace.tsx");
+  assert.match(studioWorkspaceTsx, /const LocaleManagerModal\s*=\s*lazy\(/);
+
+  const headerTsx = readRepoFile("studio/src/components/Header.tsx");
+  assert.match(headerTsx, /const StoreAuditModal\s*=\s*lazy\(/);
+});
+
+

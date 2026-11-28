@@ -1,123 +1,50 @@
-import type { BacklightConfig, PatternType } from "../../src/background";
+import {
+  type AppInfo,
+  type BacklightConfig,
+  type BundledFont,
+  type BundledFontFace,
+  type Decoration,
+  type Design,
+  type DesignScene,
+  type DeviceCaptures,
+  type DeviceEntry,
+  type FrameGeometry,
+  isRtlLocale,
+  type LayoutEntry,
+  type LocaleAssets,
+  type PatternType,
+  type SavedDesign,
+  type SceneBadge,
+  type SceneCopy,
+  type StoreAppMetadata,
+  type StoreManifest,
+  type TemplateEntry,
+  type Theme,
+} from "../../src/manifest-schema";
 import { apiFetch } from "./lib/api";
 
-/** Mirrors the StoreManifest that `appassets manifest` writes to out/store.json. */
-
-export type Theme = {
-  background: string;
-  headlineColor: string;
-  subheadColor: string;
-  fontFamily: string;
-  /** Fraction of the frame height reserved for copy above the device. */
-  copyHeightRatio: number;
-  /** Fraction of the frame width the device bezel occupies. */
-  deviceWidthRatio: number;
-  backgroundPattern?: PatternType;
-  patternOpacity?: number;
-  patternColor?: string;
-  deviceBacklight?: boolean | BacklightConfig;
-  panoramaMode?: boolean;
-};
-
-/** Mirrors Decoration in src/config.ts; image `src` values are urls under out/web. */
-export type Decoration =
-  | {
-      kind: "badge";
-      text: Record<string, string>;
-      position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
-      background?: string;
-      color?: string;
-      slice?: number;
-    }
-  | { kind: "image"; src: string; x: number; y: number; width: number; rotate?: number };
-
-export type LayoutEntry = { key: string; label: string; description: string; span: number };
-export type TemplateEntry = { key: string; label: string; description: string; sequence: string[] };
-
-/** Mirrors FrameGeometry in src/layouts.ts: a bezel image's box and the screen cutout inside it. */
-export type FrameGeometry = {
-  width: number;
-  height: number;
-  screen: { x: number; y: number; width: number; height: number };
-  screenRadius: number;
-};
-
-export type DeviceEntry = {
-  key: string;
-  label: string;
-  platform: "ios" | "ipad" | "android";
-  simulatorName: string | null;
-  screenshot: { width: number; height: number };
-  preview: { width: number; height: number } | null;
-  /** Bezel art fixed to this device (android), null when the frame picker applies. */
-  frame: { url: string; geom: FrameGeometry } | null;
-};
-
-export type DesignScene = {
-  id: string;
-  headline: Record<string, string>;
-  subhead?: Record<string, string>;
-  background?: string;
-  layout?: string;
-  secondScene?: string;
-  decorations?: Decoration[];
-};
-
-export type BundledFont = {
-  key: string;
-  family: string;
-  fallback: string;
-  faces: Array<{ weight: number; url: string; unicodeRange?: string }>;
-  lazy?: boolean;
-  stylesheetUrl?: string;
-};
-
-export type DeviceCaptures = {
-  screenshots: Array<{ sceneId: string; url: string }>;
-  clips: Array<{ segmentId: string; url: string; durationSeconds: number }> | null;
-};
-
-export type Design = {
-  theme: Theme;
-  /** null when the config points at custom bezel art. */
-  frameVariant: string | null;
-  frameVariants: string[];
-  customFrameUrl: string | null;
-  /** Bundled typefaces with the @font-face sources to declare. */
-  fonts: BundledFont[];
-  layouts: LayoutEntry[];
-  templates: TemplateEntry[];
-  /** The theme's template: a built-in key, null for none, or the config's custom sequence. */
-  template: string | string[] | null;
-  /** The theme's default layout key. */
-  layout: string;
-  screenOnly: boolean;
-  decorations: Decoration[];
-  scenes: DesignScene[];
-  preview: {
-    sceneId: string;
-    segments: Array<{ id: string }>;
-  } | null;
-  /** Raw capture urls per device key; a device is absent until `goldie capture` ran. */
-  captures: Record<string, DeviceCaptures>;
-};
-
-export type StoreManifest = {
-  generatedAt: string;
-  app: {
-    name: string;
-    subtitle: Record<string, string>;
-    developer: string;
-    category: string;
-    rating: number;
-    ratingCount: string;
-    ageRating: string;
-    price: string;
-    description: Record<string, string>;
-  };
-  devices: DeviceEntry[];
-  locales: string[];
-  design: Design;
+export {
+  type AppInfo,
+  type BacklightConfig,
+  type BundledFont,
+  type BundledFontFace,
+  type Decoration,
+  type Design,
+  type DesignScene,
+  type DeviceCaptures,
+  type DeviceEntry,
+  type FrameGeometry,
+  isRtlLocale,
+  type LayoutEntry,
+  type LocaleAssets,
+  type PatternType,
+  type SavedDesign,
+  type SceneBadge,
+  type SceneCopy,
+  type StoreAppMetadata,
+  type StoreManifest,
+  type TemplateEntry,
+  type Theme,
 };
 
 /** A load failure with the CLI command that fixes it, for the empty state. */
@@ -160,61 +87,6 @@ export async function loadManifest(sessionId?: string): Promise<StoreManifest> {
   return manifest;
 }
 
-export type AppInfo = {
-  name?: string;
-  subtitle?: string;
-  category?: string;
-  developer?: string;
-  description?: string;
-  icon?: string;
-};
-
-/** The design choices saved on disk next to the config; see src/studio-server.ts. */
-export type SavedDesign = {
-  appInfo?: AppInfo;
-  appIcon?: string;
-  background?: string;
-  frame?: string;
-  fontFamily?: string;
-  headlineColor?: string;
-  subheadColor?: string;
-  fontSizeScale?: number;
-  /** Copy edited in the lightbox, per screenshot scene id, then locale. */
-  copy?: Record<string, SceneCopy>;
-  /** Screenshot scene ids in the order the tiles were dragged into. */
-  order?: string[];
-  /** A built-in template key, or "" for none. */
-  template?: string;
-  /** Default layout key for scenes the template does not cover. */
-  layout?: string;
-  screenOnly?: boolean;
-  /** Layout overrides per screenshot scene id. */
-  sceneLayouts?: Record<string, string>;
-  /** Per-scene background overrides. */
-  sceneBackgrounds?: Record<string, string>;
-  /** Per-scene badge decorations. */
-  sceneBadges?: Record<
-    string,
-    {
-      text: string;
-      position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
-      background?: string;
-      color?: string;
-      slice?: number;
-    }
-  >;
-  backgroundPattern?: PatternType;
-  patternOpacity?: number;
-  patternColor?: string;
-  deviceBacklight?: boolean | BacklightConfig;
-  panoramaMode?: boolean;
-};
-
-export type SceneCopy = {
-  headline?: Record<string, string>;
-  subhead?: Record<string, string>;
-};
-
 export async function loadDesign(sessionId?: string): Promise<SavedDesign> {
   try {
     const res = await apiFetch("/api/design", {
@@ -238,22 +110,6 @@ export async function saveDesign(design: SavedDesign, sessionId?: string): Promi
     body: JSON.stringify(design),
   });
   if (!res.ok) throw new Error(`Saving appassets.design.json failed: ${await res.text()}`);
-}
-
-/**
- * Detects whether a locale uses Right-to-Left (RTL) script (Arabic, Hebrew, Persian, Urdu, etc.).
- */
-export function isRtlLocale(locale?: string): boolean {
-  if (!locale) return false;
-  const lang = locale.toLowerCase().split(/[-_]/)[0];
-  return (
-    lang === "ar" ||
-    lang === "he" ||
-    lang === "iw" ||
-    lang === "fa" ||
-    lang === "ur" ||
-    lang === "yi"
-  );
 }
 
 /**

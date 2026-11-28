@@ -1,5 +1,6 @@
 import { Loader2Icon } from "lucide-react";
 import { lazy, memo, Suspense } from "react";
+import { useAuth } from "../context/AuthContext";
 import type { ShowcaseCategory } from "../lib/showcaseCategories";
 import type { Screen } from "../lib/studioState";
 import { isModifiedEvent } from "../lib/utils";
@@ -48,6 +49,7 @@ export const PublicRoutes = memo(function PublicRoutes({
   onNavigate,
   onStartDesigning,
 }: PublicRoutesProps) {
+  const { isAuthModalOpen, isUpgradeModalOpen } = useAuth();
   if (screen === "not-found") {
     return (
       <div className="min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-zinc-100 flex flex-col font-sans selection:bg-[#FF6B00]/20 selection:text-[#FF6B00]">
@@ -119,8 +121,16 @@ export const PublicRoutes = memo(function PublicRoutes({
             dark={dark}
             onToggleDark={onToggleDark}
           />
-          <AuthModal />
-          <UpgradeModal />
+          {isAuthModalOpen ? (
+            <Suspense fallback={null}>
+              <AuthModal />
+            </Suspense>
+          ) : null}
+          {isUpgradeModalOpen ? (
+            <Suspense fallback={null}>
+              <UpgradeModal />
+            </Suspense>
+          ) : null}
         </>
       ) : screen === "privacy" ? (
         <PrivacyPolicy

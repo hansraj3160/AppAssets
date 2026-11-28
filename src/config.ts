@@ -1,7 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import type { BacklightConfig, PatternType } from "./background.ts";
 import { ANDROID_FRAME, FRAME, IPAD_FRAME } from "./frame.ts";
 import {
   type FrameGeometry,
@@ -12,30 +11,23 @@ import {
   needsSecondCapture,
   resolveScenes,
   TEMPLATE_KEYS,
-  type TemplateChoice,
 } from "./layouts.ts";
+import {
+  type BacklightConfig,
+  type Decoration,
+  isRtlLocale,
+  type Locale,
+  type PatternType,
+  type TemplateChoice,
+  type Theme,
+} from "./manifest-schema.ts";
 import { DEVICES, type DeviceKey } from "./specs.ts";
+
+export { type Decoration, isRtlLocale, type Locale, type Theme };
 
 /** Bezel art bundled in goldie's own assets/, one PNG per variant. */
 export const FRAME_VARIANTS = ["17-pro-silver", "17-pro-blue", "17-pro-orange"] as const;
 export type FrameVariant = (typeof FRAME_VARIANTS)[number];
-export type Locale = string;
-
-/**
- * Detects whether a locale uses Right-to-Left (RTL) script (Arabic, Hebrew, Persian, Urdu, etc.).
- */
-export function isRtlLocale(locale?: string): boolean {
-  if (!locale) return false;
-  const lang = locale.toLowerCase().split(/[-_]/)[0];
-  return (
-    lang === "ar" ||
-    lang === "he" ||
-    lang === "iw" ||
-    lang === "fa" ||
-    lang === "ur" ||
-    lang === "yi"
-  );
-}
 
 /** One still screenshot: a flow that navigates somewhere, plus the marketing copy around it. */
 export type ScreenshotScene = {
@@ -59,33 +51,6 @@ export type ScreenshotScene = {
   decorations?: Decoration[];
 };
 
-/**
- * A layer drawn over the background and under the device. A badge is a text
- * pill in a corner; an image is any PNG placed by fractions of the tile.
- */
-export type Decoration =
-  | {
-      kind: "badge";
-      text: Record<Locale, string>;
-      position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
-      /** Pill fill and text color; default to the headline color on a translucent white. */
-      background?: string;
-      color?: string;
-      /** Slice index in a multi-span scene (defaults to 0 for the first tile). */
-      slice?: number;
-    }
-  | {
-      kind: "image";
-      /** PNG relative to the config file. */
-      src: string;
-      /** Left and top as fractions of the tile width and height. */
-      x: number;
-      y: number;
-      /** Width as a fraction of the tile width; the height keeps the image's aspect. */
-      width: number;
-      /** Degrees, clockwise, around the image centre. */
-      rotate?: number;
-    };
 
 /**
  * The app preview video, built from short segments.
@@ -110,41 +75,6 @@ export type PreviewScene = {
 };
 
 export type Scene = ScreenshotScene | PreviewScene;
-
-export type Theme = {
-  background: string;
-  headlineColor: string;
-  subheadColor: string;
-  fontFamily: string;
-  /** Fraction of the screenshot height reserved for copy above the device. */
-  copyHeightRatio: number;
-  /** Fraction of the screenshot width the device bezel occupies. */
-  deviceWidthRatio: number;
-  /**
-   * The strip's rhythm: a built-in template key from src/layouts.ts, or a
-   * custom sequence of layout keys applied to the scenes in order (repeating
-   * when shorter). Scenes with their own `layout` are left alone.
-   */
-  template?: TemplateChoice;
-  /** Layout for scenes the template does not cover; a key from src/layouts.ts. Defaults to "classic". */
-  layout?: LayoutKey;
-  /** Drop the bezel and show the bare screen with a soft shadow. */
-  screenOnly?: boolean;
-  /** Decoration layers added to every screenshot scene. */
-  decorations?: Decoration[];
-  /** Scaling multiplier for headline and subhead copy (e.g. 0.85 for Compact, 1 for Normal, 1.2 for Large). */
-  fontSizeScale?: number;
-  /** Background pattern overlay (dot-grid, isometric-dot, blueprint). */
-  backgroundPattern?: PatternType;
-  /** Opacity for background pattern (e.g. 0.04). */
-  patternOpacity?: number;
-  /** Custom stroke / dot color for the pattern. */
-  patternColor?: string;
-  /** Device backlight halo settings behind phone frame. */
-  deviceBacklight?: boolean | BacklightConfig;
-  /** Whether backgrounds are rendered as a continuous multi-slice panorama. */
-  panoramaMode?: boolean;
-};
 
 /**
  * How the app presents itself on the App Store. Used by the studio to

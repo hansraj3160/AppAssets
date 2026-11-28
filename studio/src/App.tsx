@@ -2,8 +2,6 @@ import { Loader2Icon, TriangleAlertIcon } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EmptyState } from "./components/EmptyState";
 import { type NavigableScreen, PublicRoutes } from "./components/PublicRoutes";
-import { StudioWorkspace } from "./components/StudioWorkspace";
-import { THEME_PRESETS } from "./components/ThemePresets";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { StudioActionsContext } from "./context/StudioContext";
 import { initGA, trackPageView, trackToolOpened } from "./lib/analytics";
@@ -26,6 +24,9 @@ import {
 
 export { CUSTOM_TEMPLATE, type Platform, resolveScreenFromLocation, type Screen };
 
+const StudioWorkspace = lazy(() =>
+  import("./components/StudioWorkspace").then((m) => ({ default: m.StudioWorkspace })),
+);
 const AuthModal = lazy(() =>
   import("./components/AuthModal").then((m) => ({ default: m.AuthModal })),
 );
@@ -53,7 +54,7 @@ export function App() {
 }
 
 function AppContent() {
-  const { sessionId } = useAuth();
+  const { sessionId, isAuthModalOpen, isUpgradeModalOpen } = useAuth();
   const [loaded, setLoaded] = useState<{
     manifest: StoreManifest;
     design: SavedDesign;
@@ -164,8 +165,9 @@ function AppContent() {
   );
 
   const handleStartDesigning = useCallback(
-    (style?: ShowcaseCategory) => {
+    async (style?: ShowcaseCategory) => {
       if (style) {
+        const { THEME_PRESETS } = await import("./components/ThemePresets");
         const preset = THEME_PRESETS.find((p) => p.id === style.presetId);
         const nextDesign: SavedDesign = {
           ...(loaded?.design ?? {}),
@@ -238,23 +240,40 @@ function AppContent() {
 
   return (
     <StudioActionsContext.Provider value={studioActions}>
-      <StudioWorkspace
-        key={loaded.sessionId}
-        manifest={loaded.manifest}
-        saved={loaded.design}
-        sessionId={loaded.sessionId}
-        refreshId={loaded.refreshId}
-        onRefresh={refresh}
-        dark={dark}
-        setDark={setDark}
-        toastMessage={toastMessage}
-        onToast={setToastMessage}
-        onNavigateToLanding={navigateToLanding}
-      />
-      <Suspense fallback={null}>
-        <AuthModal />
-        <UpgradeModal />
+      <Suspense
+        fallback={
+          <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground gap-3">
+            <Loader2Icon className="size-7 animate-spin text-primary" />
+            <span className="text-xs font-semibold text-muted-foreground">
+              Loading AppAssets Studio...
+            </span>
+          </div>
+        }
+      >
+        <StudioWorkspace
+          key={loaded.sessionId}
+          manifest={loaded.manifest}
+          saved={loaded.design}
+          sessionId={loaded.sessionId}
+          refreshId={loaded.refreshId}
+          onRefresh={refresh}
+          dark={dark}
+          setDark={setDark}
+          toastMessage={toastMessage}
+          onToast={setToastMessage}
+          onNavigateToLanding={navigateToLanding}
+        />
       </Suspense>
+      {isAuthModalOpen ? (
+        <Suspense fallback={null}>
+          <AuthModal />
+        </Suspense>
+      ) : null}
+      {isUpgradeModalOpen ? (
+        <Suspense fallback={null}>
+          <UpgradeModal />
+        </Suspense>
+      ) : null}
     </StudioActionsContext.Provider>
   );
 }

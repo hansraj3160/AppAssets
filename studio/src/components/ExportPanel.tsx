@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { CUSTOM_TEMPLATE } from "../App";
+import { CUSTOM_TEMPLATE } from "../lib/studioState";
 import { trackAssetDownloaded, trackExport } from "../lib/analytics";
 import { getSessionId } from "../lib/session";
 
