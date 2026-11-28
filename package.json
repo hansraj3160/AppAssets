@@ -73,6 +73,9 @@
     "format": "biome format --write .",
     "lint": "biome lint .",
     "check": "biome check --write .",
+    "test": "npm run test:backend && npm run test:studio",
+    "test:backend": "bun test",
+    "test:studio": "npm run test --workspace=appassets-studio",
     "typecheck": "tsc -p tsconfig.build.json --noEmit && npm exec --workspace=appassets-studio -- tsc --noEmit",
     "ci": "npm run lint && npm run typecheck && npm run build",
     "build": "npm run build:studio && npm run build:cli",
@@ -87,9 +90,14 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.10",
+    "@testing-library/jest-dom": "^8.0.0",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.13",
     "@types/bun": "^1.4.0",
     "esbuild": "^0.28.2",
+    "jsdom": "^31.0.1",
     "tsx": "^4.23.15",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "^5.1.2"
   }
 }

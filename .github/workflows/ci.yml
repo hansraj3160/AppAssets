@@ -89,8 +89,11 @@ jobs:
       - name: Install Studio Dependencies
         run: cd studio && bun install
 
-      - name: Run All Tests (Unit + E2E Dogfooding)
+      - name: Run Backend & CLI Tests (Unit + E2E Dogfooding)
         run: bun test
+
+      - name: Run Studio UI & Context Tests (Vitest + RTL)
+        run: bun run test:studio
 
   # 3. Build Job: Studio Frontend & CLI Distribution
   build:

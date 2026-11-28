@@ -39,6 +39,7 @@ import { useHistory } from "../lib/useHistory";
 import { type AppInfo, type SavedDesign, type StoreManifest, saveDesign } from "../manifest";
 import { AdBanner } from "./AdBanner";
 import { EmptyState } from "./EmptyState";
+import { FontLoader } from "./FontLoader";
 import { Header } from "./Header";
 import { Sidebar } from "./Sidebar";
 import { Strip } from "./Strip";
@@ -499,21 +500,6 @@ export function StudioWorkspace({
     [locale, fontFamily, copy, design.scenes],
   );
 
-  // Lazy-load Google Fonts chunked unicode-range WOFF2 subsets for Noto Sans SC
-  // only when a CJK locale, CJK copy, or the Noto Sans SC font is actually active.
-  useEffect(() => {
-    if (!needsCjk || !cjkFont?.stylesheetUrl) return;
-    const existing = document.querySelector<HTMLLinkElement>(
-      `link[data-appassets-font="${cjkFont.key}"]`,
-    );
-    if (existing) return;
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = cjkFont.stylesheetUrl;
-    link.dataset.appassetsFont = cjkFont.key;
-    document.head.append(link);
-  }, [needsCjk, cjkFont]);
-
   const previewFontFamily = useMemo(() => {
     const rtlFallbacks = `"Geeza Pro", "Damascus", "Arial", sans-serif`;
     let resolved =
@@ -860,6 +846,16 @@ export function StudioWorkspace({
                 }}
                 onDrop={handleCanvasDrop}
               >
+                <FontLoader
+                  locale={locale}
+                  previewMode={canvasView}
+                  fontKey={cjkFont?.key}
+                  fontFamily={fontFamily}
+                  stylesheetUrl={cjkFont?.stylesheetUrl}
+                  copy={copy}
+                  scenes={design.scenes}
+                />
+
                 {isDraggingOverCanvas ? (
                   <div className="pointer-events-none absolute inset-6 z-50 flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-primary bg-background/90 backdrop-blur-md shadow-2xl transition-all animate-in fade-in zoom-in-95 duration-150">
                     <div className="mb-4 flex size-20 items-center justify-center rounded-full bg-primary/10 text-primary">
