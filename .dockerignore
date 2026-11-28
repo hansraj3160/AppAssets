@@ -60,6 +60,7 @@ LICENSE
 **/*.spec.ts
 **/*.spec.tsx
 studio/src/test
+vitest.config.ts
 studio/vitest.config.ts
 bunfig.toml
 biome.json
