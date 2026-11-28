@@ -20,11 +20,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     librsvg2-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy package files and install dependencies
-COPY package.json bun.lock* ./
+# Copy root & workspace manifests and single frozen lockfile
+COPY package.json bun.lock ./
 COPY studio/package.json ./studio/
-RUN bun install
-RUN cd studio && bun install
+RUN bun install --frozen-lockfile
 
 # Copy source code and build production artifacts
 COPY . .

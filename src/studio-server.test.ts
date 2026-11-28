@@ -954,6 +954,10 @@ describe("selectedExportZipHandler", () => {
     let statusCode = 0;
     let responseHeaders: Record<string, any> = {};
     let endBuffer: Buffer | null = null;
+    let resolveEnd!: () => void;
+    const ended = new Promise<void>((resolve) => {
+      resolveEnd = resolve;
+    });
     const req = new PassThrough() as any;
     req.method = "POST";
     const res = {
@@ -963,6 +967,7 @@ describe("selectedExportZipHandler", () => {
       },
       end(data: any) {
         endBuffer = data;
+        resolveEnd();
       },
     } as any;
 
@@ -975,7 +980,7 @@ describe("selectedExportZipHandler", () => {
         items: [{ sceneId: "home" }],
       }),
     );
-    await new Promise((r) => setTimeout(r, 150));
+    await ended;
 
     expect(statusCode).toBe(200);
     expect(responseHeaders["Content-Type"]).toBe("application/zip");

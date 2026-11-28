@@ -43,6 +43,7 @@
     "skills/",
     "appassets.config.example.ts"
   ],
+  "packageManager": "bun@1.4.4",
   "engines": {
     "node": ">=20.12.0"
   },
@@ -58,7 +59,7 @@
     "access": "public"
   },
   "scripts": {
-    "dev": "node src/cli.ts manifest && npm run dev --workspace=appassets-studio",
+    "dev": "node src/cli.ts manifest && bun run --filter=appassets-studio dev",
     "start": "node dist/cli.js studio --no-open --port 3000 --host 0.0.0.0",
     "appassets": "node src/cli.ts",
     "goldie": "node src/cli.ts",
@@ -68,20 +69,20 @@
     "frame": "node src/cli.ts frame",
     "preview": "node src/cli.ts preview",
     "all": "node src/cli.ts all",
-    "studio": "node src/cli.ts manifest && npm run dev --workspace=appassets-studio",
-    "studio:build": "npm run build:studio",
+    "studio": "node src/cli.ts manifest && bun run --filter=appassets-studio dev",
+    "studio:build": "bun run build:studio",
     "format": "biome format --write .",
     "lint": "biome lint .",
     "check": "biome check --write .",
-    "test": "npm run test:backend && npm run test:studio",
+    "test": "bun run test:backend && bun run test:studio",
     "test:backend": "bun test",
-    "test:studio": "npm run test --workspace=appassets-studio",
-    "typecheck": "tsc -p tsconfig.build.json --noEmit && npm exec --workspace=appassets-studio -- tsc --noEmit",
-    "ci": "npm run lint && npm run typecheck && npm run build",
-    "build": "npm run build:studio && npm run build:cli",
+    "test:studio": "bun run --filter=appassets-studio test",
+    "typecheck": "tsc -p tsconfig.build.json --noEmit && bun run --filter=appassets-studio typecheck",
+    "ci": "bun run lint && bun run typecheck && bun run test && bun run build",
+    "build": "bun run build:studio && bun run build:cli",
     "build:cli": "rm -rf dist && esbuild src/cli.ts src/index.ts --bundle --platform=node --format=esm --packages=external --outdir=dist --sourcemap=linked && tsc -p tsconfig.build.json",
-    "build:studio": "npm run build --workspace=appassets-studio",
-    "prepublishOnly": "npm run check && npm run build"
+    "build:studio": "bun run --filter=appassets-studio build",
+    "prepublishOnly": "bun run check && bun run build"
   },
   "dependencies": {
     "@napi-rs/canvas": "^1.0.8",

@@ -59,19 +59,13 @@ bash scripts/deploy.sh
 If you want to run each command manually:
 
 ```bash
-# 1. Install root dependencies
-bun install
+# 1. Install workspace dependencies from the frozen root lockfile
+bun install --frozen-lockfile
 
-# 2. Build Studio frontend
-cd studio
-bun install
+# 2. Build Studio frontend & CLI distribution
 bun run build
-cd ..
 
-# 3. Build CLI distribution
-bun run build:cli
-
-# 4. Restart the AppAssets background service
+# 3. Restart the AppAssets background service
 sudo systemctl restart appassets
 
 # 5. Verify that the app is healthy

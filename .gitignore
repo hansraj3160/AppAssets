@@ -25,3 +25,10 @@ dist
 
 appassets-prod-key.pem
 workspaces/
+
+# Enforce single root Bun workspace lockfile (bun.lock)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+studio/bun.lock
+studio/package-lock.json

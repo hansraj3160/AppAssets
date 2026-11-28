@@ -88,7 +88,7 @@ sudo apt-get update && sudo apt-get install -y \
 ```bash
 git clone https://github.com/hansraj3160/AppAssets.git /opt/appassets
 cd /opt/appassets
-bun install
+bun install --frozen-lockfile
 bun run build
 ```
 

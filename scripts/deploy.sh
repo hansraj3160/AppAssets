@@ -8,14 +8,11 @@ echo "=========================================="
 APP_DIR="/home/ubuntu/appassets"
 cd "$APP_DIR"
 
-echo "📦 Installing root dependencies..."
-bun install
+echo "📦 Installing workspace dependencies (frozen lockfile)..."
+bun install --frozen-lockfile
 
-echo "📦 Installing studio dependencies & building frontend..."
-cd studio
-bun install
-bun run build
-cd ..
+echo "🔨 Building Studio frontend..."
+bun run build:studio
 
 echo "🔨 Building CLI distribution..."
 bun run build:cli

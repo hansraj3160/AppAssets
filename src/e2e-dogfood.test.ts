@@ -33,6 +33,10 @@ function createMockResponse() {
   const headers: Record<string, any> = {};
   let body = "";
   let binaryData: Buffer | null = null;
+  let resolveDone!: () => void;
+  const done = new Promise<void>((resolve) => {
+    resolveDone = resolve;
+  });
 
   return {
     get statusCode() {
@@ -63,7 +67,9 @@ function createMockResponse() {
           binaryData = binaryData ? Buffer.concat([binaryData, data]) : data;
         }
       }
+      resolveDone();
     },
+    done,
     getBody: () => body,
     getBinary: () => binaryData,
     getHeaders: () => headers,
@@ -152,7 +158,7 @@ export default {
     mockReq.emit("data", Buffer.from(importPayload));
     mockReq.emit("end");
 
-    await new Promise((r) => setTimeout(r, 100));
+    await importRes.done;
     expect(importRes.statusCode).toBe(200);
     const importResJson = JSON.parse(importRes.getBody());
     expect(importResJson.imported).toBe(4);
@@ -208,7 +214,7 @@ export default {
     mockDesignReq.emit("data", Buffer.from(JSON.stringify(appDesign)));
     mockDesignReq.emit("end");
 
-    await new Promise((r) => setTimeout(r, 100));
+    await designRes.done;
     expect(designRes.statusCode).toBe(204);
 
     // Step 5: Upload & Save App Icon via iconHandler
@@ -228,7 +234,7 @@ export default {
     );
     mockIconReq.emit("end");
 
-    await new Promise((r) => setTimeout(r, 100));
+    await iconRes.done;
     expect(iconRes.statusCode).toBe(200);
     expect(existsSync(join(paths.webDir, "icon.png"))).toBe(true);
 
@@ -241,7 +247,7 @@ export default {
     };
 
     bannerService(mockBannerReq, bannerRes as any);
-    await new Promise((r) => setTimeout(r, 200));
+    await bannerRes.done;
 
     if (bannerRes.statusCode !== 200) {
       console.log("BANNER ERROR:", bannerRes.getBody());
@@ -262,7 +268,7 @@ export default {
     };
 
     faviconService(mockFavReq, favRes as any);
-    await new Promise((r) => setTimeout(r, 200));
+    await favRes.done;
 
     expect(favRes.statusCode).toBe(200);
     const favZipData = favRes.getBinary();

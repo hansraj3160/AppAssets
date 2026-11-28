@@ -13,4 +13,10 @@ coverage
 workspaces
 assets/fonts/*.otf
 assets/fonts/*.ttf
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+studio/bun.lock
+studio/package-lock.json
+firebase-cdn
 
