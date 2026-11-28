@@ -30,7 +30,16 @@ COPY . .
 RUN bun run build:studio
 RUN bun run build:cli
 
-# Stage 2: Production Runner
+# Stage 2: Production-only Dependencies (excludes devDependencies like vitest/biome/typescript)
+FROM oven/bun:1-slim AS prod-deps
+
+WORKDIR /app
+
+COPY package.json bun.lock ./
+COPY studio/package.json ./studio/
+RUN bun install --frozen-lockfile --production
+
+# Stage 3: Production Runner
 FROM oven/bun:1-slim AS runner
 
 WORKDIR /app
@@ -52,11 +61,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     librsvg2-2 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy built application and required assets
+# Copy built application, runtime assets, and production-only dependencies
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/studio/dist ./studio/dist
 COPY --from=builder /app/assets ./assets
-COPY --from=builder /app/node_modules ./node_modules
+COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 
 # Copy default/example configuration if not provided via volume mount

@@ -123,3 +123,59 @@ test(".gitignore ignores competing and nested lockfiles", () => {
     );
   }
 });
+
+test(".dockerignore excludes bloat, docs, tests, AI agent dirs, compose files, and duplicate/unbuilt assets", () => {
+  const lines = readRepoFile(".dockerignore")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith("#"));
+
+  const requiredPatterns = [
+    "node_modules",
+    "**/node_modules",
+    ".git",
+    ".github",
+    "*.md",
+    "**/*.md",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    ".agents",
+    ".claude*",
+    "docker-compose.yml",
+    "public",
+    "assets/fonts/*.otf",
+    "assets/fonts/*.ttf",
+    "firebase-cdn",
+  ];
+
+  for (const pattern of requiredPatterns) {
+    assert.ok(lines.includes(pattern), `.dockerignore must exclude ${pattern}`);
+  }
+
+  // Ensure build-critical files/folders are never accidentally excluded
+  const forbiddenExclusions = [
+    "bun.lock",
+    "package.json",
+    "studio/package.json",
+    "studio/public",
+    "assets",
+    "src",
+    "appassets.config.example.ts",
+  ];
+
+  for (const criticalPath of forbiddenExclusions) {
+    assert.equal(
+      lines.includes(criticalPath),
+      false,
+      `.dockerignore must NOT exclude build-critical path: ${criticalPath}`,
+    );
+  }
+});
+
+test("Dockerfile ships production-only node_modules via dedicated prod-deps stage", () => {
+  const dockerfile = readRepoFile("Dockerfile");
+
+  assert.match(dockerfile, /^RUN bun install --frozen-lockfile --production$/m);
+  assert.match(dockerfile, /^COPY --from=prod-deps \/app\/node_modules \.\/node_modules$/m);
+});
+

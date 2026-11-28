@@ -1,22 +1,96 @@
+# ==============================================================================
+# Docker Build Context Exclusions
+# Keeps the build context minimal, prevents cache busting on doc/test edits,
+# and blocks secrets, reports, and AI agent metadata from leaking into images.
+# ==============================================================================
+
+# Dependencies & competing/nested lockfiles (single root bun.lock is required)
 node_modules
-studio/node_modules
-dist
-studio/dist
-out
-.git
-.github
-.agents
-.gemini
-*.tmp
-*.zip
-coverage
-workspaces
-assets/fonts/*.otf
-assets/fonts/*.ttf
+**/node_modules
 package-lock.json
 yarn.lock
 pnpm-lock.yaml
 studio/bun.lock
 studio/package-lock.json
+
+# Build outputs, runtime state & temporary artifacts
+dist
+studio/dist
+out
+workspaces
+coverage
+*.tsbuildinfo
+**/*.tsbuildinfo
+*.tmp
+*.zip
+*.log
+
+# Version control, CI/CD & container orchestration
+.git
+.gitignore
+.gitattributes
+.github
+Dockerfile*
+.dockerignore
+docker-compose.yml
+docker-compose*.yml
+scripts
+
+# AI agent directories, skills & editor/tooling metadata
+.agents
+.aistudio
+.claude*
+.gemini
+.mcp.json
+.playwright-cli
+skills
+skills-lock.json
+metadata.json
+.DS_Store
+**/.DS_Store
+
+# Documentation, audit reports & licenses (avoid layer cache invalidation)
+*.md
+**/*.md
+LICENSE
+
+# Unit/component tests, test harnesses & linter configs
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+studio/src/test
+studio/vitest.config.ts
+bunfig.toml
+biome.json
+
+# Secrets, local config overrides & Firebase hosting/rules
+.env
+.env.*
+*.pem
+aws.txt
+appassets.config.ts
+goldie.config.ts
+appassets.design.json
+goldie.design.json
+.firebase
+.firebaserc
+firebase.json
+firestore.rules
+firebase-blueprint.json
 firebase-cdn
 
+# Unbuilt / duplicate / heavy binary source assets
+# Note: root `public` is dev-only duplicate attachments; `studio/public` stays
+# included because Vite copies it into `studio/dist` during production builds.
+public
+assets/fonts/*.otf
+assets/fonts/*.ttf
+assets/fonts/*.woff
+assets/fonts/*.woff2
+assets/software-mansion-*.png
+**/*.psd
+**/*.ai
+**/*.fig
+**/*.sketch
+**/*.raw
